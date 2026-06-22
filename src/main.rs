@@ -13,16 +13,19 @@ mod youtube;
 
 use anyhow::Context;
 use tracing::info;
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
+use tracing::level_filters::LevelFilter;
+use tracing_appender::non_blocking::WorkerGuard;
+use tracing_subscriber::{
+    filter::Targets, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer,
+};
 
 use crate::{config::AppConfig, state::AppState};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    init_logging();
-
     let config = AppConfig::from_env()?;
     config.ensure_dirs()?;
+    let _log_guard = init_logging(&config);
 
     let addr = config.bind_addr;
     let state = AppState::new(config);
@@ -47,13 +50,30 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn init_logging() {
+fn init_logging(config: &AppConfig) -> WorkerGuard {
     let filter =
         EnvFilter::try_from_env("SONG_REQUEST_LOG").unwrap_or_else(|_| EnvFilter::new("info"));
+    let file_appender =
+        tracing_appender::rolling::daily(&config.paths.log_dir, "song-request-linux.log");
+    let (file_writer, guard) = tracing_appender::non_blocking(file_appender);
+
     tracing_subscriber::registry()
         .with(filter)
-        .with(tracing_subscriber::fmt::layer())
+        .with(
+            tracing_subscriber::fmt::layer()
+                .with_target(false)
+                .with_filter(Targets::new().with_default(LevelFilter::INFO)),
+        )
+        .with(
+            tracing_subscriber::fmt::layer()
+                .with_writer(file_writer)
+                .with_ansi(false)
+                .with_target(true),
+        )
         .init();
+
+    info!(path = %config.paths.log_dir.display(), "logging initialized");
+    guard
 }
 
 async fn shutdown_signal() {

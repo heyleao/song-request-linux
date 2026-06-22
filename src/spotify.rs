@@ -6,9 +6,13 @@ use std::{
 use anyhow::{anyhow, bail, Context, Result};
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use rand::{distr::Alphanumeric, Rng};
-use reqwest::Client;
+use reqwest::{
+    header::{CONTENT_LENGTH, CONTENT_TYPE},
+    Client,
+};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use tracing::{debug, info, warn};
 use url::Url;
 
 use crate::{
@@ -164,6 +168,12 @@ pub async fn search_and_queue(
     refresh_if_needed(config, token).await?;
 
     let track = search_track(token, query).await?;
+    info!(
+        query = %query,
+        track = %track.name,
+        uri = %track.uri,
+        "spotify track resolved"
+    );
     add_to_queue(token, &track.uri).await?;
 
     Ok(SongRequest {
@@ -273,22 +283,35 @@ async fn search_track(token: &SpotifyToken, query: &str) -> Result<SpotifyTrack>
 }
 
 async fn add_to_queue(token: &SpotifyToken, uri: &str) -> Result<()> {
-    let response = Client::new()
+    debug!(uri = %uri, "spotify add-to-queue request");
+    let response = Client::builder()
+        .http1_only()
+        .build()?
         .post(format!("{API_URL}/me/player/queue"))
         .bearer_auth(&token.access_token)
         .query(&[("uri", uri)])
-        .body(String::new())
+        .header(CONTENT_LENGTH, "0")
+        .header(CONTENT_TYPE, "application/json")
+        .body(Vec::new())
         .send()
         .await
         .context("failed to add Spotify track to queue")?;
 
-    if response.status().is_success() {
+    let status = response.status();
+    if status.is_success() {
+        info!(uri = %uri, "spotify track added to queue");
         return Ok(());
     }
 
+    let body = response.text().await.unwrap_or_default();
+    warn!(
+        status = %status,
+        response = %body,
+        uri = %uri,
+        "spotify add-to-queue failed"
+    );
     bail!(
-        "spotify queue failed with {}. Confirm Spotify Premium and an active device.",
-        response.status()
+        "spotify queue failed with {status}: {body}. Confirm Spotify Premium and an active device."
     );
 }
 
