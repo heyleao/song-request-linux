@@ -21,6 +21,10 @@ and Twitch without Wine, WebView2, WPF or Windows APIs.
 
 See [SECURITY.md](SECURITY.md).
 
+## Setup
+
+See [docs/SETUP.md](docs/SETUP.md).
+
 ## Current Status
 
 Early scaffold. The first milestone is a local HTTP server with:

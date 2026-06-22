@@ -13,6 +13,8 @@ cache/
 state/
 memory/
 docs/
+!docs/
+!docs/SETUP.md
 
 # Editor noise
 .idea/
