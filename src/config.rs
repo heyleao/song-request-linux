@@ -22,15 +22,18 @@ pub struct AppConfig {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(default)]
 pub struct UserConfig {
     pub default_provider: MusicProvider,
     pub spotify_client_id: Option<String>,
     pub spotify_redirect_uri: Option<String>,
+    pub twitch_client_id: Option<String>,
     pub twitch_bot_username: Option<String>,
     pub twitch_channel: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(default)]
 pub struct UserSecrets {
     pub twitch_bot_oauth_token: Option<String>,
 }
@@ -39,6 +42,7 @@ pub struct UserSecrets {
 pub struct UiConfigInput {
     pub default_provider: MusicProvider,
     pub spotify_client_id: Option<String>,
+    pub twitch_client_id: Option<String>,
     pub twitch_bot_username: Option<String>,
     pub twitch_channel: Option<String>,
     pub twitch_bot_oauth_token: Option<String>,
@@ -48,6 +52,7 @@ pub struct UiConfigInput {
 pub struct UiConfigView {
     pub default_provider: MusicProvider,
     pub spotify_client_id: Option<String>,
+    pub twitch_client_id: Option<String>,
     pub twitch_bot_username: Option<String>,
     pub twitch_channel: Option<String>,
     pub twitch_bot_token_configured: bool,
@@ -111,6 +116,7 @@ impl Default for UserConfig {
             default_provider: MusicProvider::Youtube,
             spotify_client_id: None,
             spotify_redirect_uri: None,
+            twitch_client_id: None,
             twitch_bot_username: None,
             twitch_channel: None,
         }
@@ -178,6 +184,7 @@ impl UiConfigView {
         Self {
             default_provider: user_config.default_provider,
             spotify_client_id: user_config.spotify_client_id,
+            twitch_client_id: user_config.twitch_client_id,
             twitch_bot_username: user_config.twitch_bot_username,
             twitch_channel: user_config.twitch_channel,
             twitch_bot_token_configured: user_secrets.twitch_bot_oauth_token.is_some(),
@@ -194,6 +201,7 @@ pub fn save_ui_config(paths: &AppPaths, input: UiConfigInput) -> Result<UiConfig
         default_provider: input.default_provider,
         spotify_client_id: clean_optional_value(input.spotify_client_id),
         spotify_redirect_uri: None,
+        twitch_client_id: clean_optional_value(input.twitch_client_id),
         twitch_bot_username: clean_optional_value(input.twitch_bot_username),
         twitch_channel: clean_optional_value(input.twitch_channel),
     };

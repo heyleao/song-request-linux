@@ -115,16 +115,16 @@ pub async fn page() -> Html<&'static str> {
         <input id="spotify-client-id" autocomplete="off" placeholder="Client ID do app Spotify">
       </label>
       <label>
+        Twitch Client ID
+        <input id="twitch-client-id" autocomplete="off" placeholder="Client ID do app Twitch">
+      </label>
+      <label>
         Twitch Bot Username
-        <input id="twitch-bot-username" autocomplete="off" placeholder="nome_da_conta_bot">
+        <input id="twitch-bot-username" autocomplete="off" placeholder="preenchido apos OAuth do bot">
       </label>
       <label>
         Twitch Channel
         <input id="twitch-channel" autocomplete="off" placeholder="canal_do_streamer">
-      </label>
-      <label>
-        Twitch Bot OAuth Token
-        <input id="twitch-bot-token" type="password" autocomplete="off" placeholder="cole apenas para salvar/atualizar">
       </label>
       <div class="row">
         <button id="save-config">Salvar configuracao</button>
@@ -162,9 +162,13 @@ pub async fn page() -> Html<&'static str> {
     <section>
       <h2>Twitch Bot</h2>
       <div class="muted">
-        MVP atual usa variaveis de ambiente para o bot. A conexao OAuth separada do streamer fica para Channel Points/EventSub.
+        Conecte a conta bot em uma janela privada para nao reaproveitar a sessao do streamer.
       </div>
-      <code>TWITCH_BOT_USERNAME, TWITCH_BOT_OAUTH_TOKEN, TWITCH_CHANNEL</code>
+      <div class="row">
+        <button id="twitch-start">Gerar link do bot</button>
+      </div>
+      <code id="twitch-link">O link aparece aqui.</code>
+      <div class="message" id="twitch-message"></div>
     </section>
   </main>
   <script>
@@ -173,6 +177,8 @@ pub async fn page() -> Html<&'static str> {
     const playlistSelect = document.getElementById('playlist-select');
     const playlistMessage = document.getElementById('playlist-message');
     const configMessage = document.getElementById('config-message');
+    const twitchLink = document.getElementById('twitch-link');
+    const twitchMessage = document.getElementById('twitch-message');
     let playlists = [];
     async function api(path, options = {}) {
       const response = await fetch(path, {
@@ -190,11 +196,12 @@ pub async fn page() -> Html<&'static str> {
       ]);
       document.getElementById('default-provider').value = config.default_provider;
       document.getElementById('spotify-client-id').value = config.spotify_client_id || '';
+      document.getElementById('twitch-client-id').value = config.twitch_client_id || '';
       document.getElementById('twitch-bot-username').value = config.twitch_bot_username || '';
       document.getElementById('twitch-channel').value = config.twitch_channel || '';
-      document.getElementById('twitch-bot-token').placeholder = config.twitch_bot_token_configured
-        ? 'token salvo; preencha apenas para trocar'
-        : 'token do bot Twitch';
+      twitchMessage.textContent = config.twitch_bot_token_configured
+        ? 'Token do bot salvo. Reinicie o app para conectar ao chat.'
+        : 'Bot ainda nao conectado.';
       statusEl.textContent = status.spotify.token_configured
         ? 'Spotify conectado.'
         : status.spotify.client_id_configured
@@ -222,18 +229,27 @@ pub async fn page() -> Html<&'static str> {
           body: JSON.stringify({
             default_provider: document.getElementById('default-provider').value,
             spotify_client_id: document.getElementById('spotify-client-id').value,
+            twitch_client_id: document.getElementById('twitch-client-id').value,
             twitch_bot_username: document.getElementById('twitch-bot-username').value,
             twitch_channel: document.getElementById('twitch-channel').value,
-            twitch_bot_oauth_token: document.getElementById('twitch-bot-token').value
+            twitch_bot_oauth_token: null
           })
         });
-        document.getElementById('twitch-bot-token').value = '';
         configMessage.textContent = 'Configuracao salva. Reinicie o app para aplicar provider/Twitch bot.';
         configMessage.className = 'message';
         await refresh();
       } catch (error) {
         configMessage.textContent = error.message;
         configMessage.className = 'message error';
+      }
+    });
+    document.getElementById('twitch-start').addEventListener('click', async () => {
+      try {
+        const result = await api('/api/connections/twitch/start', { method: 'POST' });
+        twitchLink.textContent = result.auth_url;
+        window.open(result.auth_url, '_blank', 'noopener,noreferrer');
+      } catch (error) {
+        twitchLink.textContent = error.message;
       }
     });
     document.getElementById('load-playlists').addEventListener('click', async () => {

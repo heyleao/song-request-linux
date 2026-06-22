@@ -17,6 +17,7 @@ use crate::{
     song_requests::{MusicProvider, QueueView, RequestSource, SongRequest, SongRequestInput},
     spotify,
     state::{AppState, HealthResponse, StatusResponse},
+    twitch_auth,
 };
 
 pub fn router(state: AppState) -> Router {
@@ -24,12 +25,15 @@ pub fn router(state: AppState) -> Router {
         .route("/", get(dashboard::page))
         .route("/connections", get(connections::page))
         .route("/auth/spotify/callback", get(spotify_callback))
+        .route("/auth/twitch/callback", get(twitch_callback))
         .route("/health", get(health))
         .route("/api/status", get(status))
         .route("/api/diagnostics", get(diagnostics))
         .route("/api/config", get(get_config).post(save_config))
         .route("/api/connections/status", get(connections_status))
         .route("/api/connections/spotify/start", post(spotify_start))
+        .route("/api/connections/twitch/start", post(twitch_start))
+        .route("/api/connections/twitch/token", post(twitch_token))
         .route("/api/spotify/playlists", get(spotify_playlists))
         .route(
             "/api/spotify/fallback-playlist",
@@ -111,6 +115,75 @@ async fn spotify_start(
     *state.spotify_auth.write().await = Some(session);
 
     Ok(Json(start))
+}
+
+async fn twitch_start(
+    State(state): State<AppState>,
+) -> Result<Json<twitch_auth::TwitchAuthStart>, ApiError> {
+    Ok(Json(
+        twitch_auth::start_auth(&state.config).map_err(ApiError::bad_request)?,
+    ))
+}
+
+async fn twitch_token(
+    State(state): State<AppState>,
+    Json(input): Json<twitch_auth::TwitchTokenInput>,
+) -> Result<Json<config::UiConfigView>, ApiError> {
+    let view = twitch_auth::save_bot_token(&state.config, input)
+        .await
+        .map_err(ApiError::bad_request)?;
+
+    Ok(Json(view))
+}
+
+async fn twitch_callback() -> Html<&'static str> {
+    Html(
+        r#"<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>Twitch Bot conectado</title>
+  <style>
+    body { font-family: system-ui; background:#101114; color:#f4f6f8; }
+    a { color:#62a8ff; }
+  </style>
+</head>
+<body>
+  <h1 id="title">Conectando Twitch Bot...</h1>
+  <p id="message">Aguarde.</p>
+  <p><a href="/connections">Voltar</a></p>
+  <script>
+    const params = new URLSearchParams(location.hash.slice(1));
+    const token = params.get('access_token');
+    const message = document.getElementById('message');
+    const title = document.getElementById('title');
+    async function save() {
+      if (!token) {
+        title.textContent = 'Falha ao conectar Twitch Bot';
+        message.textContent = 'Token nao veio no callback. Tente novamente em janela privada.';
+        return;
+      }
+      try {
+        const response = await fetch('/api/connections/twitch/token', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ access_token: token })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Falha ao salvar token');
+        history.replaceState(null, '', '/auth/twitch/callback');
+        title.textContent = 'Twitch Bot conectado';
+        message.textContent = `Bot conectado como ${data.twitch_bot_username}. Reinicie o app para conectar ao chat.`;
+      } catch (error) {
+        title.textContent = 'Falha ao conectar Twitch Bot';
+        message.textContent = error.message;
+      }
+    }
+    save();
+  </script>
+</body>
+</html>"#,
+    )
 }
 
 async fn spotify_callback(

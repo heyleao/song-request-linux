@@ -85,13 +85,23 @@ Most development settings can be saved from `http://127.0.0.1:7384/connections`:
 
 - default provider
 - Spotify Client ID
+- Twitch Client ID
 - Twitch bot username
 - Twitch channel
-- Twitch bot token
+- Twitch bot OAuth through a private-window login flow
 
 Public config is stored in `~/.config/song-request-linux/config.json`.
 Temporary local secrets are stored in `~/.local/state/song-request-linux/secrets.json`
 with restricted file permissions. Secret Service/KWallet is planned.
+
+For Twitch bot OAuth, register this redirect URI in your Twitch app:
+
+```text
+http://127.0.0.1:7384/auth/twitch/callback
+```
+
+Use the connections page to generate the bot login link and open it in a private
+window when you need to avoid reusing the streamer's browser session.
 
 Then open:
 

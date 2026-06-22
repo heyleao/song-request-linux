@@ -8,6 +8,7 @@ mod overlay;
 mod song_requests;
 mod spotify;
 mod state;
+mod twitch_auth;
 mod twitch_chat;
 mod youtube;
 
