@@ -2,179 +2,126 @@
 
 Linux-first Twitch song request app for Spotify and YouTube.
 
-This project is inspired by the streamer workflow of Songify, but it is not a
-fork and is not affiliated with Songify or Songify.Rocks. The goal is to build a
-native Linux app that works cleanly on Wayland, OBS Flatpak, Spotify, YouTube
-and Twitch without Wine, WebView2, WPF or Windows APIs.
+The app runs as a local web dashboard, works well on Linux/Wayland, and avoids
+Wine/WebView2/Windows-only dependencies. It is inspired by the streamer workflow
+of Songify, but it is not a fork and is not affiliated with Songify or
+Songify.Rocks.
 
-## Goals
+## What Works
 
-- Twitch chat commands such as `!sr`, `!song`, `!fila`, `!vol` and `!skip`.
-- Spotify support through OAuth PKCE.
-- YouTube support through YouTube Data API v3.
-- Local OBS overlay through `http://127.0.0.1:<port>/overlay`.
-- Secure token storage using the Linux keyring when available.
-- Clear diagnostics for ports, tokens, permissions and API quota.
-- Low CPU/RAM usage while idle.
+- Twitch bot commands for song requests and player control.
+- Spotify OAuth, search, queue control, playback control and fallback playlist selection.
+- Hybrid request routing: Spotify search by default, YouTube links as YouTube requests.
+- YouTube link validation with duration/category policy through YouTube Data API v3.
+- Local OBS overlay at `http://127.0.0.1:7384/overlay`.
+- Local web dashboard with tabs for overview, queue, commands, player, logs, setup and guide.
+- Desktop-style launcher with single-instance behavior and clean shutdown.
 
 ## Setup
 
-See [docs/SETUP.md](docs/SETUP.md).
+Use the dashboard setup tab first:
 
-## Current Status
+```text
+http://127.0.0.1:7384/
+```
 
-Early scaffold. The first milestone is a local HTTP server with:
+Public setup guide:
 
-- health endpoint
-- JSON status endpoint
-- OBS browser overlay
-- storage layout
-- security rules for secrets
+[docs/SETUP.md](docs/SETUP.md)
 
-## Development
+The dashboard guide links directly to:
+
+- Spotify Developer Dashboard
+- Twitch Developer Console
+- Google Cloud Credentials
+
+## Run
 
 Install dependencies on CachyOS/Arch:
 
 ```bash
-sudo pacman -S --needed rust cargo github-cli git pkgconf openssl
+sudo pacman -S --needed rust cargo git pkgconf openssl
 ```
 
-Run locally:
+Install the desktop entry and open the app:
 
 ```bash
-cd ~/songify-linux
-cargo run
-```
-
-Run like a desktop app:
-
-```bash
-cd ~/songify-linux
 ./scripts/install-desktop-entry
 ./scripts/song-request-linux-open
 ```
 
-The launcher starts one instance, opens `http://127.0.0.1:7384/`, and reuses the
-running app if it is already open. Use the dashboard `Encerrar` button or run:
+Stop the app:
 
 ```bash
 ./scripts/song-request-linux-stop
 ```
 
-This avoids orphaned CLI processes holding ports `7384` and `7443`.
+You can also stop it from the dashboard with `Encerrar`.
 
-Run with a Twitch bot for `!sr`:
-
-```bash
-export TWITCH_BOT_USERNAME="your_bot_account"
-export TWITCH_BOT_OAUTH_TOKEN="oauth_token_without_oauth_prefix"
-export TWITCH_CHANNEL="your_channel"
-cargo run
-```
-
-The Twitch bot currently supports:
-
-- `!sr <spotify search or youtube link>`
-- `!song`
-- `!fila`, `!queue` or `!q`
-- `!vol` to read Spotify volume
-- `!vol <0-100>` for moderators/broadcaster badges
-- `!play`, `!resume` for moderators/broadcaster badges
-- `!pause`, `!stop`, `!parar` for moderators/broadcaster badges
-- `!next`, `!pular` for moderators/broadcaster badges
-- `!comandos`, `!commands` or `!help`
-- `!skip` for moderators/broadcaster badges
-
-Command access is intentionally simple:
-
-- Everyone: `!sr`, `!song`, `!fila`, `!queue`, `!q`, `!vol`, `!comandos`.
-- Moderators/broadcaster: `!skip`, `!vol <0-100>`, `!play`, `!pause`, `!stop`, `!next`.
-
-When Spotify is connected, queue and now-playing status come from Spotify first.
-The app does not restore old runtime queue state after restart, so played songs
-do not come back as pending app requests.
-
-Hybrid routing:
-
-- Plain song names/search terms use the default provider, usually Spotify.
-- YouTube links are detected and kept as YouTube requests in the app queue.
-- Spotify cannot play YouTube URLs directly; YouTube requests are shown as
-  pending app items until the dedicated YouTube player integration is added.
-
-Run with Spotify queue control:
-
-```bash
-export SONG_REQUEST_PROVIDER="spotify"
-export SPOTIFY_CLIENT_ID="your_spotify_app_client_id"
-cargo run
-```
-
-Open `http://127.0.0.1:7384/connections`, generate the Spotify login link and
-open it in a private window if you need to avoid the wrong browser account.
-Register this redirect URI in your Spotify developer app:
-
-```text
-http://127.0.0.1:7384/auth/spotify/callback
-```
-
-The connections page also lets you choose a Spotify fallback playlist. Reconnect
-Spotify if playlist loading asks for updated scopes.
-
-Most development settings can be saved from `http://127.0.0.1:7384/connections`:
-
-- default provider
-- Spotify Client ID
-- Twitch Client ID
-- Twitch bot username
-- Twitch channel
-- Twitch bot OAuth through a private-window login flow
-
-Public config is stored in `~/.config/song-request-linux/config.json`.
-Temporary local secrets are stored in `~/.local/state/song-request-linux/secrets.json`
-with restricted file permissions. Secret Service/KWallet is planned.
-
-For Twitch bot OAuth, register this redirect URI in your Twitch app:
-
-```text
-https://localhost:7443/auth/twitch/callback
-```
-
-Use the connections page to generate the bot login link and open it in a private
-window when you need to avoid reusing the streamer's browser session.
-The app keeps the dashboard on HTTP and starts a local HTTPS callback listener
-for Twitch. The certificate is self-signed and stored under
-`~/.local/state/song-request-linux/tls/`, so your browser may ask you to confirm
-the local certificate the first time.
-
-Then open:
+## URLs
 
 - Dashboard: `http://127.0.0.1:7384/`
-- Live events: `http://127.0.0.1:7384/api/events`
-- App status: `http://127.0.0.1:7384/api/status`
-- Diagnostics: `http://127.0.0.1:7384/api/diagnostics`
-- Queue: `http://127.0.0.1:7384/api/queue`
 - OBS overlay: `http://127.0.0.1:7384/overlay`
+- Queue API: `http://127.0.0.1:7384/api/queue`
+- Events API: `http://127.0.0.1:7384/api/events`
+- Diagnostics API: `http://127.0.0.1:7384/api/diagnostics`
 - Health check: `http://127.0.0.1:7384/health`
 
-The dashboard is organized as a local web app with tabs for overview, queue,
-commands, player controls, live logs and setup. The live log is in memory only
-and is intended for operational feedback during a stream.
+## Commands
 
-Simulate a song request:
+Everyone:
 
-```bash
-curl -X POST http://127.0.0.1:7384/api/song-requests \
-  -H 'content-type: application/json' \
-  -d '{"requester":"bruno","query":"https://youtu.be/dQw4w9WgXcQ"}'
+```text
+!sr nome da musica
+!sr https://youtu.be/VIDEO_ID
+!song
+!fila
+!queue
+!q
+!vol
+!comandos
 ```
 
-Simulate a Twitch chat command:
+Moderator/broadcaster:
 
-```bash
-curl -X POST http://127.0.0.1:7384/api/chat-command \
-  -H 'content-type: application/json' \
-  -d '{"requester":"viewer","message":"!sr daft punk one more time"}'
+```text
+!skip
+!vol 30
+!play
+!pause
+!stop
+!next
 ```
+
+## Request Routing
+
+- Plain song names use the default provider, usually Spotify.
+- YouTube links are detected as YouTube requests.
+- YouTube links are checked against the configured duration limit.
+- By default, YouTube videos must be marked as Music by YouTube metadata.
+- Non-music YouTube videos can be allowed from the setup tab when needed.
+
+Spotify is still the main active player today. YouTube requests are visible in
+the app queue; dedicated YouTube playback is a separate future step.
+
+## Local Data
+
+Public config:
+
+```text
+~/.config/song-request-linux/config.json
+```
+
+Local secrets/tokens:
+
+```text
+~/.local/state/song-request-linux/
+```
+
+Do not commit real tokens, API keys, OAuth codes, exported config, `.env` files,
+or private planning/security notes.
+
+## Development
 
 Run checks:
 
@@ -184,21 +131,19 @@ cargo test
 cargo check
 ```
 
-## Security
+Run directly without the launcher:
 
-Never commit:
+```bash
+cargo run
+```
 
-- Twitch tokens
-- Spotify tokens
-- YouTube API keys
-- OAuth authorization codes
-- client secrets
-- exported user configs with secrets
+Simulate a chat command:
 
-Use `.env.example` only for public development defaults.
-
-For the development Twitch bot, keep `TWITCH_BOT_OAUTH_TOKEN` in your shell or
-keyring. Do not save a real token in `.env.example`, docs, commits or logs.
+```bash
+curl -X POST http://127.0.0.1:7384/api/chat-command \
+  -H 'content-type: application/json' \
+  -d '{"requester":"viewer","message":"!song"}'
+```
 
 ## License
 
