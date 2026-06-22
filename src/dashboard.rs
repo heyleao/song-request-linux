@@ -103,7 +103,7 @@ pub async fn page() -> Html<&'static str> {
       font-size: 13px;
       margin-top: 12px;
     }
-    input {
+    input, select {
       width: 100%;
       min-height: 38px;
       border: 1px solid var(--line);
@@ -112,6 +112,10 @@ pub async fn page() -> Html<&'static str> {
       color: var(--text);
       padding: 8px 10px;
       font: inherit;
+    }
+    input[type="checkbox"] {
+      width: auto;
+      min-height: auto;
     }
     button, a.button {
       display: inline-flex;
@@ -194,6 +198,7 @@ pub async fn page() -> Html<&'static str> {
     <nav class="tabs">
       <button class="tab-button active" data-tab="overview">Visao geral</button>
       <button class="tab-button" data-tab="queue-tab">Fila</button>
+      <a class="tab-button" href="/overlay" target="_blank" rel="noreferrer">Overlay</a>
       <button class="tab-button" data-tab="commands-tab">Comandos</button>
       <button class="tab-button" data-tab="player-tab">Player</button>
       <button class="tab-button" data-tab="logs-tab">Logs</button>
@@ -279,24 +284,57 @@ pub async fn page() -> Html<&'static str> {
     </div>
 
     <div class="tab" id="logs-tab">
-      <section>
-        <div class="toolbar">
-          <h2>Logs em tempo real</h2>
-          <button class="secondary" id="refresh-events" type="button">Atualizar</button>
-        </div>
-        <div class="events" id="events"></div>
-      </section>
+      <div class="layout">
+        <section>
+          <div class="toolbar">
+            <h2>Logs em tempo real</h2>
+            <button class="secondary" id="refresh-events" type="button">Atualizar</button>
+          </div>
+          <div class="events" id="events"></div>
+        </section>
+        <section>
+          <h2>Diagnostico</h2>
+          <div class="diagnostics" id="setup-diagnostics"></div>
+        </section>
+      </div>
     </div>
 
     <div class="tab" id="setup-tab">
       <section>
-        <div class="toolbar">
-          <h2>Setup</h2>
-          <a class="button secondary" href="/api/diagnostics" target="_blank" rel="noreferrer">Diagnostico</a>
-          <a class="button secondary" href="/connections" target="_blank" rel="noreferrer">Conexoes</a>
-          <a class="button secondary" href="/overlay" target="_blank" rel="noreferrer">Overlay</a>
-        </div>
-        <div class="diagnostics" id="setup-diagnostics"></div>
+        <h2>Setup</h2>
+        <form id="setup-form">
+          <label>Provider padrao
+            <select id="setup-provider">
+              <option value="spotify">Spotify</option>
+              <option value="youtube">YouTube</option>
+            </select>
+          </label>
+          <label>Spotify Client ID
+            <input id="setup-spotify-client-id" autocomplete="off" placeholder="Client ID do app Spotify">
+          </label>
+          <label>Twitch Client ID
+            <input id="setup-twitch-client-id" autocomplete="off" placeholder="Client ID do app Twitch">
+          </label>
+          <label>Twitch Bot Username
+            <input id="setup-twitch-bot-username" autocomplete="off" placeholder="conta_bot">
+          </label>
+          <label>Twitch Channel
+            <input id="setup-twitch-channel" autocomplete="off" placeholder="canal_do_streamer">
+          </label>
+          <label>YouTube API Key
+            <input id="setup-youtube-api-key" autocomplete="off" placeholder="deixe vazio para manter a chave atual">
+          </label>
+          <label>Maximo YouTube (segundos)
+            <input id="setup-youtube-max-duration" type="number" min="30" max="86400" step="30" value="360">
+          </label>
+          <label><span><input id="setup-youtube-allow-non-music" type="checkbox"> Aceitar YouTube nao marcado como musica</span></label>
+          <div class="actions">
+            <button type="submit">Salvar setup</button>
+            <button class="secondary" id="setup-spotify-login" type="button">Login Spotify</button>
+            <button class="secondary" id="setup-twitch-login" type="button">Conectar bot Twitch</button>
+          </div>
+        </form>
+        <div class="message" id="setup-message"></div>
       </section>
     </div>
 
@@ -373,12 +411,13 @@ pub async fn page() -> Html<&'static str> {
 
     async function refresh() {
       try {
-        const [status, queue, diagnostics, connections, events] = await Promise.all([
+        const [status, queue, diagnostics, connections, events, config] = await Promise.all([
           api('/api/status'),
           api('/api/queue'),
           api('/api/diagnostics'),
           api('/api/connections/status'),
-          api('/api/events')
+          api('/api/events'),
+          api('/api/config')
         ]);
 
         $('provider').textContent = status.provider === 'spotify' ? 'Spotify + YouTube links' : status.provider;
@@ -392,11 +431,21 @@ pub async fn page() -> Html<&'static str> {
         $('setup-diagnostics').innerHTML = [
           ['Bot Twitch', twitchReady ? 'configurado' : 'nao configurado'],
           ['Spotify', connections.spotify.token_configured ? 'conectado' : connections.spotify.client_id_configured ? 'login pendente' : 'client id pendente'],
-          ['Overlay', 'http://127.0.0.1:7384/overlay'],
+          ['YouTube', config.youtube_api_key_configured ? 'api key configurada' : 'api key pendente'],
           ['Logs', diagnostics.storage.log_dir.exists ? 'ok' : 'pendente']
         ].map(([label, value]) => `
           <div class="diagnostic-row"><span>${escapeHtml(label)}</span><code>${escapeHtml(value)}</code></div>
         `).join('');
+
+        if (!$('setup-form').contains(document.activeElement)) {
+          $('setup-provider').value = config.default_provider;
+          $('setup-spotify-client-id').value = config.spotify_client_id || '';
+          $('setup-twitch-client-id').value = config.twitch_client_id || '';
+          $('setup-twitch-bot-username').value = config.twitch_bot_username || '';
+          $('setup-twitch-channel').value = config.twitch_channel || '';
+          $('setup-youtube-max-duration').value = config.youtube_max_duration_seconds || 360;
+          $('setup-youtube-allow-non-music').checked = Boolean(config.youtube_allow_non_music);
+        }
 
         const current = queue.current_song;
         $('current-title').textContent = current ? current.title : 'Aguardando pedido';
@@ -430,9 +479,9 @@ pub async fn page() -> Html<&'static str> {
       });
     }
 
-    document.querySelectorAll('.tab-button').forEach((button) => {
+    document.querySelectorAll('.tab-button[data-tab]').forEach((button) => {
       button.addEventListener('click', () => {
-        document.querySelectorAll('.tab-button').forEach((item) => item.classList.remove('active'));
+        document.querySelectorAll('.tab-button[data-tab]').forEach((item) => item.classList.remove('active'));
         document.querySelectorAll('.tab').forEach((item) => item.classList.remove('active'));
         button.classList.add('active');
         document.getElementById(button.dataset.tab).classList.add('active');
@@ -506,6 +555,51 @@ pub async fn page() -> Html<&'static str> {
     $('skip').addEventListener('click', () => playerCommand('!skip'));
     $('refresh-queue').addEventListener('click', refresh);
     $('refresh-events').addEventListener('click', refresh);
+    $('setup-form').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      try {
+        await api('/api/config', {
+          method: 'POST',
+          body: JSON.stringify({
+            default_provider: $('setup-provider').value,
+            spotify_client_id: $('setup-spotify-client-id').value,
+            twitch_client_id: $('setup-twitch-client-id').value,
+            twitch_bot_username: $('setup-twitch-bot-username').value,
+            twitch_channel: $('setup-twitch-channel').value,
+            twitch_bot_oauth_token: null,
+            youtube_api_key: $('setup-youtube-api-key').value,
+            youtube_max_duration_seconds: Number($('setup-youtube-max-duration').value || 360),
+            youtube_allow_non_music: $('setup-youtube-allow-non-music').checked
+          })
+        });
+        $('setup-youtube-api-key').value = '';
+        setMessage('setup-message', 'Setup salvo.');
+        await refresh();
+      } catch (error) {
+        setMessage('setup-message', error.message, true);
+      }
+    });
+
+    $('setup-spotify-login').addEventListener('click', async () => {
+      try {
+        const result = await api('/api/connections/spotify/start', { method: 'POST' });
+        setMessage('setup-message', 'Abrindo login Spotify.');
+        window.open(result.auth_url, '_blank', 'noopener,noreferrer');
+      } catch (error) {
+        setMessage('setup-message', error.message, true);
+      }
+    });
+
+    $('setup-twitch-login').addEventListener('click', async () => {
+      try {
+        const result = await api('/api/connections/twitch/start', { method: 'POST' });
+        setMessage('setup-message', 'Abrindo login Twitch Bot.');
+        window.open(result.auth_url, '_blank', 'noopener,noreferrer');
+      } catch (error) {
+        setMessage('setup-message', error.message, true);
+      }
+    });
+
     $('shutdown-app').addEventListener('click', () => {
       $('refresh-state').textContent = 'SAINDO';
       setMessage('player-message', 'App encerrando. Esta aba pode ser fechada.');
