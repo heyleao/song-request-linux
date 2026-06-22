@@ -259,6 +259,10 @@ async fn chat_command(
                 current_song: queue.current_song,
             }
         }
+        ChatCommand::Queue => {
+            let queue = state.queue.read().await.view();
+            ChatCommandResponse::Queue { queue }
+        }
         ChatCommand::Skip { requester } => {
             let current_song = state.queue.write().await.skip();
             ChatCommandResponse::Skipped {
@@ -266,10 +270,52 @@ async fn chat_command(
                 current_song,
             }
         }
+        ChatCommand::Volume {
+            requester,
+            level,
+            can_set,
+        } => ChatCommandResponse::Volume {
+            message: volume_message(&state, requester, level, can_set).await,
+        },
+        ChatCommand::Help => ChatCommandResponse::Help {
+            commands: vec![
+                "!sr nome/link".to_string(),
+                "!song".to_string(),
+                "!fila".to_string(),
+                "!vol".to_string(),
+                "!vol 30".to_string(),
+                "!skip".to_string(),
+            ],
+        },
         ChatCommand::Ignored => ChatCommandResponse::Ignored,
     };
 
     Ok(Json(response))
+}
+
+async fn volume_message(
+    state: &AppState,
+    requester: String,
+    level: Option<u8>,
+    can_set: bool,
+) -> String {
+    let mut token_guard = state.spotify_token.write().await;
+    let Some(token) = token_guard.as_mut() else {
+        return "Spotify nao conectado.".to_string();
+    };
+
+    match level {
+        Some(_) if !can_set => format!("@{requester} apenas moderadores podem mudar volume."),
+        Some(level) => match spotify::set_volume(&state.config, token, level).await {
+            Ok(level) => format!("@{requester} volume ajustado para {level}%."),
+            Err(error) => format!("@{requester} nao consegui mudar volume: {error}"),
+        },
+        None => match spotify::current_volume(&state.config, token).await {
+            Ok(Some(level)) => format!("Volume atual: {level}%."),
+            Ok(None) => "Nao encontrei um device Spotify ativo para ler o volume.".to_string(),
+            Err(error) => format!("Nao consegui ler o volume: {error}"),
+        },
+    }
 }
 
 async fn add_request_to_queue(
@@ -300,9 +346,18 @@ enum ChatCommandResponse {
     CurrentSong {
         current_song: Option<SongRequest>,
     },
+    Queue {
+        queue: QueueView,
+    },
     Skipped {
         requester: String,
         current_song: Option<SongRequest>,
+    },
+    Volume {
+        message: String,
+    },
+    Help {
+        commands: Vec<String>,
     },
     Ignored,
 }

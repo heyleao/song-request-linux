@@ -85,6 +85,26 @@ struct PlaylistsResponse {
     items: Vec<SpotifyPlaylistItem>,
 }
 
+#[derive(Debug, Deserialize)]
+struct SpotifyQueueResponse {
+    currently_playing: Option<SpotifyPlayable>,
+    queue: Vec<SpotifyPlayable>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+struct SpotifyPlayable {
+    name: Option<String>,
+    artists: Option<Vec<SpotifyArtist>>,
+    #[serde(rename = "type")]
+    item_type: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct SpotifyQueueSnapshot {
+    pub currently_playing: Option<String>,
+    pub upcoming: Vec<String>,
+}
+
 #[derive(Debug, Deserialize, Serialize)]
 pub struct SpotifyDevicesResponse {
     pub devices: Vec<SpotifyDevice>,
@@ -272,6 +292,83 @@ pub async fn list_devices(
 ) -> Result<Vec<SpotifyDevice>> {
     refresh_if_needed(config, token).await?;
     Ok(fetch_devices(token).await?.devices)
+}
+
+pub async fn queue_snapshot(
+    config: &AppConfig,
+    token: &mut SpotifyToken,
+) -> Result<SpotifyQueueSnapshot> {
+    refresh_if_needed(config, token).await?;
+
+    let response = Client::new()
+        .get(format!("{API_URL}/me/player/queue"))
+        .bearer_auth(&token.access_token)
+        .send()
+        .await
+        .context("failed to read Spotify queue")?;
+
+    let status = response.status();
+    if !status.is_success() {
+        let body = response.text().await.unwrap_or_default();
+        warn!(
+            status = %status,
+            response = %body,
+            "spotify queue snapshot failed"
+        );
+        bail!("spotify queue snapshot failed with {status}: {body}");
+    }
+
+    let queue = response.json::<SpotifyQueueResponse>().await?;
+    Ok(SpotifyQueueSnapshot {
+        currently_playing: queue.currently_playing.and_then(format_playable),
+        upcoming: queue
+            .queue
+            .into_iter()
+            .filter_map(format_playable)
+            .take(5)
+            .collect(),
+    })
+}
+
+pub async fn current_volume(config: &AppConfig, token: &mut SpotifyToken) -> Result<Option<u8>> {
+    refresh_if_needed(config, token).await?;
+    Ok(fetch_devices(token)
+        .await?
+        .devices
+        .into_iter()
+        .find(|device| device.is_active)
+        .and_then(|device| device.volume_percent))
+}
+
+pub async fn set_volume(config: &AppConfig, token: &mut SpotifyToken, level: u8) -> Result<u8> {
+    refresh_if_needed(config, token).await?;
+    ensure_available_device(token).await?;
+
+    let response = Client::builder()
+        .http1_only()
+        .build()?
+        .put(format!("{API_URL}/me/player/volume"))
+        .bearer_auth(&token.access_token)
+        .query(&[("volume_percent", level.min(100))])
+        .header(CONTENT_LENGTH, "0")
+        .body(Vec::new())
+        .send()
+        .await
+        .context("failed to set Spotify volume")?;
+
+    let status = response.status();
+    if !status.is_success() {
+        let body = response.text().await.unwrap_or_default();
+        warn!(
+            status = %status,
+            response = %body,
+            level,
+            "spotify volume change failed"
+        );
+        bail!("Spotify nao aceitou mudar o volume ({status}): {body}");
+    }
+
+    Ok(level.min(100))
 }
 
 pub fn load_token(config: &AppConfig) -> Result<Option<SpotifyToken>> {
@@ -612,6 +709,36 @@ async fn transfer_to_available_device(token: &SpotifyToken) -> Result<SpotifyDev
     }
 
     Ok(device)
+}
+
+async fn ensure_available_device(token: &SpotifyToken) -> Result<SpotifyDevice> {
+    let devices = fetch_devices(token).await?.devices;
+    if let Some(device) = devices
+        .iter()
+        .find(|device| device.is_active && !device.is_restricted && device.id.is_some())
+        .cloned()
+    {
+        return Ok(device);
+    }
+
+    transfer_to_available_device(token).await
+}
+
+fn format_playable(item: SpotifyPlayable) -> Option<String> {
+    let name = item.name?;
+    let artists = item
+        .artists
+        .unwrap_or_default()
+        .into_iter()
+        .map(|artist| artist.name)
+        .collect::<Vec<_>>();
+
+    if artists.is_empty() {
+        let item_type = item.item_type.unwrap_or_else(|| "item".to_string());
+        Some(format!("{name} ({item_type})"))
+    } else {
+        Some(format!("{} - {}", name, artists.join(", ")))
+    }
 }
 
 struct SpotifyQueueError {

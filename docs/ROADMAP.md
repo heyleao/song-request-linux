@@ -32,7 +32,7 @@
 - [x] Development bot config through environment variables.
 - [x] Secure Twitch IRC websocket connection.
 - [x] Chat connection.
-- [x] `!sr`, `!song`, `!skip`.
+- [x] `!sr`, `!song`, `!fila`, `!vol`, `!skip`.
 - [ ] Cooldowns and permissions.
 
 ## Milestone 3: Spotify

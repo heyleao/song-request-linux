@@ -210,6 +210,9 @@ pub async fn page() -> Html<&'static str> {
           <div class="actions">
             <button type="submit">Enviar</button>
             <button class="secondary" id="song" type="button">!song</button>
+            <button class="secondary" id="queue-command" type="button">!fila</button>
+            <button class="secondary" id="volume-command" type="button">!vol</button>
+            <button class="secondary" id="help-command" type="button">!comandos</button>
             <button class="danger" id="skip" type="button">!skip</button>
           </div>
         </form>
@@ -353,6 +356,34 @@ pub async fn page() -> Html<&'static str> {
         const title = result.current_song ? result.current_song.title : 'fila vazia';
         setMessage('command-message', `Atual: ${title}`);
         await refresh();
+      } catch (error) {
+        setMessage('command-message', error.message, true);
+      }
+    });
+
+    $('queue-command').addEventListener('click', async () => {
+      try {
+        const result = await sendCommand('!fila');
+        setMessage('command-message', `Fila: ${result.queue.queue_length} pedido(s)`);
+        await refresh();
+      } catch (error) {
+        setMessage('command-message', error.message, true);
+      }
+    });
+
+    $('volume-command').addEventListener('click', async () => {
+      try {
+        const result = await sendCommand('!vol');
+        setMessage('command-message', result.message || 'Volume consultado');
+      } catch (error) {
+        setMessage('command-message', error.message, true);
+      }
+    });
+
+    $('help-command').addEventListener('click', async () => {
+      try {
+        const result = await sendCommand('!comandos');
+        setMessage('command-message', `Comandos: ${result.commands.join(', ')}`);
       } catch (error) {
         setMessage('command-message', error.message, true);
       }

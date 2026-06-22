@@ -114,16 +114,8 @@ async fn handle_privmsg(state: &AppState, privmsg: Privmsg) -> Option<String> {
                 Err(error) => Some(format!("@{requester} nao consegui adicionar: {error}")),
             }
         }
-        ChatCommand::CurrentSong => {
-            let queue = state.queue.read().await.view();
-            match queue.current_song {
-                Some(song) => Some(format!(
-                    "Tocando agora: {} - pedido por {}",
-                    song.title, song.requester
-                )),
-                None => Some("Nenhuma musica tocando agora.".to_string()),
-            }
-        }
+        ChatCommand::CurrentSong => Some(current_song_reply(state).await),
+        ChatCommand::Queue => Some(queue_reply(state).await),
         ChatCommand::Skip { requester } => {
             let current_song = state.queue.write().await.skip();
             match current_song {
@@ -131,8 +123,93 @@ async fn handle_privmsg(state: &AppState, privmsg: Privmsg) -> Option<String> {
                 None => Some(format!("@{requester} skip feito. Fila vazia.")),
             }
         }
+        ChatCommand::Volume {
+            requester,
+            level,
+            can_set,
+        } => Some(volume_reply(state, requester, level, can_set).await),
+        ChatCommand::Help => {
+            Some("Comandos: !sr nome/link, !song, !fila, !vol, !vol 30 mod, !skip mod.".to_string())
+        }
         ChatCommand::Ignored => None,
     }
+}
+
+async fn current_song_reply(state: &AppState) -> String {
+    if let Some(snapshot) = spotify_queue_snapshot(state).await {
+        if let Some(song) = snapshot.currently_playing {
+            return format!("Tocando agora: {song}");
+        }
+    }
+
+    let queue = state.queue.read().await.view();
+    match queue.current_song {
+        Some(song) => format!(
+            "Tocando agora: {} - pedido por {}",
+            song.title, song.requester
+        ),
+        None => "Nenhuma musica tocando agora.".to_string(),
+    }
+}
+
+async fn queue_reply(state: &AppState) -> String {
+    if let Some(snapshot) = spotify_queue_snapshot(state).await {
+        if snapshot.upcoming.is_empty() {
+            return snapshot
+                .currently_playing
+                .map(|song| format!("Tocando agora: {song}. Fila vazia."))
+                .unwrap_or_else(|| "Fila vazia.".to_string());
+        }
+
+        return format!("Proximas: {}", snapshot.upcoming.join(" | "));
+    }
+
+    let queue = state.queue.read().await.view();
+    if queue.queue.is_empty() {
+        return "Fila vazia.".to_string();
+    }
+
+    let upcoming = queue
+        .queue
+        .into_iter()
+        .take(5)
+        .map(|song| format!("{} por {}", song.title, song.requester))
+        .collect::<Vec<_>>();
+    format!("Proximas: {}", upcoming.join(" | "))
+}
+
+async fn volume_reply(
+    state: &AppState,
+    requester: String,
+    level: Option<u8>,
+    can_set: bool,
+) -> String {
+    let mut token_guard = state.spotify_token.write().await;
+    let Some(token) = token_guard.as_mut() else {
+        return "Spotify nao conectado.".to_string();
+    };
+
+    match level {
+        Some(_) if !can_set => format!("@{requester} apenas moderadores podem mudar volume."),
+        Some(level) => match crate::spotify::set_volume(&state.config, token, level).await {
+            Ok(level) => format!("@{requester} volume ajustado para {level}%."),
+            Err(error) => format!("@{requester} nao consegui mudar volume: {error}"),
+        },
+        None => match crate::spotify::current_volume(&state.config, token).await {
+            Ok(Some(level)) => format!("Volume atual: {level}%."),
+            Ok(None) => "Nao encontrei um device Spotify ativo para ler o volume.".to_string(),
+            Err(error) => format!("Nao consegui ler o volume: {error}"),
+        },
+    }
+}
+
+async fn spotify_queue_snapshot(state: &AppState) -> Option<crate::spotify::SpotifyQueueSnapshot> {
+    let mut token_guard = state.spotify_token.write().await;
+    let token = token_guard.as_mut()?;
+
+    crate::spotify::queue_snapshot(&state.config, token)
+        .await
+        .ok()
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

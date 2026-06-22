@@ -15,7 +15,16 @@ pub struct ChatCommandInput {
 pub enum ChatCommand {
     SongRequest(SongRequestInput),
     CurrentSong,
-    Skip { requester: String },
+    Queue,
+    Skip {
+        requester: String,
+    },
+    Volume {
+        requester: String,
+        level: Option<u8>,
+        can_set: bool,
+    },
+    Help,
     Ignored,
 }
 
@@ -37,10 +46,26 @@ pub fn parse_chat_command(input: ChatCommandInput) -> ChatCommand {
         return ChatCommand::CurrentSong;
     }
 
+    if matches_command(message, &["!queue", "!fila", "!q"]) {
+        return ChatCommand::Queue;
+    }
+
     if message.eq_ignore_ascii_case("!skip") && input.is_moderator {
         return ChatCommand::Skip {
             requester: clean_field(&input.requester),
         };
+    }
+
+    if let Some(level) = volume_payload(message) {
+        return ChatCommand::Volume {
+            requester: clean_field(&input.requester),
+            level,
+            can_set: input.is_moderator,
+        };
+    }
+
+    if matches_command(message, &["!commands", "!comandos", "!help"]) {
+        return ChatCommand::Help;
     }
 
     ChatCommand::Ignored
@@ -54,6 +79,25 @@ fn command_payload<'a>(message: &'a str, command: &str) -> Option<&'a str> {
     } else {
         None
     }
+}
+
+fn matches_command(message: &str, commands: &[&str]) -> bool {
+    commands
+        .iter()
+        .any(|command| message.eq_ignore_ascii_case(command))
+}
+
+fn volume_payload(message: &str) -> Option<Option<u8>> {
+    if matches_command(message, &["!vol", "!volume"]) {
+        return Some(None);
+    }
+
+    let payload = command_payload(message, "!vol")
+        .or_else(|| command_payload(message, "!volume"))?
+        .trim();
+    let level = payload.parse::<u8>().ok()?.min(100);
+
+    Some(Some(level))
 }
 
 fn clean_field(value: &str) -> String {
@@ -97,5 +141,47 @@ mod tests {
         });
 
         assert_eq!(command, ChatCommand::Ignored);
+    }
+
+    #[test]
+    fn parses_queue_aliases() {
+        let command = parse_chat_command(ChatCommandInput {
+            requester: "viewer".to_string(),
+            message: "!fila".to_string(),
+            is_moderator: false,
+        });
+
+        assert_eq!(command, ChatCommand::Queue);
+    }
+
+    #[test]
+    fn parses_volume_read_and_write() {
+        let read = parse_chat_command(ChatCommandInput {
+            requester: "viewer".to_string(),
+            message: "!vol".to_string(),
+            is_moderator: false,
+        });
+        let write = parse_chat_command(ChatCommandInput {
+            requester: "mod".to_string(),
+            message: "!vol 35".to_string(),
+            is_moderator: true,
+        });
+
+        assert_eq!(
+            read,
+            ChatCommand::Volume {
+                requester: "viewer".to_string(),
+                level: None,
+                can_set: false
+            }
+        );
+        assert_eq!(
+            write,
+            ChatCommand::Volume {
+                requester: "mod".to_string(),
+                level: Some(35),
+                can_set: true
+            }
+        );
     }
 }

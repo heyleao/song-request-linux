@@ -9,7 +9,7 @@ and Twitch without Wine, WebView2, WPF or Windows APIs.
 
 ## Goals
 
-- Twitch chat commands such as `!sr`, `!song` and `!skip`.
+- Twitch chat commands such as `!sr`, `!song`, `!fila`, `!vol` and `!skip`.
 - Spotify support through OAuth PKCE.
 - YouTube support through YouTube Data API v3.
 - Local OBS overlay through `http://127.0.0.1:<port>/overlay`.
@@ -60,6 +60,10 @@ The Twitch bot currently supports:
 
 - `!sr <youtube link or search>`
 - `!song`
+- `!fila`, `!queue` or `!q`
+- `!vol` to read Spotify volume
+- `!vol <0-100>` for moderators/broadcaster badges
+- `!comandos`, `!commands` or `!help`
 - `!skip` for moderators/broadcaster badges
 
 Run with Spotify queue control:
