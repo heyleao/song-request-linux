@@ -17,10 +17,6 @@ and Twitch without Wine, WebView2, WPF or Windows APIs.
 - Clear diagnostics for ports, tokens, permissions and API quota.
 - Low CPU/RAM usage while idle.
 
-## Security
-
-See [SECURITY.md](SECURITY.md).
-
 ## Setup
 
 See [docs/SETUP.md](docs/SETUP.md).

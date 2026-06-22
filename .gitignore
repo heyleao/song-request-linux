@@ -12,6 +12,7 @@ config/
 cache/
 state/
 memory/
+SECURITY.md
 docs/*
 !docs/SETUP.md
 
