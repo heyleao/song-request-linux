@@ -184,9 +184,27 @@ pub async fn page() -> Html<&'static str> {
     </section>
 
     <section>
+      <h2>Twitch Bot</h2>
+      <div class="status-grid">
+        <div class="status-card" id="twitch-client-card"><strong>Client ID</strong><span>Carregando...</span></div>
+        <div class="status-card" id="twitch-token-card"><strong>OAuth do bot</strong><span>Carregando...</span></div>
+        <div class="status-card" id="twitch-channel-card"><strong>Canal</strong><span>Carregando...</span></div>
+      </div>
+      <div class="muted">
+        Conecte a conta bot em uma janela privada para nao reaproveitar a sessao do streamer.
+        Redirect Twitch: https://localhost:7443/auth/twitch/callback.
+      </div>
+      <div class="row">
+        <button id="twitch-start">Conectar bot</button>
+      </div>
+      <code id="twitch-link">O link aparece aqui.</code>
+      <div class="message" id="twitch-message"></div>
+    </section>
+
+    <section>
       <h2>Playlist fallback</h2>
       <div class="muted">
-        Esta playlist sera usada quando nao houver pedidos na fila. Nesta etapa ela fica salva; a reproducao automatica entra no proximo passo.
+        Playlist usada quando nao houver pedidos. Escolha uma playlist do Spotify para manter a live tocando.
       </div>
       <div class="row">
         <button id="load-playlists">Carregar playlists</button>
@@ -196,25 +214,6 @@ pub async fn page() -> Html<&'static str> {
         <button id="save-playlist">Salvar fallback</button>
       </div>
       <div class="message" id="playlist-message"></div>
-    </section>
-
-    <section>
-      <h2>Twitch Bot</h2>
-      <div class="status-grid">
-        <div class="status-card" id="twitch-client-card"><strong>Client ID</strong><span>Carregando...</span></div>
-        <div class="status-card" id="twitch-token-card"><strong>OAuth do bot</strong><span>Carregando...</span></div>
-        <div class="status-card" id="twitch-channel-card"><strong>Canal</strong><span>Carregando...</span></div>
-      </div>
-      <div class="muted">
-        Conecte a conta bot em uma janela privada para nao reaproveitar a sessao do streamer.
-        No console da Twitch, cadastre o redirect: https://localhost:7443/auth/twitch/callback.
-        Se o navegador avisar sobre certificado local, aceite para concluir o OAuth no seu proprio PC.
-      </div>
-      <div class="row">
-        <button id="twitch-start">Gerar link do bot</button>
-      </div>
-      <code id="twitch-link">O link aparece aqui.</code>
-      <div class="message" id="twitch-message"></div>
     </section>
   </main>
   <script>

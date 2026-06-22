@@ -488,14 +488,16 @@ pub async fn page() -> Html<&'static str> {
     $('skip').addEventListener('click', () => playerCommand('!skip'));
     $('refresh-queue').addEventListener('click', refresh);
     $('refresh-events').addEventListener('click', refresh);
-    $('shutdown-app').addEventListener('click', async () => {
-      try {
-        await api('/api/shutdown', { method: 'POST' });
-        $('refresh-state').textContent = 'SAINDO';
-        setMessage('player-message', 'App encerrando. Esta aba pode ser fechada.');
-      } catch (error) {
-        $('refresh-state').textContent = 'ERRO';
-      }
+    $('shutdown-app').addEventListener('click', () => {
+      $('refresh-state').textContent = 'SAINDO';
+      setMessage('player-message', 'App encerrando. Esta aba pode ser fechada.');
+      $('shutdown-app').disabled = true;
+
+      fetch('/api/shutdown', { method: 'POST', keepalive: true }).catch(() => {});
+      setTimeout(() => {
+        document.body.innerHTML = '<main><section><h2>Song Request Linux encerrado</h2><p class="muted">Esta aba pode ser fechada.</p></section></main>';
+        window.close();
+      }, 600);
     });
 
     $('request-form').addEventListener('submit', async (event) => {
