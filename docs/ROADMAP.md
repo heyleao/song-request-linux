@@ -37,6 +37,7 @@
 - [x] Simple command access levels: everyone vs moderator/broadcaster.
 - [x] Web dashboard tabs for overview, queue, commands, player, logs and setup.
 - [x] In-memory live event log for requests, player actions, volume and access denials.
+- [x] Desktop-style launcher, shutdown endpoint and UI shutdown button.
 - [ ] Cooldowns and permissions.
 
 ## Milestone 3: Spotify

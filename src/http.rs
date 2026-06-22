@@ -27,6 +27,7 @@ pub fn router(state: AppState) -> Router {
         .route("/auth/spotify/callback", get(spotify_callback))
         .route("/auth/twitch/callback", get(twitch_callback))
         .route("/health", get(health))
+        .route("/api/shutdown", post(shutdown))
         .route("/api/status", get(status))
         .route("/api/events", get(events))
         .route("/api/diagnostics", get(diagnostics))
@@ -54,6 +55,17 @@ pub fn router(state: AppState) -> Router {
 
 async fn health() -> Json<HealthResponse> {
     Json(HealthResponse { status: "ok" })
+}
+
+async fn shutdown(State(state): State<AppState>) -> Json<ShutdownResponse> {
+    state
+        .record_event("system", "encerramento solicitado")
+        .await;
+    let _ = state.shutdown.send(());
+
+    Json(ShutdownResponse {
+        status: "shutting_down",
+    })
 }
 
 async fn status(State(state): State<AppState>) -> Json<StatusResponse> {
@@ -499,6 +511,11 @@ enum ChatCommandResponse {
 #[derive(Debug, Serialize)]
 struct SkipResponse {
     current_song: Option<SongRequest>,
+}
+
+#[derive(Debug, Serialize)]
+struct ShutdownResponse {
+    status: &'static str,
 }
 
 #[derive(Debug, Serialize)]

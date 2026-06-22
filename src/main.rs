@@ -35,6 +35,7 @@ async fn main() -> anyhow::Result<()> {
     let addr = config.bind_addr;
     let https_addr = config.https_bind_addr;
     let state = AppState::new(config);
+    let shutdown = state.shutdown.subscribe();
     let app = http::router(state.clone());
     let https_app = http::router(state.clone());
     state
@@ -68,7 +69,7 @@ async fn main() -> anyhow::Result<()> {
 
     info!("listening on http://{addr}");
     axum::serve(listener, app)
-        .with_graceful_shutdown(shutdown_signal())
+        .with_graceful_shutdown(shutdown_signal(shutdown))
         .await
         .context("server failed")?;
 
@@ -101,6 +102,9 @@ fn init_logging(config: &AppConfig) -> WorkerGuard {
     guard
 }
 
-async fn shutdown_signal() {
-    let _ = tokio::signal::ctrl_c().await;
+async fn shutdown_signal(mut app_shutdown: tokio::sync::broadcast::Receiver<()>) {
+    tokio::select! {
+        _ = tokio::signal::ctrl_c() => {}
+        _ = app_shutdown.recv() => {}
+    }
 }

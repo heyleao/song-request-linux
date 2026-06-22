@@ -47,6 +47,23 @@ cd ~/songify-linux
 cargo run
 ```
 
+Run like a desktop app:
+
+```bash
+cd ~/songify-linux
+./scripts/install-desktop-entry
+./scripts/song-request-linux-open
+```
+
+The launcher starts one instance, opens `http://127.0.0.1:7384/`, and reuses the
+running app if it is already open. Use the dashboard `Encerrar` button or run:
+
+```bash
+./scripts/song-request-linux-stop
+```
+
+This avoids orphaned CLI processes holding ports `7384` and `7443`.
+
 Run with a Twitch bot for `!sr`:
 
 ```bash

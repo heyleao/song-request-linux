@@ -5,7 +5,7 @@ use std::{
 };
 
 use serde::Serialize;
-use tokio::sync::RwLock;
+use tokio::sync::{broadcast, RwLock};
 
 use crate::config::{AppConfig, APP_NAME};
 use crate::song_requests::{QueueView, SongQueue};
@@ -21,6 +21,7 @@ pub struct AppState {
     pub spotify_token: Arc<RwLock<Option<SpotifyToken>>>,
     pub twitch_bot_running: Arc<AtomicBool>,
     pub events: Arc<RwLock<EventLog>>,
+    pub shutdown: broadcast::Sender<()>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -61,6 +62,7 @@ pub struct SongView {
 impl AppState {
     pub fn new(config: AppConfig) -> Self {
         let queue = SongQueue::new(config.default_provider);
+        let (shutdown, _) = broadcast::channel(1);
 
         Self {
             spotify_token: Arc::new(RwLock::new(load_token(&config).ok().flatten())),
@@ -71,6 +73,7 @@ impl AppState {
             spotify_auth: Arc::new(RwLock::new(None)),
             twitch_bot_running: Arc::new(AtomicBool::new(false)),
             events: Arc::new(RwLock::new(EventLog::new())),
+            shutdown,
         }
     }
 

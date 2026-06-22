@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PID_FILE="${XDG_RUNTIME_DIR:-/tmp}/song-request-linux.pid"
+LOG_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/song-request-linux/logs"
+LOG_FILE="$LOG_DIR/launcher.log"
+URL="http://127.0.0.1:7384/"
+
+mkdir -p "$LOG_DIR"
+
+is_running() {
+  [[ -f "$PID_FILE" ]] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null
+}
+
+if is_running; then
+  xdg-open "$URL" >/dev/null 2>&1 || true
+  exit 0
+fi
+
+if ss -ltn 'sport = :7384' | grep -q ':7384'; then
+  xdg-open "$URL" >/dev/null 2>&1 || true
+  exit 0
+fi
+
+cd "$APP_DIR"
+cargo build --release >>"$LOG_FILE" 2>&1
+TARGET_DIR="$(cargo metadata --no-deps --format-version=1 | sed -n 's/.*"target_directory":"\([^"]*\)".*/\1/p')"
+BIN="$TARGET_DIR/release/song-request-linux"
+
+nohup "$BIN" >>"$LOG_FILE" 2>&1 &
+echo "$!" >"$PID_FILE"
+
+for _ in {1..50}; do
+  if curl -fsS "http://127.0.0.1:7384/health" >/dev/null 2>&1; then
+    xdg-open "$URL" >/dev/null 2>&1 || true
+    exit 0
+  fi
+  sleep 0.1
+done
+
+echo "Song Request Linux iniciou, mas o health check nao respondeu. Veja $LOG_FILE" >&2
+exit 1

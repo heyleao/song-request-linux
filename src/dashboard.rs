@@ -184,6 +184,7 @@ pub async fn page() -> Html<&'static str> {
       <span class="pill"><span class="dot" id="twitch-dot"></span>Twitch <strong id="twitch-state">...</strong></span>
       <span class="pill"><span class="dot ok"></span>Provider <strong id="provider">...</strong></span>
       <span class="pill"><span class="dot ok"></span>Local <strong>127.0.0.1</strong></span>
+      <button class="secondary" id="shutdown-app" type="button">Encerrar</button>
     </div>
   </header>
 
@@ -487,6 +488,15 @@ pub async fn page() -> Html<&'static str> {
     $('skip').addEventListener('click', () => playerCommand('!skip'));
     $('refresh-queue').addEventListener('click', refresh);
     $('refresh-events').addEventListener('click', refresh);
+    $('shutdown-app').addEventListener('click', async () => {
+      try {
+        await api('/api/shutdown', { method: 'POST' });
+        $('refresh-state').textContent = 'SAINDO';
+        setMessage('player-message', 'App encerrando. Esta aba pode ser fechada.');
+      } catch (error) {
+        $('refresh-state').textContent = 'ERRO';
+      }
+    });
 
     $('request-form').addEventListener('submit', async (event) => {
       event.preventDefault();
