@@ -1,6 +1,6 @@
-use std::collections::VecDeque;
+use std::{collections::VecDeque, fs, path::Path};
 
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
 
 use crate::youtube::YoutubeVideoRef;
@@ -11,7 +11,7 @@ pub struct SongRequestInput {
     pub query: String,
 }
 
-#[derive(Clone, Debug, Serialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct SongRequest {
     pub id: u64,
     pub requester: String,
@@ -21,7 +21,7 @@ pub struct SongRequest {
     pub artist: String,
 }
 
-#[derive(Clone, Debug, Serialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum RequestSource {
     Search { provider: MusicProvider },
@@ -68,6 +68,55 @@ impl SongQueue {
             default_provider,
             ..Self::default()
         }
+    }
+
+    pub fn load_or_new(default_provider: MusicProvider, path: &Path) -> Self {
+        match Self::load(default_provider, path) {
+            Ok(queue) => queue,
+            Err(error) => {
+                tracing::warn!(%error, path = %path.display(), "failed to load saved queue");
+                Self::new(default_provider)
+            }
+        }
+    }
+
+    pub fn load(default_provider: MusicProvider, path: &Path) -> Result<Self> {
+        if !path.exists() {
+            return Ok(Self::new(default_provider));
+        }
+
+        let data = fs::read_to_string(path)
+            .with_context(|| format!("failed to read {}", path.display()))?;
+        let saved = serde_json::from_str::<SavedQueue>(&data)
+            .with_context(|| format!("failed to parse {}", path.display()))?;
+        let max_id = saved
+            .current_song
+            .iter()
+            .chain(saved.queue.iter())
+            .map(|song| song.id)
+            .max()
+            .unwrap_or(0);
+
+        Ok(Self {
+            next_id: max_id.saturating_add(1).max(1),
+            current_song: saved.current_song,
+            queue: saved.queue.into(),
+            default_provider,
+        })
+    }
+
+    pub fn save(&self, path: &Path) -> Result<()> {
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)
+                .with_context(|| format!("failed to create {}", parent.display()))?;
+        }
+
+        let saved = SavedQueue {
+            current_song: self.current_song.clone(),
+            queue: self.queue.iter().cloned().collect(),
+        };
+        fs::write(path, serde_json::to_vec_pretty(&saved)?)
+            .with_context(|| format!("failed to write {}", path.display()))
     }
 
     pub fn add(&mut self, input: SongRequestInput) -> Result<SongRequest> {
@@ -128,6 +177,11 @@ impl SongQueue {
         self.queue.remove(index)
     }
 
+    pub fn clear(&mut self) {
+        self.current_song = None;
+        self.queue.clear();
+    }
+
     pub fn view(&self) -> QueueView {
         QueueView {
             current_song: self.current_song.clone(),
@@ -141,6 +195,12 @@ impl SongQueue {
         self.next_id += 1;
         id
     }
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+struct SavedQueue {
+    current_song: Option<SongRequest>,
+    queue: Vec<SongRequest>,
 }
 
 impl MusicProvider {
@@ -210,6 +270,7 @@ fn artist_from_source(source: &RequestSource) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     #[test]
     fn first_request_becomes_current_song() {
@@ -325,5 +386,51 @@ mod tests {
         assert_eq!(queue.remove_by_id(youtube.id), Some(youtube));
         assert_eq!(queue.view().current_song, Some(spotify));
         assert!(queue.first_youtube().is_none());
+    }
+
+    #[test]
+    fn queue_persists_current_and_waiting_requests() {
+        let path = temp_queue_path();
+        let mut queue = SongQueue::new(MusicProvider::Youtube);
+        let first = queue
+            .add(SongRequestInput {
+                requester: "viewer".to_string(),
+                query: "first song".to_string(),
+            })
+            .expect("first");
+        let second = queue
+            .add(SongRequestInput {
+                requester: "viewer".to_string(),
+                query: "second song".to_string(),
+            })
+            .expect("second");
+
+        queue.save(&path).expect("save queue");
+        let mut loaded = SongQueue::load(MusicProvider::Spotify, &path).expect("load queue");
+        let view = loaded.view();
+
+        assert_eq!(view.current_song, Some(first));
+        assert_eq!(view.queue, vec![second]);
+        assert_eq!(view.queue_length, 1);
+        let third = loaded
+            .add(SongRequestInput {
+                requester: "viewer".to_string(),
+                query: "third song".to_string(),
+            })
+            .expect("third");
+        assert_eq!(third.id, 3);
+
+        let _ = std::fs::remove_file(path);
+    }
+
+    fn temp_queue_path() -> std::path::PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("time")
+            .as_nanos();
+        std::env::temp_dir().join(format!(
+            "song-request-linux-queue-test-{}-{nanos}.json",
+            std::process::id()
+        ))
     }
 }

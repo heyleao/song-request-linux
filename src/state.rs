@@ -63,7 +63,7 @@ pub struct SongView {
 
 impl AppState {
     pub fn new(config: AppConfig) -> Self {
-        let queue = SongQueue::new(config.default_provider);
+        let queue = SongQueue::load_or_new(config.default_provider, &config.paths.queue_file);
         let (shutdown, _) = broadcast::channel(1);
 
         Self {

@@ -103,6 +103,7 @@ pub struct AppPaths {
     pub state_dir: PathBuf,
     pub log_dir: PathBuf,
     pub tls_dir: PathBuf,
+    pub queue_file: PathBuf,
 }
 
 impl AppConfig {
@@ -280,6 +281,7 @@ impl AppPaths {
         let state_dir = state_base.join(APP_ID);
         let log_dir = state_dir.join("logs");
         let tls_dir = state_dir.join("tls");
+        let queue_file = state_dir.join("queue.json");
 
         Ok(Self {
             config_dir,
@@ -287,6 +289,7 @@ impl AppPaths {
             state_dir,
             log_dir,
             tls_dir,
+            queue_file,
         })
     }
 

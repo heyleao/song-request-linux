@@ -44,7 +44,7 @@ pub fn router(state: AppState) -> Router {
             "/api/spotify/fallback-playlist",
             post(spotify_fallback_playlist),
         )
-        .route("/api/queue", get(queue))
+        .route("/api/queue", get(queue).delete(clear_queue))
         .route("/api/song-requests", post(add_song_request))
         .route("/api/chat-command", post(chat_command))
         .route("/api/skip", post(skip))
@@ -270,6 +270,18 @@ async fn queue(State(state): State<AppState>) -> Json<QueueView> {
     Json(effective_queue_view(&state).await)
 }
 
+async fn clear_queue(State(state): State<AppState>) -> Result<Json<QueueView>, ApiError> {
+    {
+        let mut queue = state.queue.write().await;
+        queue.clear();
+        save_queue_state(&state, &queue)?;
+    }
+    *state.youtube_waiting_spotify_title.lock().await = None;
+    state.record_event("queue", "fila de pedidos zerada").await;
+
+    Ok(Json(effective_queue_view(&state).await))
+}
+
 async fn youtube_player_current(State(state): State<AppState>) -> Json<YoutubePlayerResponse> {
     Json(youtube_player_response(&state).await)
 }
@@ -330,6 +342,7 @@ async fn youtube_player_finish(
     {
         let mut queue = state.queue.write().await;
         queue.remove_by_id(input.id);
+        save_queue_state(&state, &queue)?;
     }
 
     let current_song = current_youtube_song(&state).await;
@@ -429,6 +442,9 @@ async fn skip_message(state: &AppState, requester: String) -> String {
     }
 
     let current_song = state.queue.write().await.skip();
+    if let Err(error) = save_current_queue_state(state).await {
+        state.record_event("error", error.message).await;
+    }
     let message = match current_song {
         Some(song) => format!("@{requester} skip feito. Agora: {}", song.title),
         None => format!("@{requester} skip feito. Fila vazia."),
@@ -527,6 +543,7 @@ async fn add_request_to_queue(
 ) -> Result<SongRequest, ApiError> {
     match request_flow::add_request(state, input).await {
         Ok(request) => {
+            save_current_queue_state(state).await?;
             if matches!(request.source, RequestSource::Youtube { .. }) {
                 arm_youtube_after_current_spotify(state).await;
             }
@@ -545,6 +562,20 @@ async fn effective_queue_view(state: &AppState) -> QueueView {
     }
 
     state.queue.read().await.view()
+}
+
+async fn save_current_queue_state(state: &AppState) -> Result<(), ApiError> {
+    let queue = state.queue.read().await;
+    save_queue_state(state, &queue)
+}
+
+fn save_queue_state(
+    state: &AppState,
+    queue: &crate::song_requests::SongQueue,
+) -> Result<(), ApiError> {
+    queue
+        .save(&state.config.paths.queue_file)
+        .map_err(ApiError::bad_request)
 }
 
 async fn merge_spotify_and_app_queue(state: &AppState, mut spotify_view: QueueView) -> QueueView {
@@ -615,6 +646,9 @@ fn spotify_song_request(id: u64, title: String) -> SongRequest {
 
 async fn skip(State(state): State<AppState>) -> Json<SkipResponse> {
     let current_song = state.queue.write().await.skip();
+    if let Err(error) = save_current_queue_state(&state).await {
+        state.record_event("error", error.message).await;
+    }
 
     Json(SkipResponse { current_song })
 }

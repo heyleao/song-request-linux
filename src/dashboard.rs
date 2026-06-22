@@ -238,9 +238,12 @@ pub async fn page() -> Html<&'static str> {
       <section>
         <div class="toolbar">
           <h2>Fila</h2>
+          <button class="secondary" id="keep-queue" type="button">Continuar fila</button>
+          <button class="danger" id="clear-queue" type="button">Zerar fila</button>
           <button class="secondary" id="refresh-queue" type="button">Atualizar</button>
         </div>
         <div class="queue" id="queue"></div>
+        <div class="message" id="queue-message"></div>
       </section>
     </div>
 
@@ -554,6 +557,19 @@ pub async fn page() -> Html<&'static str> {
     $('pause-command').addEventListener('click', () => playerCommand('!pause'));
     $('skip').addEventListener('click', () => playerCommand('!skip'));
     $('refresh-queue').addEventListener('click', refresh);
+    $('keep-queue').addEventListener('click', async () => {
+      setMessage('queue-message', 'Fila mantida. Pedidos salvos continuam ativos.');
+      await refresh();
+    });
+    $('clear-queue').addEventListener('click', async () => {
+      try {
+        await api('/api/queue', { method: 'DELETE' });
+        setMessage('queue-message', 'Fila zerada.');
+        await refresh();
+      } catch (error) {
+        setMessage('queue-message', error.message, true);
+      }
+    });
     $('refresh-events').addEventListener('click', refresh);
     $('setup-form').addEventListener('submit', async (event) => {
       event.preventDefault();
