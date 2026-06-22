@@ -5,6 +5,7 @@ mod dashboard;
 mod diagnostics;
 mod http;
 mod overlay;
+mod playback_coordinator;
 mod player;
 mod request_flow;
 mod song_requests;
@@ -52,6 +53,8 @@ async fn main() -> anyhow::Result<()> {
             .record_event("twitch", "bot Twitch sem configuracao ativa")
             .await;
     }
+
+    playback_coordinator::spawn(state.clone());
 
     let tls_config = tls::rustls_config(&state.config).await?;
     tokio::spawn(async move {

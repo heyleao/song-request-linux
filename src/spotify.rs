@@ -361,7 +361,9 @@ pub async fn current_playback(
 ) -> Result<Option<SpotifyPlayback>> {
     refresh_if_needed(config, token).await?;
 
-    let response = Client::new()
+    let response = Client::builder()
+        .timeout(Duration::from_secs(5))
+        .build()?
         .get(format!("{API_URL}/me/player"))
         .bearer_auth(&token.access_token)
         .send()
@@ -439,20 +441,32 @@ pub async fn set_volume(config: &AppConfig, token: &mut SpotifyToken, level: u8)
 
 pub async fn resume_playback(config: &AppConfig, token: &mut SpotifyToken) -> Result<()> {
     refresh_if_needed(config, token).await?;
-    ensure_available_device(token).await?;
-    player_empty_request(token, reqwest::Method::PUT, "me/player/play").await
+    let device = ensure_available_device(token).await?;
+    player_empty_request(
+        token,
+        reqwest::Method::PUT,
+        "me/player/play",
+        device.id.as_deref(),
+    )
+    .await
 }
 
 pub async fn pause_playback(config: &AppConfig, token: &mut SpotifyToken) -> Result<()> {
     refresh_if_needed(config, token).await?;
-    ensure_available_device(token).await?;
-    player_empty_request(token, reqwest::Method::PUT, "me/player/pause").await
+    let device = ensure_available_device(token).await?;
+    player_empty_request(
+        token,
+        reqwest::Method::PUT,
+        "me/player/pause",
+        device.id.as_deref(),
+    )
+    .await
 }
 
 pub async fn skip_next(config: &AppConfig, token: &mut SpotifyToken) -> Result<()> {
     refresh_if_needed(config, token).await?;
     ensure_available_device(token).await?;
-    player_empty_request(token, reqwest::Method::POST, "me/player/next").await
+    player_empty_request(token, reqwest::Method::POST, "me/player/next", None).await
 }
 
 pub fn load_token(config: &AppConfig) -> Result<Option<SpotifyToken>> {
@@ -852,14 +866,20 @@ async fn player_empty_request(
     token: &SpotifyToken,
     method: reqwest::Method,
     path: &str,
+    device_id: Option<&str>,
 ) -> Result<()> {
-    let response = Client::builder()
+    let mut request = Client::builder()
         .http1_only()
         .build()?
         .request(method, format!("{API_URL}/{path}"))
         .bearer_auth(&token.access_token)
         .header(CONTENT_LENGTH, "0")
-        .body(Vec::new())
+        .body(Vec::new());
+    if let Some(device_id) = device_id {
+        request = request.query(&[("device_id", device_id)]);
+    }
+
+    let response = request
         .send()
         .await
         .with_context(|| format!("failed Spotify player request {path}"))?;

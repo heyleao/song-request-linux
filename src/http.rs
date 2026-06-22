@@ -669,6 +669,19 @@ async fn pause_spotify_for_youtube(state: &AppState) {
                 .await;
         }
         Err(error) => {
+            if error.to_string().contains("Restriction violated") {
+                state
+                    .youtube_player_paused_spotify
+                    .store(true, Ordering::SeqCst);
+                state
+                    .record_event(
+                        "player",
+                        "Spotify recusou pausa por restricao; liberando pedido YouTube",
+                    )
+                    .await;
+                return;
+            }
+
             state
                 .record_event("error", format!("Nao consegui pausar Spotify: {error}"))
                 .await;
