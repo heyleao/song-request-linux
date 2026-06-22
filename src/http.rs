@@ -526,7 +526,12 @@ async fn add_request_to_queue(
     input: SongRequestInput,
 ) -> Result<SongRequest, ApiError> {
     match request_flow::add_request(state, input).await {
-        Ok(request) => Ok(request),
+        Ok(request) => {
+            if matches!(request.source, RequestSource::Youtube { .. }) {
+                arm_youtube_after_current_spotify(state).await;
+            }
+            Ok(request)
+        }
         Err(error) => {
             state.record_event("error", error.to_string()).await;
             Err(ApiError::bad_request(error))
@@ -671,6 +676,48 @@ async fn pause_spotify_for_youtube(state: &AppState) {
     }
 }
 
+async fn arm_youtube_after_current_spotify(state: &AppState) {
+    if state.youtube_player_paused_spotify.load(Ordering::SeqCst) {
+        return;
+    }
+
+    {
+        let waiting_title = state.youtube_waiting_spotify_title.lock().await;
+        if waiting_title.is_some() {
+            return;
+        }
+    }
+
+    let mut token_guard = state.spotify_token.write().await;
+    let Some(token) = token_guard.as_mut() else {
+        return;
+    };
+
+    match spotify::current_playback(&state.config, token).await {
+        Ok(Some(playback)) if playback.is_playing => {
+            let title = playback.title;
+            *state.youtube_waiting_spotify_title.lock().await = Some(title.clone());
+            state
+                .record_event(
+                    "player",
+                    format!("YouTube aguardando fim do Spotify atual: {title}"),
+                )
+                .await;
+        }
+        Ok(_) => {
+            *state.youtube_waiting_spotify_title.lock().await = None;
+        }
+        Err(error) => {
+            state
+                .record_event(
+                    "error",
+                    format!("Nao consegui marcar espera do Spotify: {error}"),
+                )
+                .await;
+        }
+    }
+}
+
 async fn spotify_blocks_youtube(state: &AppState) -> Option<String> {
     if state.youtube_player_paused_spotify.load(Ordering::SeqCst) {
         return None;
@@ -708,10 +755,7 @@ async fn spotify_blocks_youtube(state: &AppState) -> Option<String> {
             *waiting_title = None;
             None
         }
-        None => {
-            *waiting_title = Some(playback.title.clone());
-            Some(playback.title)
-        }
+        None => None,
     }
 }
 
