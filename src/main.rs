@@ -1,5 +1,6 @@
 mod commands;
 mod config;
+mod dashboard;
 mod diagnostics;
 mod http;
 mod overlay;

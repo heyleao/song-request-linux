@@ -44,6 +44,7 @@ cargo run
 
 Then open:
 
+- Dashboard: `http://127.0.0.1:7384/`
 - App status: `http://127.0.0.1:7384/api/status`
 - Diagnostics: `http://127.0.0.1:7384/api/diagnostics`
 - Queue: `http://127.0.0.1:7384/api/queue`

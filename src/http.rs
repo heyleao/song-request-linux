@@ -10,6 +10,7 @@ use tower_http::{cors::CorsLayer, trace::TraceLayer};
 
 use crate::{
     commands::{parse_chat_command, ChatCommand, ChatCommandInput},
+    dashboard,
     diagnostics::DiagnosticsResponse,
     overlay,
     song_requests::{QueueView, SongRequest, SongRequestInput},
@@ -18,6 +19,7 @@ use crate::{
 
 pub fn router(state: AppState) -> Router {
     Router::new()
+        .route("/", get(dashboard::page))
         .route("/health", get(health))
         .route("/api/status", get(status))
         .route("/api/diagnostics", get(diagnostics))
