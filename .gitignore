@@ -1,0 +1,21 @@
+target/
+.cargo/
+.secrets/
+.env
+.env.*
+!.env.example
+*.log
+*.tmp
+
+# Local app data must not be versioned.
+config/
+cache/
+state/
+memory/
+
+# Editor noise
+.idea/
+.vscode/
+*.swp
+*.swo
+.secrets/

@@ -1,0 +1,19 @@
+[package]
+name = "song-request-linux"
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-or-later"
+description = "Linux-first Twitch song request app for Spotify and YouTube."
+
+[dependencies]
+anyhow = "1"
+axum = "0.7"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal"] }
+tower-http = { version = "0.6", features = ["cors", "trace"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }
