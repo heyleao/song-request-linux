@@ -8,6 +8,7 @@ mod overlay;
 mod song_requests;
 mod spotify;
 mod state;
+mod tls;
 mod twitch_auth;
 mod twitch_chat;
 mod youtube;
@@ -24,19 +25,34 @@ use crate::{config::AppConfig, state::AppState};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    let _ = rustls::crypto::ring::default_provider().install_default();
+
     let config = AppConfig::from_env()?;
     config.ensure_dirs()?;
     let _log_guard = init_logging(&config);
 
     let addr = config.bind_addr;
+    let https_addr = config.https_bind_addr;
     let state = AppState::new(config);
     let app = http::router(state.clone());
+    let https_app = http::router(state.clone());
 
     if let Some(secrets) = config::TwitchBotSecrets::from_env() {
         twitch_chat::spawn_bot(state.clone(), secrets);
     } else {
         info!("twitch bot disabled; set TWITCH_BOT_USERNAME, TWITCH_BOT_OAUTH_TOKEN and TWITCH_CHANNEL to enable it");
     }
+
+    let tls_config = tls::rustls_config(&state.config).await?;
+    tokio::spawn(async move {
+        info!("listening on https://{https_addr}");
+        if let Err(error) = axum_server::bind_rustls(https_addr, tls_config)
+            .serve(https_app.into_make_service())
+            .await
+        {
+            tracing::error!(%error, "https server failed");
+        }
+    });
 
     let listener = tokio::net::TcpListener::bind(addr)
         .await

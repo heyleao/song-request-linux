@@ -97,11 +97,15 @@ with restricted file permissions. Secret Service/KWallet is planned.
 For Twitch bot OAuth, register this redirect URI in your Twitch app:
 
 ```text
-http://127.0.0.1:7384/auth/twitch/callback
+https://localhost:7443/auth/twitch/callback
 ```
 
 Use the connections page to generate the bot login link and open it in a private
 window when you need to avoid reusing the streamer's browser session.
+The app keeps the dashboard on HTTP and starts a local HTTPS callback listener
+for Twitch. The certificate is self-signed and stored under
+`~/.local/state/song-request-linux/tls/`, so your browser may ask you to confirm
+the local certificate the first time.
 
 Then open:
 

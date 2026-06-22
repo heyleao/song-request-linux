@@ -9,6 +9,7 @@ use crate::config::{save_ui_config, AppConfig, UiConfigInput, UiConfigView};
 const TWITCH_AUTH_URL: &str = "https://id.twitch.tv/oauth2/authorize";
 const TWITCH_VALIDATE_URL: &str = "https://id.twitch.tv/oauth2/validate";
 const TWITCH_SCOPES: &str = "chat:read chat:edit";
+const TWITCH_REDIRECT_URI: &str = "https://localhost:7443/auth/twitch/callback";
 
 #[derive(Debug, Serialize)]
 pub struct TwitchAuthStart {
@@ -31,7 +32,7 @@ pub fn start_auth(config: &AppConfig) -> Result<TwitchAuthStart> {
     url.query_pairs_mut()
         .append_pair("response_type", "token")
         .append_pair("client_id", &client_id)
-        .append_pair("redirect_uri", "http://127.0.0.1:7384/auth/twitch/callback")
+        .append_pair("redirect_uri", TWITCH_REDIRECT_URI)
         .append_pair("scope", TWITCH_SCOPES)
         .append_pair("state", &random_string(32))
         .append_pair("force_verify", "true");

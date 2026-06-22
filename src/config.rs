@@ -15,6 +15,7 @@ pub const APP_NAME: &str = "Song Request Linux";
 #[derive(Clone, Debug, Serialize)]
 pub struct AppConfig {
     pub bind_addr: SocketAddr,
+    pub https_bind_addr: SocketAddr,
     pub default_provider: MusicProvider,
     pub spotify: SpotifyConfig,
     pub twitch: TwitchBotConfig,
@@ -84,6 +85,7 @@ pub struct AppPaths {
     pub cache_dir: PathBuf,
     pub state_dir: PathBuf,
     pub log_dir: PathBuf,
+    pub tls_dir: PathBuf,
 }
 
 impl AppConfig {
@@ -95,9 +97,14 @@ impl AppConfig {
             .unwrap_or_else(|_| "127.0.0.1:7384".to_string())
             .parse()
             .context("invalid SONG_REQUEST_BIND value")?;
+        let https_bind_addr = env::var("SONG_REQUEST_HTTPS_BIND")
+            .unwrap_or_else(|_| "127.0.0.1:7443".to_string())
+            .parse()
+            .context("invalid SONG_REQUEST_HTTPS_BIND value")?;
 
         Ok(Self {
             bind_addr,
+            https_bind_addr,
             default_provider: MusicProvider::from_env().unwrap_or(user_config.default_provider),
             spotify: SpotifyConfig::from_sources(&user_config),
             twitch: TwitchBotConfig::from_sources(&user_config, &user_secrets),
@@ -231,12 +238,14 @@ impl AppPaths {
         let cache_dir = cache_base.join(APP_ID);
         let state_dir = state_base.join(APP_ID);
         let log_dir = state_dir.join("logs");
+        let tls_dir = state_dir.join("tls");
 
         Ok(Self {
             config_dir,
             cache_dir,
             state_dir,
             log_dir,
+            tls_dir,
         })
     }
 
@@ -246,6 +255,7 @@ impl AppPaths {
             &self.cache_dir,
             &self.state_dir,
             &self.log_dir,
+            &self.tls_dir,
         ] {
             std::fs::create_dir_all(path)
                 .with_context(|| format!("failed to create {}", path.display()))?;
@@ -322,5 +332,6 @@ mod tests {
         assert!(paths.cache_dir.ends_with(APP_ID));
         assert!(paths.state_dir.ends_with(APP_ID));
         assert!(paths.log_dir.ends_with(format!("{APP_ID}/logs")));
+        assert!(paths.tls_dir.ends_with(format!("{APP_ID}/tls")));
     }
 }

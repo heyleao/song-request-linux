@@ -163,6 +163,8 @@ pub async fn page() -> Html<&'static str> {
       <h2>Twitch Bot</h2>
       <div class="muted">
         Conecte a conta bot em uma janela privada para nao reaproveitar a sessao do streamer.
+        No console da Twitch, cadastre o redirect: https://localhost:7443/auth/twitch/callback.
+        Se o navegador avisar sobre certificado local, aceite para concluir o OAuth no seu proprio PC.
       </div>
       <div class="row">
         <button id="twitch-start">Gerar link do bot</button>
