@@ -21,6 +21,7 @@ and Twitch without Wine, WebView2, WPF or Windows APIs.
 
 - Security: [SECURITY.md](SECURITY.md)
 - UI/UX: [docs/UI_UX.md](docs/UI_UX.md)
+- Setup: [docs/SETUP.md](docs/SETUP.md)
 
 ## Current Status
 

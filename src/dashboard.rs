@@ -196,6 +196,7 @@ pub async fn page() -> Html<&'static str> {
       <button class="tab-button" data-tab="player-tab">Player</button>
       <button class="tab-button" data-tab="logs-tab">Logs</button>
       <button class="tab-button" data-tab="setup-tab">Setup</button>
+      <button class="tab-button" data-tab="guide-tab">Guia</button>
     </nav>
 
     <div class="tab active" id="overview">
@@ -240,7 +241,7 @@ pub async fn page() -> Html<&'static str> {
           <h2>Teste rapido</h2>
           <form id="command-form">
             <label>Requester <input id="requester" autocomplete="off" value="heyleao"></label>
-            <label>Comando <input id="command" autocomplete="off" value="!sr daft punk one more time"></label>
+            <label>Comando <input id="command" autocomplete="off" placeholder="!sr nome da musica ou link YouTube"></label>
             <div class="actions">
               <button type="submit">Enviar</button>
               <button class="secondary" id="song" type="button">!song</button>
@@ -294,6 +295,20 @@ pub async fn page() -> Html<&'static str> {
           <a class="button secondary" href="/overlay" target="_blank" rel="noreferrer">Overlay</a>
         </div>
         <div class="diagnostics" id="setup-diagnostics"></div>
+      </section>
+    </div>
+
+    <div class="tab" id="guide-tab">
+      <section>
+        <h2>Guia rapido</h2>
+        <div class="diagnostics">
+          <div class="diagnostic-row"><span>Spotify Client ID</span><code>developer.spotify.com/dashboard</code></div>
+          <div class="diagnostic-row"><span>Spotify Redirect URI</span><code>http://127.0.0.1:7384/auth/spotify/callback</code></div>
+          <div class="diagnostic-row"><span>Twitch Client ID</span><code>dev.twitch.tv/console/apps</code></div>
+          <div class="diagnostic-row"><span>Twitch Redirect URI</span><code>https://localhost:7443/auth/twitch/callback</code></div>
+          <div class="diagnostic-row"><span>YouTube API Key</span><code>console.cloud.google.com/apis/credentials</code></div>
+          <div class="diagnostic-row"><span>Guia completo</span><code>docs/SETUP.md</code></div>
+        </div>
       </section>
     </div>
   </main>
@@ -402,6 +417,7 @@ pub async fn page() -> Html<&'static str> {
     }
 
     async function sendCommand(message, isModerator = false) {
+      if (!message.trim()) throw new Error('Digite um comando.');
       return api('/api/chat-command', {
         method: 'POST',
         body: JSON.stringify({
