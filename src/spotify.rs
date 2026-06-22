@@ -85,6 +85,23 @@ struct PlaylistsResponse {
     items: Vec<SpotifyPlaylistItem>,
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+pub struct SpotifyDevicesResponse {
+    pub devices: Vec<SpotifyDevice>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct SpotifyDevice {
+    pub id: Option<String>,
+    pub is_active: bool,
+    pub is_private_session: bool,
+    pub is_restricted: bool,
+    pub name: String,
+    #[serde(rename = "type")]
+    pub device_type: String,
+    pub volume_percent: Option<u8>,
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct SpotifyPlaylistItem {
     pub id: String,
@@ -247,6 +264,14 @@ pub async fn list_playlists(
     }
 
     Ok(response.json::<PlaylistsResponse>().await?.items)
+}
+
+pub async fn list_devices(
+    config: &AppConfig,
+    token: &mut SpotifyToken,
+) -> Result<Vec<SpotifyDevice>> {
+    refresh_if_needed(config, token).await?;
+    Ok(fetch_devices(token).await?.devices)
 }
 
 pub fn load_token(config: &AppConfig) -> Result<Option<SpotifyToken>> {
@@ -463,10 +488,30 @@ fn normalize(value: &str) -> String {
 }
 
 async fn add_to_queue(token: &SpotifyToken, uri: &str) -> Result<()> {
+    match add_to_queue_once(token, uri).await {
+        Ok(()) => return Ok(()),
+        Err(error) if error.no_active_device => {
+            let device = transfer_to_available_device(token).await?;
+            info!(
+                device = %device.name,
+                device_type = %device.device_type,
+                "spotify playback transferred to available device"
+            );
+            add_to_queue_once(token, uri)
+                .await
+                .map_err(|error| error.error)?;
+            Ok(())
+        }
+        Err(error) => Err(error.error),
+    }
+}
+
+async fn add_to_queue_once(token: &SpotifyToken, uri: &str) -> Result<(), SpotifyQueueError> {
     debug!(uri = %uri, "spotify add-to-queue request");
     let response = Client::builder()
         .http1_only()
-        .build()?
+        .build()
+        .map_err(SpotifyQueueError::technical)?
         .post(format!("{API_URL}/me/player/queue"))
         .bearer_auth(&token.access_token)
         .query(&[("uri", uri)])
@@ -475,7 +520,9 @@ async fn add_to_queue(token: &SpotifyToken, uri: &str) -> Result<()> {
         .body(Vec::new())
         .send()
         .await
-        .context("failed to add Spotify track to queue")?;
+        .map_err(|error| {
+            SpotifyQueueError::technical(anyhow!("failed to add Spotify track to queue: {error}"))
+        })?;
 
     let status = response.status();
     if status.is_success() {
@@ -490,9 +537,95 @@ async fn add_to_queue(token: &SpotifyToken, uri: &str) -> Result<()> {
         uri = %uri,
         "spotify add-to-queue failed"
     );
-    bail!(
-        "spotify queue failed with {status}: {body}. Confirm Spotify Premium and an active device."
-    );
+    Err(SpotifyQueueError {
+        no_active_device: status.as_u16() == 404 && body.contains("NO_ACTIVE_DEVICE"),
+        error: anyhow!(
+            "Spotify nao encontrou um device ativo ({status}). Abra o Spotify no PC/celular e de play ou pause em uma musica. Resposta: {body}"
+        ),
+    })
+}
+
+async fn fetch_devices(token: &SpotifyToken) -> Result<SpotifyDevicesResponse> {
+    let response = Client::new()
+        .get(format!("{API_URL}/me/player/devices"))
+        .bearer_auth(&token.access_token)
+        .send()
+        .await
+        .context("failed to list Spotify devices")?;
+
+    let status = response.status();
+    if !status.is_success() {
+        let body = response.text().await.unwrap_or_default();
+        warn!(
+            status = %status,
+            response = %body,
+            "spotify devices request failed"
+        );
+        bail!("spotify devices failed with {status}: {body}");
+    }
+
+    Ok(response.json::<SpotifyDevicesResponse>().await?)
+}
+
+async fn transfer_to_available_device(token: &SpotifyToken) -> Result<SpotifyDevice> {
+    let devices = fetch_devices(token).await?.devices;
+    let device = devices
+        .iter()
+        .find(|device| device.is_active && !device.is_restricted && device.id.is_some())
+        .or_else(|| {
+            devices
+                .iter()
+                .find(|device| !device.is_restricted && device.id.is_some())
+        })
+        .cloned()
+        .ok_or_else(|| {
+            anyhow!(
+                "Nenhum device Spotify disponivel. Abra o Spotify no PC/celular e de play ou pause em uma musica antes de pedir pelo chat."
+            )
+        })?;
+
+    let device_id = device.id.as_ref().expect("device id checked");
+    let response = Client::new()
+        .put(format!("{API_URL}/me/player"))
+        .bearer_auth(&token.access_token)
+        .json(&serde_json::json!({
+            "device_ids": [device_id],
+            "play": false
+        }))
+        .send()
+        .await
+        .context("failed to transfer Spotify playback")?;
+
+    let status = response.status();
+    if !status.is_success() {
+        let body = response.text().await.unwrap_or_default();
+        warn!(
+            status = %status,
+            response = %body,
+            device = %device.name,
+            "spotify transfer playback failed"
+        );
+        bail!(
+            "Spotify abriu o device {}, mas falhou ao transferir playback ({status}): {body}",
+            device.name
+        );
+    }
+
+    Ok(device)
+}
+
+struct SpotifyQueueError {
+    no_active_device: bool,
+    error: anyhow::Error,
+}
+
+impl SpotifyQueueError {
+    fn technical(error: impl Into<anyhow::Error>) -> Self {
+        Self {
+            no_active_device: false,
+            error: error.into(),
+        }
+    }
 }
 
 fn token_from_response(response: TokenResponse) -> SpotifyToken {

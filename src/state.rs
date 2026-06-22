@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::sync::{atomic::AtomicBool, Arc};
 
 use serde::Serialize;
 use tokio::sync::RwLock;
@@ -15,6 +15,7 @@ pub struct AppState {
     pub queue: Arc<RwLock<SongQueue>>,
     pub spotify_auth: Arc<RwLock<Option<SpotifyAuthSession>>>,
     pub spotify_token: Arc<RwLock<Option<SpotifyToken>>>,
+    pub twitch_bot_running: Arc<AtomicBool>,
 }
 
 #[derive(Serialize)]
@@ -49,6 +50,7 @@ impl AppState {
             version: env!("CARGO_PKG_VERSION"),
             queue: Arc::new(RwLock::new(queue)),
             spotify_auth: Arc::new(RwLock::new(None)),
+            twitch_bot_running: Arc::new(AtomicBool::new(false)),
         }
     }
 }

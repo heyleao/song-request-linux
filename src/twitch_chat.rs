@@ -1,17 +1,28 @@
 use anyhow::{Context, Result};
 use futures_util::{SinkExt, StreamExt};
+use std::sync::atomic::Ordering;
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 use tracing::{error, info, warn};
 
 use crate::{
     commands::{parse_chat_command, ChatCommand, ChatCommandInput},
     config::TwitchBotSecrets,
+    request_flow,
     state::AppState,
 };
 
 const TWITCH_IRC_WS: &str = "wss://irc-ws.chat.twitch.tv:443";
 
 pub fn spawn_bot(state: AppState, secrets: TwitchBotSecrets) {
+    if state
+        .twitch_bot_running
+        .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+        .is_err()
+    {
+        info!("twitch bot already running");
+        return;
+    }
+
     tokio::spawn(async move {
         if let Err(error) = run_bot(state, secrets).await {
             error!(error = %error, "twitch bot stopped");
@@ -20,6 +31,13 @@ pub fn spawn_bot(state: AppState, secrets: TwitchBotSecrets) {
 }
 
 async fn run_bot(state: AppState, secrets: TwitchBotSecrets) -> Result<()> {
+    let running = state.twitch_bot_running.clone();
+    let result = run_bot_inner(&state, secrets).await;
+    running.store(false, Ordering::SeqCst);
+    result
+}
+
+async fn run_bot_inner(state: &AppState, secrets: TwitchBotSecrets) -> Result<()> {
     info!(
         channel = %secrets.channel,
         username = %secrets.username,
@@ -68,7 +86,7 @@ async fn run_bot(state: AppState, secrets: TwitchBotSecrets) -> Result<()> {
                 continue;
             };
 
-            let Some(reply) = handle_privmsg(&state, privmsg).await else {
+            let Some(reply) = handle_privmsg(state, privmsg).await else {
                 continue;
             };
 
@@ -91,7 +109,7 @@ async fn handle_privmsg(state: &AppState, privmsg: Privmsg) -> Option<String> {
     match command {
         ChatCommand::SongRequest(input) => {
             let requester = input.requester.clone();
-            match state.queue.write().await.add(input) {
+            match request_flow::add_request(state, input).await {
                 Ok(request) => Some(format!("@{requester} pedido adicionado: {}", request.title)),
                 Err(error) => Some(format!("@{requester} nao consegui adicionar: {error}")),
             }

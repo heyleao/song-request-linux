@@ -13,8 +13,8 @@ use crate::{
     commands::{parse_chat_command, ChatCommand, ChatCommandInput},
     config, connections, dashboard,
     diagnostics::DiagnosticsResponse,
-    overlay,
-    song_requests::{MusicProvider, QueueView, RequestSource, SongRequest, SongRequestInput},
+    overlay, request_flow,
+    song_requests::{QueueView, SongRequest, SongRequestInput},
     spotify,
     state::{AppState, HealthResponse, StatusResponse},
     twitch_auth,
@@ -34,6 +34,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/connections/spotify/start", post(spotify_start))
         .route("/api/connections/twitch/start", post(twitch_start))
         .route("/api/connections/twitch/token", post(twitch_token))
+        .route("/api/spotify/devices", get(spotify_devices))
         .route("/api/spotify/playlists", get(spotify_playlists))
         .route(
             "/api/spotify/fallback-playlist",
@@ -99,6 +100,20 @@ async fn spotify_playlists(
     Ok(Json(playlists))
 }
 
+async fn spotify_devices(
+    State(state): State<AppState>,
+) -> Result<Json<Vec<spotify::SpotifyDevice>>, ApiError> {
+    let mut token_guard = state.spotify_token.write().await;
+    let token = token_guard
+        .as_mut()
+        .ok_or_else(|| ApiError::bad_request(anyhow::anyhow!("Spotify is not connected")))?;
+    let devices = spotify::list_devices(&state.config, token)
+        .await
+        .map_err(ApiError::bad_request)?;
+
+    Ok(Json(devices))
+}
+
 async fn spotify_fallback_playlist(
     State(state): State<AppState>,
     Json(input): Json<spotify::SpotifyFallbackPlaylist>,
@@ -132,6 +147,9 @@ async fn twitch_token(
     let view = twitch_auth::save_bot_token(&state.config, input)
         .await
         .map_err(ApiError::bad_request)?;
+    if let Some(secrets) = config::TwitchBotSecrets::from_env() {
+        crate::twitch_chat::spawn_bot(state.clone(), secrets);
+    }
 
     Ok(Json(view))
 }
@@ -258,37 +276,9 @@ async fn add_request_to_queue(
     state: &AppState,
     input: SongRequestInput,
 ) -> Result<SongRequest, ApiError> {
-    if should_use_spotify(state, &input) {
-        let mut token_guard = state.spotify_token.write().await;
-        let token = token_guard
-            .as_mut()
-            .ok_or_else(|| ApiError::bad_request(anyhow::anyhow!("Spotify is not connected")))?;
-        let mut request = spotify::search_and_queue(&state.config, token, &input.query)
-            .await
-            .map_err(ApiError::bad_request)?;
-        request.requester = input.requester.trim().to_string();
-        request.query = input.query.trim().to_string();
-
-        return Ok(state.queue.write().await.add_resolved(request));
-    }
-
-    state
-        .queue
-        .write()
+    request_flow::add_request(&state, input)
         .await
-        .add(input)
         .map_err(ApiError::bad_request)
-}
-
-fn should_use_spotify(state: &AppState, input: &SongRequestInput) -> bool {
-    matches!(state.config.default_provider, MusicProvider::Spotify)
-        && !matches!(
-            crate::song_requests::RequestSource::from_query_public(
-                &input.query,
-                MusicProvider::Spotify
-            ),
-            RequestSource::Youtube { .. }
-        )
 }
 
 async fn skip(State(state): State<AppState>) -> Json<SkipResponse> {
