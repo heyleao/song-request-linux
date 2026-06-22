@@ -545,14 +545,12 @@ async fn effective_queue_view(state: &AppState) -> QueueView {
 async fn merge_spotify_and_app_queue(state: &AppState, mut spotify_view: QueueView) -> QueueView {
     let app_view = state.queue.read().await.view();
     let mut app_youtube = youtube_requests(app_view);
-    let spotify_upcoming = spotify_view.queue;
 
     if spotify_view.current_song.is_none() && !app_youtube.is_empty() {
         spotify_view.current_song = Some(app_youtube.remove(0));
     }
 
     spotify_view.queue = app_youtube;
-    spotify_view.queue.extend(spotify_upcoming);
     spotify_view.queue_length = spotify_view.queue.len();
     spotify_view
 }
@@ -953,7 +951,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn merged_queue_places_youtube_requests_before_spotify_upcoming() {
+    async fn merged_queue_hides_spotify_upcoming_when_requests_exist() {
         let config = AppConfig::from_env().expect("config");
         let state = AppState::new(config);
         state.queue.write().await.add_resolved(SongRequest {
@@ -999,9 +997,7 @@ mod tests {
             merged.queue.get(1).map(|song| song.title.as_str()),
             Some("Gangnam Style")
         );
-        assert_eq!(
-            merged.queue.get(2).map(|song| song.title.as_str()),
-            Some("The Emptiness Machine - Linkin Park")
-        );
+        assert_eq!(merged.queue.get(2).map(|song| song.title.as_str()), None);
+        assert_eq!(merged.queue_length, 2);
     }
 }
