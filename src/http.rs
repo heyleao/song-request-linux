@@ -14,7 +14,7 @@ use crate::{
     config, connections, dashboard,
     diagnostics::DiagnosticsResponse,
     overlay, request_flow,
-    song_requests::{QueueView, SongRequest, SongRequestInput},
+    song_requests::{MusicProvider, QueueView, RequestSource, SongRequest, SongRequestInput},
     spotify,
     state::{AppState, HealthResponse, StatusResponse},
     twitch_auth,
@@ -56,7 +56,7 @@ async fn health() -> Json<HealthResponse> {
 }
 
 async fn status(State(state): State<AppState>) -> Json<StatusResponse> {
-    let queue = state.queue.read().await.view();
+    let queue = effective_queue_view(&state).await;
 
     Json(StatusResponse::from_queue(&state, queue))
 }
@@ -191,7 +191,7 @@ async fn twitch_callback() -> Html<&'static str> {
         if (!response.ok) throw new Error(data.error || 'Falha ao salvar token');
         history.replaceState(null, '', '/auth/twitch/callback');
         title.textContent = 'Twitch Bot conectado';
-        message.textContent = `Bot conectado como ${data.twitch_bot_username}. Reinicie o app para conectar ao chat.`;
+        message.textContent = `Bot conectado como ${data.twitch_bot_username}. Voce ja pode testar no chat.`;
       } catch (error) {
         title.textContent = 'Falha ao conectar Twitch Bot';
         message.textContent = error.message;
@@ -231,7 +231,7 @@ async fn spotify_callback(
 }
 
 async fn queue(State(state): State<AppState>) -> Json<QueueView> {
-    Json(state.queue.read().await.view())
+    Json(effective_queue_view(&state).await)
 }
 
 async fn add_song_request(
@@ -254,13 +254,13 @@ async fn chat_command(
             ChatCommandResponse::SongRequest { request }
         }
         ChatCommand::CurrentSong => {
-            let queue = state.queue.read().await.view();
+            let queue = effective_queue_view(&state).await;
             ChatCommandResponse::CurrentSong {
                 current_song: queue.current_song,
             }
         }
         ChatCommand::Queue => {
-            let queue = state.queue.read().await.view();
+            let queue = effective_queue_view(&state).await;
             ChatCommandResponse::Queue { queue }
         }
         ChatCommand::Skip { requester } => {
@@ -270,12 +270,8 @@ async fn chat_command(
                 current_song,
             }
         }
-        ChatCommand::Volume {
-            requester,
-            level,
-            can_set,
-        } => ChatCommandResponse::Volume {
-            message: volume_message(&state, requester, level, can_set).await,
+        ChatCommand::Volume { requester, level } => ChatCommandResponse::Volume {
+            message: volume_message(&state, requester, level).await,
         },
         ChatCommand::Help => ChatCommandResponse::Help {
             commands: vec![
@@ -287,25 +283,26 @@ async fn chat_command(
                 "!skip".to_string(),
             ],
         },
+        ChatCommand::AccessDenied {
+            requester,
+            command,
+            required,
+        } => ChatCommandResponse::AccessDenied {
+            message: access_denied_message(requester, &command, required),
+        },
         ChatCommand::Ignored => ChatCommandResponse::Ignored,
     };
 
     Ok(Json(response))
 }
 
-async fn volume_message(
-    state: &AppState,
-    requester: String,
-    level: Option<u8>,
-    can_set: bool,
-) -> String {
+async fn volume_message(state: &AppState, requester: String, level: Option<u8>) -> String {
     let mut token_guard = state.spotify_token.write().await;
     let Some(token) = token_guard.as_mut() else {
         return "Spotify nao conectado.".to_string();
     };
 
     match level {
-        Some(_) if !can_set => format!("@{requester} apenas moderadores podem mudar volume."),
         Some(level) => match spotify::set_volume(&state.config, token, level).await {
             Ok(level) => format!("@{requester} volume ajustado para {level}%."),
             Err(error) => format!("@{requester} nao consegui mudar volume: {error}"),
@@ -318,6 +315,18 @@ async fn volume_message(
     }
 }
 
+fn access_denied_message(
+    requester: String,
+    command: &str,
+    required: crate::commands::CommandAccess,
+) -> String {
+    match required {
+        crate::commands::CommandAccess::Moderator => {
+            format!("@{requester} {command} precisa de moderador/broadcaster.")
+        }
+    }
+}
+
 async fn add_request_to_queue(
     state: &AppState,
     input: SongRequestInput,
@@ -325,6 +334,49 @@ async fn add_request_to_queue(
     request_flow::add_request(&state, input)
         .await
         .map_err(ApiError::bad_request)
+}
+
+async fn effective_queue_view(state: &AppState) -> QueueView {
+    if let Some(view) = spotify_queue_view(state).await {
+        return view;
+    }
+
+    state.queue.read().await.view()
+}
+
+async fn spotify_queue_view(state: &AppState) -> Option<QueueView> {
+    let mut token_guard = state.spotify_token.write().await;
+    let token = token_guard.as_mut()?;
+    let snapshot = spotify::queue_snapshot(&state.config, token).await.ok()?;
+
+    let current_song = snapshot
+        .currently_playing
+        .map(|title| spotify_song_request(0, title));
+    let queue = snapshot
+        .upcoming
+        .into_iter()
+        .enumerate()
+        .map(|(index, title)| spotify_song_request(index as u64 + 1, title))
+        .collect::<Vec<_>>();
+
+    Some(QueueView {
+        current_song,
+        queue_length: queue.len(),
+        queue,
+    })
+}
+
+fn spotify_song_request(id: u64, title: String) -> SongRequest {
+    SongRequest {
+        id,
+        requester: "spotify".to_string(),
+        query: title.clone(),
+        source: RequestSource::Search {
+            provider: MusicProvider::Spotify,
+        },
+        title,
+        artist: "Spotify".to_string(),
+    }
 }
 
 async fn skip(State(state): State<AppState>) -> Json<SkipResponse> {
@@ -358,6 +410,9 @@ enum ChatCommandResponse {
     },
     Help {
         commands: Vec<String>,
+    },
+    AccessDenied {
+        message: String,
     },
     Ignored,
 }

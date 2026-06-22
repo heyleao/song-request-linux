@@ -22,14 +22,25 @@ pub enum ChatCommand {
     Volume {
         requester: String,
         level: Option<u8>,
-        can_set: bool,
     },
     Help,
+    AccessDenied {
+        requester: String,
+        command: String,
+        required: CommandAccess,
+    },
     Ignored,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum CommandAccess {
+    Moderator,
 }
 
 pub fn parse_chat_command(input: ChatCommandInput) -> ChatCommand {
     let message = input.message.trim();
+    let requester = clean_field(&input.requester);
 
     if let Some(query) = command_payload(message, "!sr") {
         if query.is_empty() {
@@ -37,7 +48,7 @@ pub fn parse_chat_command(input: ChatCommandInput) -> ChatCommand {
         }
 
         return ChatCommand::SongRequest(SongRequestInput {
-            requester: clean_field(&input.requester),
+            requester,
             query: clean_field(query),
         });
     }
@@ -50,18 +61,28 @@ pub fn parse_chat_command(input: ChatCommandInput) -> ChatCommand {
         return ChatCommand::Queue;
     }
 
-    if message.eq_ignore_ascii_case("!skip") && input.is_moderator {
-        return ChatCommand::Skip {
-            requester: clean_field(&input.requester),
-        };
+    if message.eq_ignore_ascii_case("!skip") {
+        if !input.is_moderator {
+            return ChatCommand::AccessDenied {
+                requester,
+                command: "!skip".to_string(),
+                required: CommandAccess::Moderator,
+            };
+        }
+
+        return ChatCommand::Skip { requester };
     }
 
     if let Some(level) = volume_payload(message) {
-        return ChatCommand::Volume {
-            requester: clean_field(&input.requester),
-            level,
-            can_set: input.is_moderator,
-        };
+        if level.is_some() && !input.is_moderator {
+            return ChatCommand::AccessDenied {
+                requester,
+                command: "!vol <0-100>".to_string(),
+                required: CommandAccess::Moderator,
+            };
+        }
+
+        return ChatCommand::Volume { requester, level };
     }
 
     if matches_command(message, &["!commands", "!comandos", "!help"]) {
@@ -140,7 +161,14 @@ mod tests {
             is_moderator: false,
         });
 
-        assert_eq!(command, ChatCommand::Ignored);
+        assert_eq!(
+            command,
+            ChatCommand::AccessDenied {
+                requester: "viewer".to_string(),
+                command: "!skip".to_string(),
+                required: CommandAccess::Moderator
+            }
+        );
     }
 
     #[test]
@@ -172,7 +200,6 @@ mod tests {
             ChatCommand::Volume {
                 requester: "viewer".to_string(),
                 level: None,
-                can_set: false
             }
         );
         assert_eq!(
@@ -180,7 +207,24 @@ mod tests {
             ChatCommand::Volume {
                 requester: "mod".to_string(),
                 level: Some(35),
-                can_set: true
+            }
+        );
+    }
+
+    #[test]
+    fn volume_set_requires_moderator() {
+        let command = parse_chat_command(ChatCommandInput {
+            requester: "viewer".to_string(),
+            message: "!vol 35".to_string(),
+            is_moderator: false,
+        });
+
+        assert_eq!(
+            command,
+            ChatCommand::AccessDenied {
+                requester: "viewer".to_string(),
+                command: "!vol <0-100>".to_string(),
+                required: CommandAccess::Moderator
             }
         );
     }

@@ -261,7 +261,7 @@ pub async fn page() -> Html<&'static str> {
         config.twitch_channel ? `#${config.twitch_channel}` : 'Pendente'
       );
       twitchMessage.textContent = config.twitch_bot_token_configured
-        ? 'Token do bot salvo. Reinicie o app para conectar ao chat; depois teste no chat com !sr nome da musica.'
+        ? 'Token do bot salvo. Se o app estiver aberto, o bot conecta automaticamente; teste no chat com !sr nome da musica.'
         : 'Bot ainda nao conectado.';
       statusEl.textContent = status.spotify.token_configured
         ? 'Spotify conectado. Se aparecer NO_ACTIVE_DEVICE, carregue os devices ou abra o Spotify e de play/pause.'

@@ -123,14 +123,17 @@ async fn handle_privmsg(state: &AppState, privmsg: Privmsg) -> Option<String> {
                 None => Some(format!("@{requester} skip feito. Fila vazia.")),
             }
         }
-        ChatCommand::Volume {
-            requester,
-            level,
-            can_set,
-        } => Some(volume_reply(state, requester, level, can_set).await),
+        ChatCommand::Volume { requester, level } => {
+            Some(volume_reply(state, requester, level).await)
+        }
         ChatCommand::Help => {
             Some("Comandos: !sr nome/link, !song, !fila, !vol, !vol 30 mod, !skip mod.".to_string())
         }
+        ChatCommand::AccessDenied {
+            requester,
+            command,
+            required,
+        } => Some(access_denied_reply(requester, &command, required)),
         ChatCommand::Ignored => None,
     }
 }
@@ -178,19 +181,13 @@ async fn queue_reply(state: &AppState) -> String {
     format!("Proximas: {}", upcoming.join(" | "))
 }
 
-async fn volume_reply(
-    state: &AppState,
-    requester: String,
-    level: Option<u8>,
-    can_set: bool,
-) -> String {
+async fn volume_reply(state: &AppState, requester: String, level: Option<u8>) -> String {
     let mut token_guard = state.spotify_token.write().await;
     let Some(token) = token_guard.as_mut() else {
         return "Spotify nao conectado.".to_string();
     };
 
     match level {
-        Some(_) if !can_set => format!("@{requester} apenas moderadores podem mudar volume."),
         Some(level) => match crate::spotify::set_volume(&state.config, token, level).await {
             Ok(level) => format!("@{requester} volume ajustado para {level}%."),
             Err(error) => format!("@{requester} nao consegui mudar volume: {error}"),
@@ -200,6 +197,18 @@ async fn volume_reply(
             Ok(None) => "Nao encontrei um device Spotify ativo para ler o volume.".to_string(),
             Err(error) => format!("Nao consegui ler o volume: {error}"),
         },
+    }
+}
+
+fn access_denied_reply(
+    requester: String,
+    command: &str,
+    required: crate::commands::CommandAccess,
+) -> String {
+    match required {
+        crate::commands::CommandAccess::Moderator => {
+            format!("@{requester} {command} precisa de moderador/broadcaster.")
+        }
     }
 }
 

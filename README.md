@@ -66,6 +66,15 @@ The Twitch bot currently supports:
 - `!comandos`, `!commands` or `!help`
 - `!skip` for moderators/broadcaster badges
 
+Command access is intentionally simple:
+
+- Everyone: `!sr`, `!song`, `!fila`, `!queue`, `!q`, `!vol`, `!comandos`.
+- Moderators/broadcaster: `!skip`, `!vol <0-100>`.
+
+When Spotify is connected, queue and now-playing status come from Spotify first.
+The app does not restore old runtime queue state after restart, so played songs
+do not come back as pending app requests.
+
 Run with Spotify queue control:
 
 ```bash

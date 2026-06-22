@@ -33,6 +33,7 @@
 - [x] Secure Twitch IRC websocket connection.
 - [x] Chat connection.
 - [x] `!sr`, `!song`, `!fila`, `!vol`, `!skip`.
+- [x] Simple command access levels: everyone vs moderator/broadcaster.
 - [ ] Cooldowns and permissions.
 
 ## Milestone 3: Spotify
