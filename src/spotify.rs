@@ -277,6 +277,7 @@ async fn add_to_queue(token: &SpotifyToken, uri: &str) -> Result<()> {
         .post(format!("{API_URL}/me/player/queue"))
         .bearer_auth(&token.access_token)
         .query(&[("uri", uri)])
+        .body(String::new())
         .send()
         .await
         .context("failed to add Spotify track to queue")?;
