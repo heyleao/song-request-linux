@@ -12,8 +12,7 @@ config/
 cache/
 state/
 memory/
-docs/
-!docs/
+docs/*
 !docs/SETUP.md
 
 # Editor noise
