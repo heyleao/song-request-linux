@@ -545,12 +545,14 @@ async fn effective_queue_view(state: &AppState) -> QueueView {
 async fn merge_spotify_and_app_queue(state: &AppState, mut spotify_view: QueueView) -> QueueView {
     let app_view = state.queue.read().await.view();
     let mut app_youtube = youtube_requests(app_view);
+    let spotify_upcoming = spotify_view.queue;
 
     if spotify_view.current_song.is_none() && !app_youtube.is_empty() {
         spotify_view.current_song = Some(app_youtube.remove(0));
     }
 
-    spotify_view.queue.extend(app_youtube);
+    spotify_view.queue = app_youtube;
+    spotify_view.queue.extend(spotify_upcoming);
     spotify_view.queue_length = spotify_view.queue.len();
     spotify_view
 }
@@ -948,5 +950,44 @@ mod tests {
             .expect("response");
 
         assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn merged_queue_places_youtube_requests_before_spotify_upcoming() {
+        let config = AppConfig::from_env().expect("config");
+        let state = AppState::new(config);
+        state.queue.write().await.add_resolved(SongRequest {
+            id: 0,
+            requester: "viewer".to_string(),
+            query: "https://youtu.be/dQw4w9WgXcQ".to_string(),
+            source: RequestSource::Youtube {
+                video_id: "dQw4w9WgXcQ".to_string(),
+            },
+            title: "Never Gonna Give You Up".to_string(),
+            artist: "Rick Astley".to_string(),
+        });
+
+        let spotify_view = QueueView {
+            current_song: Some(spotify_song_request(
+                0,
+                "One More Time - Daft Punk".to_string(),
+            )),
+            queue: vec![spotify_song_request(
+                1,
+                "The Emptiness Machine - Linkin Park".to_string(),
+            )],
+            queue_length: 1,
+        };
+
+        let merged = merge_spotify_and_app_queue(&state, spotify_view).await;
+
+        assert_eq!(
+            merged.queue.first().map(|song| song.title.as_str()),
+            Some("Never Gonna Give You Up")
+        );
+        assert_eq!(
+            merged.queue.get(1).map(|song| song.title.as_str()),
+            Some("The Emptiness Machine - Linkin Park")
+        );
     }
 }
