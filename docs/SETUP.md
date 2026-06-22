@@ -1,81 +1,79 @@
-# Setup Guide
+# Guia de Configuracao
 
-This app runs locally at `http://127.0.0.1:7384/`.
+O app roda localmente em:
+
+```text
+http://127.0.0.1:7384/
+```
 
 ## 1. Spotify
 
-Create an app at:
+Abra o [Spotify Developer Dashboard](https://developer.spotify.com/dashboard).
 
-```text
-https://developer.spotify.com/dashboard
-```
+Crie um app e copie o **Client ID**. Ele identifica o app local para o Spotify.
 
-Use this redirect URI:
+No app Spotify, cadastre este redirect:
 
 ```text
 http://127.0.0.1:7384/auth/spotify/callback
 ```
 
-Copy the Spotify Client ID into `Connections -> Spotify Client ID`, save, then
-use `Gerar link de login`.
+Depois, no Song Request Linux:
 
-Required Spotify behavior:
+1. Abra `Connections`.
+2. Cole o `Spotify Client ID`.
+3. Salve.
+4. Clique em `Gerar link de login`.
 
-- The account must be Premium.
-- A Spotify device must be open/available.
-- If no active device exists, open Spotify and press play/pause once.
+Requisitos:
+
+- A conta Spotify precisa ser Premium.
+- O Spotify precisa estar aberto em algum device.
+- Se aparecer `NO_ACTIVE_DEVICE`, abra o Spotify e aperte play/pause uma vez.
 
 ## 2. Twitch Bot
 
-Create an app at:
+Abra o [Twitch Developer Console](https://dev.twitch.tv/console/apps).
 
-```text
-https://dev.twitch.tv/console/apps
-```
+Crie um app do tipo **Public**. Ele gera o **Client ID** usado para autorizar a
+conta bot.
 
-Use this redirect URI:
+Cadastre este redirect:
 
 ```text
 https://localhost:7443/auth/twitch/callback
 ```
 
-Client type:
+No Song Request Linux, preencha:
 
-```text
-Public
-```
+- `Twitch Client ID`
+- `Twitch Bot Username`
+- `Twitch Channel`
 
-In `Connections`, fill:
-
-- Twitch Client ID
-- Twitch Bot Username
-- Twitch Channel
-
-Then use `Conectar bot` in a private browser window logged into the bot account.
+Depois clique em `Conectar bot` em uma janela privada logada na conta bot.
 
 ## 3. YouTube
 
-Create or reuse a Google Cloud project, enable YouTube Data API v3, then create
-an API key at:
+Abra [Google Cloud Credentials](https://console.cloud.google.com/apis/credentials).
 
-```text
-https://console.cloud.google.com/apis/credentials
-```
+No Google Cloud:
 
-In `Connections`, fill:
+1. Crie ou selecione um projeto.
+2. Ative a **YouTube Data API v3**.
+3. Crie uma **API Key**.
 
-- YouTube API Key
-- Maximo YouTube, default `360` seconds
-- Accept non-music videos only if you want to allow manual exceptions
+No Song Request Linux, preencha:
 
-YouTube links are validated with video metadata:
+- `YouTube API Key`
+- `Maximo YouTube`, padrao `360` segundos
+- `Aceitar YouTube nao marcado como musica`, se quiser liberar excecoes
 
-- duration must be under the configured limit;
-- category must be Music unless non-music is allowed.
+O app usa metadados do YouTube para bloquear videos longos e, por padrao,
+bloquear videos que nao estejam na categoria Musica.
 
-## 4. Commands
+## 4. Comandos
 
-Everyone:
+Todos podem usar:
 
 ```text
 !sr nome da musica
@@ -88,7 +86,7 @@ Everyone:
 !comandos
 ```
 
-Moderator/broadcaster:
+Moderador/broadcaster:
 
 ```text
 !skip
@@ -99,18 +97,18 @@ Moderator/broadcaster:
 !next
 ```
 
-## 5. Start And Stop
+## 5. Abrir E Fechar
 
-Start:
+Abrir:
 
 ```bash
 ./scripts/song-request-linux-open
 ```
 
-Stop:
+Fechar:
 
 ```bash
 ./scripts/song-request-linux-stop
 ```
 
-Or use the dashboard `Encerrar` button.
+Tambem pode fechar pelo botao `Encerrar` no dashboard.

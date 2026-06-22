@@ -167,6 +167,8 @@ pub async fn page() -> Html<&'static str> {
       color: var(--muted);
       font-size: 13px;
     }
+    .diagnostic-row a { color: var(--action); font-weight: 700; text-decoration: none; }
+    .diagnostic-row a:hover { text-decoration: underline; }
     code { color: var(--ok); overflow-wrap: anywhere; }
     .message { min-height: 20px; color: var(--muted); font-size: 13px; margin-top: 10px; }
     .message.error { color: var(--bad); }
@@ -302,12 +304,12 @@ pub async fn page() -> Html<&'static str> {
       <section>
         <h2>Guia rapido</h2>
         <div class="diagnostics">
-          <div class="diagnostic-row"><span>Spotify Client ID</span><code>developer.spotify.com/dashboard</code></div>
-          <div class="diagnostic-row"><span>Spotify Redirect URI</span><code>http://127.0.0.1:7384/auth/spotify/callback</code></div>
-          <div class="diagnostic-row"><span>Twitch Client ID</span><code>dev.twitch.tv/console/apps</code></div>
-          <div class="diagnostic-row"><span>Twitch Redirect URI</span><code>https://localhost:7443/auth/twitch/callback</code></div>
-          <div class="diagnostic-row"><span>YouTube API Key</span><code>console.cloud.google.com/apis/credentials</code></div>
-          <div class="diagnostic-row"><span>Guia completo</span><code>docs/SETUP.md</code></div>
+          <div class="diagnostic-row"><span>Spotify Client ID: crie um app e copie o Client ID.</span><a href="https://developer.spotify.com/dashboard" target="_blank" rel="noreferrer">Spotify Dashboard</a></div>
+          <div class="diagnostic-row"><span>Spotify Redirect URI: cole no app Spotify.</span><code>http://127.0.0.1:7384/auth/spotify/callback</code></div>
+          <div class="diagnostic-row"><span>Twitch Client ID: crie um app publico para o bot.</span><a href="https://dev.twitch.tv/console/apps" target="_blank" rel="noreferrer">Twitch Console</a></div>
+          <div class="diagnostic-row"><span>Twitch Redirect URI: cole no app Twitch.</span><code>https://localhost:7443/auth/twitch/callback</code></div>
+          <div class="diagnostic-row"><span>YouTube API Key: ative YouTube Data API v3 e crie uma chave.</span><a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noreferrer">Google Cloud Credentials</a></div>
+          <div class="diagnostic-row"><span>Guia completo no repositorio.</span><a href="https://github.com/heyleao/song-request-linux/blob/main/docs/SETUP.md" target="_blank" rel="noreferrer">docs/SETUP.md</a></div>
         </div>
       </section>
     </div>
