@@ -62,6 +62,22 @@ The Twitch bot currently supports:
 - `!song`
 - `!skip` for moderators/broadcaster badges
 
+Run with Spotify queue control:
+
+```bash
+export SONG_REQUEST_PROVIDER="spotify"
+export SPOTIFY_CLIENT_ID="your_spotify_app_client_id"
+cargo run
+```
+
+Open `http://127.0.0.1:7384/connections`, generate the Spotify login link and
+open it in a private window if you need to avoid the wrong browser account.
+Register this redirect URI in your Spotify developer app:
+
+```text
+http://127.0.0.1:7384/auth/spotify/callback
+```
+
 Then open:
 
 - Dashboard: `http://127.0.0.1:7384/`

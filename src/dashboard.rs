@@ -21,7 +21,7 @@ pub async fn page() -> Html<&'static str> {
       --ok: #2bd180;
       --warn: #f0b84b;
       --bad: #ff6b6b;
-      --action: #62a8ff;
+          --action: #62a8ff;
       font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
     * { box-sizing: border-box; }
@@ -196,6 +196,7 @@ pub async fn page() -> Html<&'static str> {
         <div class="toolbar">
           <h2>Setup</h2>
           <a class="button secondary" href="/api/diagnostics" target="_blank" rel="noreferrer">Diagnostico</a>
+          <a class="button secondary" href="/connections" target="_blank" rel="noreferrer">Conexoes</a>
           <a class="button secondary" href="/overlay" target="_blank" rel="noreferrer">Overlay</a>
         </div>
         <div class="diagnostics" id="setup-diagnostics"></div>
@@ -281,10 +282,11 @@ pub async fn page() -> Html<&'static str> {
 
     async function refresh() {
       try {
-        const [status, queue, diagnostics] = await Promise.all([
+        const [status, queue, diagnostics, connections] = await Promise.all([
           api('/api/status'),
           api('/api/queue'),
-          api('/api/diagnostics')
+          api('/api/diagnostics'),
+          api('/api/connections/status')
         ]);
 
         $('provider').textContent = status.provider;
@@ -297,6 +299,7 @@ pub async fn page() -> Html<&'static str> {
 
         $('setup-diagnostics').innerHTML = [
           ['Bot Twitch', twitchReady ? 'configurado' : 'nao configurado'],
+          ['Spotify', connections.spotify.token_configured ? 'conectado' : connections.spotify.client_id_configured ? 'login pendente' : 'client id pendente'],
           ['Overlay', 'http://127.0.0.1:7384/overlay'],
           ['Logs', diagnostics.storage.log_dir.exists ? 'ok' : 'pendente']
         ].map(([label, value]) => `

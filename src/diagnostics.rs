@@ -64,7 +64,10 @@ impl DiagnosticsResponse {
                         && config.twitch.token_configured,
                     authenticated: false,
                 },
-                spotify: IntegrationStatus::empty(),
+                spotify: IntegrationStatus {
+                    configured: config.spotify.client_id.is_some(),
+                    authenticated: false,
+                },
                 youtube: IntegrationStatus::empty(),
             },
         }

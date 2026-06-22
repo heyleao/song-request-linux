@@ -16,8 +16,15 @@ pub const APP_NAME: &str = "Song Request Linux";
 pub struct AppConfig {
     pub bind_addr: SocketAddr,
     pub default_provider: MusicProvider,
+    pub spotify: SpotifyConfig,
     pub twitch: TwitchBotConfig,
     pub paths: AppPaths,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct SpotifyConfig {
+    pub client_id: Option<String>,
+    pub redirect_uri: String,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -52,6 +59,7 @@ impl AppConfig {
         Ok(Self {
             bind_addr,
             default_provider: MusicProvider::from_env(),
+            spotify: SpotifyConfig::from_env(),
             twitch: TwitchBotConfig::from_env(),
             paths: AppPaths::from_env()?,
         })
@@ -59,6 +67,16 @@ impl AppConfig {
 
     pub fn ensure_dirs(&self) -> Result<()> {
         self.paths.ensure_dirs()
+    }
+}
+
+impl SpotifyConfig {
+    fn from_env() -> Self {
+        Self {
+            client_id: clean_optional_env("SPOTIFY_CLIENT_ID"),
+            redirect_uri: clean_optional_env("SPOTIFY_REDIRECT_URI")
+                .unwrap_or_else(|| "http://127.0.0.1:7384/auth/spotify/callback".to_string()),
+        }
     }
 }
 

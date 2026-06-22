@@ -1,10 +1,12 @@
 mod commands;
 mod config;
+mod connections;
 mod dashboard;
 mod diagnostics;
 mod http;
 mod overlay;
 mod song_requests;
+mod spotify;
 mod state;
 mod twitch_chat;
 mod youtube;

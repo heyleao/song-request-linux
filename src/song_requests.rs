@@ -25,6 +25,7 @@ pub struct SongRequest {
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum RequestSource {
     Search { provider: MusicProvider },
+    Spotify { uri: String },
     Youtube { video_id: String },
 }
 
@@ -91,6 +92,18 @@ impl SongQueue {
         Ok(request)
     }
 
+    pub fn add_resolved(&mut self, mut request: SongRequest) -> SongRequest {
+        request.id = self.allocate_id();
+
+        if self.current_song.is_none() {
+            self.current_song = Some(request.clone());
+        } else {
+            self.queue.push_back(request.clone());
+        }
+
+        request
+    }
+
     pub fn skip(&mut self) -> Option<SongRequest> {
         self.current_song = self.queue.pop_front();
         self.current_song.clone()
@@ -121,6 +134,10 @@ impl MusicProvider {
 }
 
 impl RequestSource {
+    pub fn from_query_public(query: &str, default_provider: MusicProvider) -> Self {
+        Self::from_query(query, default_provider)
+    }
+
     fn from_query(query: &str, default_provider: MusicProvider) -> Self {
         if let Some(video) = YoutubeVideoRef::parse(query) {
             return Self::Youtube {
@@ -154,6 +171,7 @@ fn validate_input(input: &SongRequestInput) -> Result<()> {
 fn title_from_source(source: &RequestSource, query: &str) -> String {
     match source {
         RequestSource::Youtube { video_id } => format!("YouTube video {video_id}"),
+        RequestSource::Spotify { .. } => query.trim().to_string(),
         RequestSource::Search { .. } => query.trim().to_string(),
     }
 }
@@ -161,6 +179,7 @@ fn title_from_source(source: &RequestSource, query: &str) -> String {
 fn artist_from_source(source: &RequestSource) -> String {
     match source {
         RequestSource::Youtube { .. } => "YouTube".to_string(),
+        RequestSource::Spotify { .. } => "Spotify".to_string(),
         RequestSource::Search { provider } => match provider {
             MusicProvider::Spotify => "Spotify search".to_string(),
             MusicProvider::Youtube => "YouTube search".to_string(),

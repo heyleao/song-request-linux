@@ -5,6 +5,7 @@ use tokio::sync::RwLock;
 
 use crate::config::{AppConfig, APP_NAME};
 use crate::song_requests::{QueueView, SongQueue};
+use crate::spotify::{load_token, SpotifyAuthSession, SpotifyToken};
 
 #[derive(Clone)]
 pub struct AppState {
@@ -12,6 +13,8 @@ pub struct AppState {
     pub app_name: &'static str,
     pub version: &'static str,
     pub queue: Arc<RwLock<SongQueue>>,
+    pub spotify_auth: Arc<RwLock<Option<SpotifyAuthSession>>>,
+    pub spotify_token: Arc<RwLock<Option<SpotifyToken>>>,
 }
 
 #[derive(Serialize)]
@@ -40,10 +43,12 @@ impl AppState {
         let queue = SongQueue::new(config.default_provider);
 
         Self {
+            spotify_token: Arc::new(RwLock::new(load_token(&config).ok().flatten())),
             config,
             app_name: APP_NAME,
             version: env!("CARGO_PKG_VERSION"),
             queue: Arc::new(RwLock::new(queue)),
+            spotify_auth: Arc::new(RwLock::new(None)),
         }
     }
 }
