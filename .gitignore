@@ -12,6 +12,7 @@ config/
 cache/
 state/
 memory/
+docs/
 
 # Editor noise
 .idea/

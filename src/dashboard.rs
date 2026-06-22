@@ -347,7 +347,7 @@ pub async fn page() -> Html<&'static str> {
           <div class="diagnostic-row"><span>Twitch Client ID: crie um app publico para o bot.</span><a href="https://dev.twitch.tv/console/apps" target="_blank" rel="noreferrer">Twitch Console</a></div>
           <div class="diagnostic-row"><span>Twitch Redirect URI: cole no app Twitch.</span><code>https://localhost:7443/auth/twitch/callback</code></div>
           <div class="diagnostic-row"><span>YouTube API Key: ative YouTube Data API v3 e crie uma chave.</span><a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noreferrer">Google Cloud Credentials</a></div>
-          <div class="diagnostic-row"><span>Guia completo no repositorio.</span><a href="https://github.com/heyleao/song-request-linux/blob/main/docs/SETUP.md" target="_blank" rel="noreferrer">docs/SETUP.md</a></div>
+          <div class="diagnostic-row"><span>Guia privado local: mantenha detalhes de estrategia fora do GitHub publico.</span><code>docs/SETUP.md</code></div>
         </div>
       </section>
     </div>
