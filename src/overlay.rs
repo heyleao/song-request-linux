@@ -24,6 +24,7 @@ pub async fn page() -> Html<&'static str> {
       gap: 4px;
       padding: 16px 18px;
       min-width: 320px;
+      max-width: min(760px, calc(100vw - 36px));
     }
     .label {
       font-size: 14px;
@@ -35,10 +36,15 @@ pub async fn page() -> Html<&'static str> {
       font-size: 28px;
       font-weight: 700;
       line-height: 1.1;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
     .meta {
       font-size: 18px;
       opacity: 0.9;
+      min-height: 22px;
     }
   </style>
 </head>
@@ -49,14 +55,60 @@ pub async fn page() -> Html<&'static str> {
     <div class="meta" id="meta">Song Request Linux</div>
   </main>
   <script>
+    const GENERIC_ARTISTS = new Set(['spotify', 'youtube', 'spotify search', 'youtube search']);
+    const NOISE_PATTERNS = [
+      /\[[^\]]*\]/g,
+      /\([^)]*\b(?:official|video|audio|lyrics?|lyric video|visualizer|remaster(?:ed)?|hd|4k|live|clip|music video|mv)\b[^)]*\)/gi,
+      /\([^)]*\)/g,
+      /\b(?:official\s*)?(?:music\s*)?video\b/gi,
+      /\bofficial audio\b/gi,
+      /\blyrics?\b/gi,
+      /\blyric video\b/gi,
+      /\bvisualizer\b/gi,
+      /\bremaster(?:ed)?\b/gi,
+      /\b4k\b/gi,
+      /\bhd\b/gi
+    ];
+
+    function cleanPart(value) {
+      let text = String(value || '').normalize('NFKC');
+      for (const pattern of NOISE_PATTERNS) text = text.replace(pattern, ' ');
+      return text
+        .replace(/\s+(?:-|–|—|\|)\s*$/g, ' ')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+    }
+
+    function splitTitle(value) {
+      const parts = String(value || '')
+        .split(/\s+(?:-|–|—|\|)\s+/)
+        .map(cleanPart)
+        .filter(Boolean);
+      return parts.length >= 2 ? [parts[0], parts.slice(1).join(' - ')] : null;
+    }
+
+    function compactTrack(song) {
+      const title = cleanPart(song?.title);
+      const artist = cleanPart(song?.artist);
+      const parsed = splitTitle(title);
+      const artistIsGeneric = GENERIC_ARTISTS.has(artist.toLowerCase());
+
+      let display = parsed && (artistIsGeneric || parsed[0].length <= 42)
+        ? `${parsed[0]} - ${parsed[1]}`
+        : artist && !artistIsGeneric
+          ? `${artist} - ${title}`
+          : title;
+
+      display = cleanPart(display);
+      return display.length > 88 ? `${display.slice(0, 85).trim()}...` : display;
+    }
+
     async function refresh() {
       const response = await fetch('/api/status', { cache: 'no-store' });
       const data = await response.json();
       const song = data.current_song;
-      document.getElementById('song').textContent = song ? song.title : 'Aguardando pedido';
-      document.getElementById('meta').textContent = song
-        ? `${song.artist} - pedido por ${song.requester}`
-        : `${data.app} v${data.version}`;
+      document.getElementById('song').textContent = song ? compactTrack(song) : 'Aguardando pedido';
+      document.getElementById('meta').textContent = song ? '' : `${data.app} v${data.version}`;
     }
     refresh();
     setInterval(refresh, 3000);
