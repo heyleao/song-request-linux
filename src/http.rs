@@ -7,7 +7,8 @@ use axum::{
     Json, Router,
 };
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, sync::atomic::Ordering};
+use std::{collections::HashMap, sync::atomic::Ordering, time::Duration};
+use tokio::{process::Command, time::timeout};
 use tower_http::trace::TraceLayer;
 
 use crate::{
@@ -50,6 +51,7 @@ pub fn router(state: AppState) -> Router {
         .route("/overlay", get(overlay::page))
         .route("/player", get(player::page))
         .route("/api/player/youtube", get(youtube_player_current))
+        .route("/api/player/youtube/audio", post(youtube_player_audio))
         .route("/api/player/youtube/start", post(youtube_player_start))
         .route("/api/player/youtube/finish", post(youtube_player_finish))
         .fallback(not_found)
@@ -285,6 +287,26 @@ async fn youtube_player_start(
     }
 
     Ok(Json(YoutubePlayerResponse { current_song }))
+}
+
+async fn youtube_player_audio(
+    State(state): State<AppState>,
+    Json(input): Json<YoutubePlayerSyncInput>,
+) -> Result<Json<YoutubeAudioResponse>, ApiError> {
+    let current_song = current_youtube_song(&state)
+        .await
+        .ok_or_else(|| ApiError::bad_request(anyhow!("nenhum video YouTube ativo")))?;
+    if current_song.id != input.id {
+        return Err(ApiError::bad_request(anyhow!(
+            "video YouTube atual mudou; atualize o player"
+        )));
+    }
+
+    let audio_url = resolve_youtube_audio_url(&current_song.video_id)
+        .await
+        .map_err(ApiError::bad_request)?;
+
+    Ok(Json(YoutubeAudioResponse { audio_url }))
 }
 
 async fn youtube_player_finish(
@@ -651,6 +673,41 @@ async fn resume_spotify_after_youtube(state: &AppState) {
     }
 }
 
+async fn resolve_youtube_audio_url(video_id: &str) -> anyhow::Result<String> {
+    let output = timeout(
+        Duration::from_secs(20),
+        Command::new("yt-dlp")
+            .args([
+                "--no-playlist",
+                "--no-warnings",
+                "-f",
+                "bestaudio[ext=m4a]/bestaudio/best",
+                "-g",
+                &format!("https://www.youtube.com/watch?v={video_id}"),
+            ])
+            .output(),
+    )
+    .await
+    .map_err(|_| anyhow!("yt-dlp demorou demais para resolver o audio"))?
+    .map_err(|error| anyhow!("yt-dlp nao executou: {error}"))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(anyhow!(
+            "yt-dlp falhou ao resolver audio: {}",
+            stderr.trim()
+        ));
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    stdout
+        .lines()
+        .map(str::trim)
+        .find(|line| line.starts_with("http://") || line.starts_with("https://"))
+        .map(ToOwned::to_owned)
+        .ok_or_else(|| anyhow!("yt-dlp nao retornou uma URL de audio"))
+}
+
 async fn not_found() -> impl IntoResponse {
     (StatusCode::NOT_FOUND, "not found")
 }
@@ -681,6 +738,11 @@ struct YoutubePlayerResponse {
 #[derive(Debug, Deserialize)]
 struct YoutubePlayerSyncInput {
     id: u64,
+}
+
+#[derive(Debug, Serialize)]
+struct YoutubeAudioResponse {
+    audio_url: String,
 }
 
 #[derive(Debug, Serialize)]

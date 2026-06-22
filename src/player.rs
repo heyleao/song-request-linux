@@ -18,7 +18,19 @@ pub async fn page() -> Html<&'static str> {
     * { box-sizing: border-box; }
     body { margin: 0; min-height: 100vh; background: #0f131a; }
     main { display: grid; grid-template-rows: 1fr auto; min-height: 100vh; }
-    #player { width: 100vw; height: calc(100vh - 86px); background: #05070a; }
+    .visual {
+      display: grid;
+      place-items: center;
+      width: 100vw;
+      height: calc(100vh - 86px);
+      background: #05070a;
+      color: #8d98a8;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    audio { width: min(720px, calc(100vw - 32px)); }
     .status {
       display: grid;
       gap: 4px;
@@ -39,53 +51,25 @@ pub async fn page() -> Html<&'static str> {
 </head>
 <body>
   <main>
-    <div id="player"></div>
+    <div class="visual">
+      <audio id="audio" controls autoplay preload="none"></audio>
+    </div>
     <section class="status">
-      <div class="label">YouTube Player</div>
+      <div class="label">YouTube Audio Player</div>
       <div class="title" id="title">Aguardando video do YouTube</div>
       <div class="meta" id="meta">Adicione esta pagina como Browser Source no OBS.</div>
     </section>
   </main>
 
-  <script src="https://www.youtube.com/iframe_api"></script>
   <script>
-    let player;
-    let ready = false;
     let activeVideoId = null;
     let activeSongId = null;
     let loading = false;
+    const audio = document.getElementById('audio');
 
     function setStatus(title, meta) {
       document.getElementById('title').textContent = title;
       document.getElementById('meta').textContent = meta;
-    }
-
-    function onYouTubeIframeAPIReady() {
-      player = new YT.Player('player', {
-        width: '100%',
-        height: '100%',
-        playerVars: {
-          autoplay: 1,
-          controls: 1,
-          playsinline: 1,
-          rel: 0,
-          modestbranding: 1
-        },
-        events: {
-          onReady: () => {
-            ready = true;
-            refresh();
-          },
-          onStateChange: event => {
-            if (event.data === YT.PlayerState.ENDED) {
-              finishCurrent();
-            }
-          },
-          onError: () => {
-            finishCurrent();
-          }
-        }
-      });
     }
 
     async function api(path, options) {
@@ -97,7 +81,7 @@ pub async fn page() -> Html<&'static str> {
     }
 
     async function refresh() {
-      if (!ready || loading) return;
+      if (loading) return;
       loading = true;
       try {
         const data = await api('/api/player/youtube');
@@ -105,6 +89,8 @@ pub async fn page() -> Html<&'static str> {
         if (!song) {
           activeVideoId = null;
           activeSongId = null;
+          audio.removeAttribute('src');
+          audio.load();
           setStatus('Aguardando video do YouTube', 'Nenhum pedido YouTube ativo na fila local.');
           loading = false;
           return;
@@ -113,13 +99,21 @@ pub async fn page() -> Html<&'static str> {
         if (song.video_id !== activeVideoId) {
           activeVideoId = song.video_id;
           activeSongId = song.id;
-          setStatus(song.title, `${song.artist} - pedido por ${song.requester}`);
+          setStatus(song.title, `Resolvendo audio - pedido por ${song.requester}`);
+          const audioData = await api('/api/player/youtube/audio', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ id: song.id })
+          });
           await api('/api/player/youtube/start', {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify({ id: song.id })
           });
-          player.loadVideoById(song.video_id);
+          audio.src = audioData.audio_url;
+          audio.load();
+          await audio.play();
+          setStatus(song.title, `${song.artist} - pedido por ${song.requester}`);
         }
       } catch (error) {
         setStatus('Erro no player', error.message);
@@ -146,6 +140,15 @@ pub async fn page() -> Html<&'static str> {
       }
     }
 
+    audio.addEventListener('ended', finishCurrent);
+    audio.addEventListener('error', () => {
+      if (activeSongId) {
+        setStatus('Erro no audio', 'Nao foi possivel tocar esta URL. Pulando para o proximo pedido.');
+        finishCurrent();
+      }
+    });
+
+    refresh();
     setInterval(refresh, 3000);
   </script>
 </body>
