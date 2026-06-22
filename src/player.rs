@@ -9,57 +9,14 @@ pub async fn page() -> Html<&'static str> {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Song Request Linux Player</title>
   <style>
-    :root {
-      color-scheme: dark;
-      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: #0f131a;
-      color: #eef2f7;
-    }
+    :root { color-scheme: dark; background: transparent; }
     * { box-sizing: border-box; }
-    body { margin: 0; min-height: 100vh; background: #0f131a; }
-    main { display: grid; grid-template-rows: 1fr auto; min-height: 100vh; }
-    .visual {
-      display: grid;
-      place-items: center;
-      width: 100vw;
-      height: calc(100vh - 86px);
-      background: #05070a;
-      color: #8d98a8;
-      font-size: 14px;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-    audio { width: min(720px, calc(100vw - 32px)); }
-    .status {
-      display: grid;
-      gap: 4px;
-      padding: 14px 16px;
-      border-top: 1px solid #2a3240;
-      background: #151a22;
-    }
-    .label {
-      color: #9aa4b2;
-      font-size: 12px;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-    .title { font-size: 18px; font-weight: 700; line-height: 1.25; }
-    .meta { color: #b6bfcb; font-size: 14px; }
+    body { margin: 0; width: 1px; height: 1px; overflow: hidden; background: transparent; }
+    audio { width: 1px; height: 1px; opacity: 0; }
   </style>
 </head>
 <body>
-  <main>
-    <div class="visual">
-      <audio id="audio" controls autoplay preload="none"></audio>
-    </div>
-    <section class="status">
-      <div class="label">YouTube Audio Player</div>
-      <div class="title" id="title">Aguardando video do YouTube</div>
-      <div class="meta" id="meta">Adicione esta pagina como Browser Source no OBS.</div>
-    </section>
-  </main>
+  <audio id="audio" autoplay preload="none"></audio>
 
   <script>
     let activeVideoId = null;
@@ -68,8 +25,7 @@ pub async fn page() -> Html<&'static str> {
     const audio = document.getElementById('audio');
 
     function setStatus(title, meta) {
-      document.getElementById('title').textContent = title;
-      document.getElementById('meta').textContent = meta;
+      document.title = `${title} - ${meta}`;
     }
 
     async function api(path, options) {
@@ -85,6 +41,11 @@ pub async fn page() -> Html<&'static str> {
       loading = true;
       try {
         const data = await api('/api/player/youtube');
+        if (data.waiting_for_spotify) {
+          setStatus('Aguardando Spotify', data.waiting_for_spotify);
+          loading = false;
+          return;
+        }
         const song = data.current_song;
         if (!song) {
           activeVideoId = null;

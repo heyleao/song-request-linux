@@ -278,21 +278,35 @@ async fn youtube_player_start(
     State(state): State<AppState>,
     Json(input): Json<YoutubePlayerSyncInput>,
 ) -> Result<Json<YoutubePlayerResponse>, ApiError> {
+    if spotify_blocks_youtube(&state).await.is_some() {
+        return Ok(Json(youtube_player_response(&state).await));
+    }
+
     let current_song = current_youtube_song(&state).await;
     if current_song
         .as_ref()
         .is_some_and(|song| song.id == input.id)
     {
+        *state.youtube_waiting_spotify_title.lock().await = None;
         pause_spotify_for_youtube(&state).await;
     }
 
-    Ok(Json(YoutubePlayerResponse { current_song }))
+    Ok(Json(YoutubePlayerResponse {
+        current_song,
+        waiting_for_spotify: None,
+    }))
 }
 
 async fn youtube_player_audio(
     State(state): State<AppState>,
     Json(input): Json<YoutubePlayerSyncInput>,
 ) -> Result<Json<YoutubeAudioResponse>, ApiError> {
+    if spotify_blocks_youtube(&state).await.is_some() {
+        return Err(ApiError::bad_request(anyhow!(
+            "aguardando a musica atual do Spotify terminar"
+        )));
+    }
+
     let current_song = current_youtube_song(&state)
         .await
         .ok_or_else(|| ApiError::bad_request(anyhow!("nenhum video YouTube ativo")))?;
@@ -327,10 +341,14 @@ async fn youtube_player_finish(
 
     let current_song = current_youtube_song(&state).await;
     if current_song.is_none() {
+        *state.youtube_waiting_spotify_title.lock().await = None;
         resume_spotify_after_youtube(&state).await;
     }
 
-    Ok(Json(YoutubePlayerResponse { current_song }))
+    Ok(Json(YoutubePlayerResponse {
+        current_song,
+        waiting_for_spotify: None,
+    }))
 }
 
 async fn add_song_request(
@@ -604,8 +622,23 @@ async fn skip(State(state): State<AppState>) -> Json<SkipResponse> {
 }
 
 async fn youtube_player_response(state: &AppState) -> YoutubePlayerResponse {
+    let current_song = current_youtube_song(state).await;
+    if current_song.is_none() {
+        *state.youtube_waiting_spotify_title.lock().await = None;
+        return YoutubePlayerResponse {
+            current_song: None,
+            waiting_for_spotify: None,
+        };
+    }
+
+    let waiting_for_spotify = spotify_blocks_youtube(state).await;
     YoutubePlayerResponse {
-        current_song: current_youtube_song(state).await,
+        current_song: if waiting_for_spotify.is_some() {
+            None
+        } else {
+            current_song
+        },
+        waiting_for_spotify,
     }
 }
 
@@ -642,6 +675,50 @@ async fn pause_spotify_for_youtube(state: &AppState) {
             state
                 .record_event("error", format!("Nao consegui pausar Spotify: {error}"))
                 .await;
+        }
+    }
+}
+
+async fn spotify_blocks_youtube(state: &AppState) -> Option<String> {
+    if state.youtube_player_paused_spotify.load(Ordering::SeqCst) {
+        return None;
+    }
+
+    let mut token_guard = state.spotify_token.write().await;
+    let Some(token) = token_guard.as_mut() else {
+        *state.youtube_waiting_spotify_title.lock().await = None;
+        return None;
+    };
+
+    let playback = match spotify::current_playback(&state.config, token).await {
+        Ok(playback) => playback,
+        Err(error) => {
+            state
+                .record_event("error", format!("Nao consegui ler Spotify atual: {error}"))
+                .await;
+            return None;
+        }
+    };
+
+    let Some(playback) = playback else {
+        *state.youtube_waiting_spotify_title.lock().await = None;
+        return None;
+    };
+    if !playback.is_playing {
+        *state.youtube_waiting_spotify_title.lock().await = None;
+        return None;
+    }
+
+    let mut waiting_title = state.youtube_waiting_spotify_title.lock().await;
+    match waiting_title.as_ref() {
+        Some(title) if title == &playback.title => Some(playback.title),
+        Some(_) => {
+            *waiting_title = None;
+            None
+        }
+        None => {
+            *waiting_title = Some(playback.title.clone());
+            Some(playback.title)
         }
     }
 }
@@ -733,6 +810,7 @@ struct SkipResponse {
 #[derive(Debug, Serialize)]
 struct YoutubePlayerResponse {
     current_song: Option<YoutubePlayerSong>,
+    waiting_for_spotify: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

@@ -105,7 +105,9 @@ Moderator/broadcaster:
 Spotify plays through your active Spotify device. YouTube requests play as audio
 through the local browser player at `http://127.0.0.1:7384/player`; add it to
 OBS as a Browser Source and enable browser-source audio control in OBS when
-available. YouTube audio playback requires `yt-dlp` on the system.
+available. Set OBS audio monitoring for that source when the streamer also needs
+to hear it, and route it to a separate audio channel when needed. YouTube audio
+playback requires `yt-dlp` on the system.
 When a YouTube request starts, the app pauses Spotify. When the YouTube queue is
 empty again, Spotify is resumed only if the app was the one that paused it.
 

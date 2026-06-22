@@ -99,10 +99,22 @@ struct SpotifyPlayable {
     item_type: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+struct SpotifyPlaybackResponse {
+    is_playing: bool,
+    item: Option<SpotifyPlayable>,
+}
+
 #[derive(Clone, Debug, Serialize)]
 pub struct SpotifyQueueSnapshot {
     pub currently_playing: Option<String>,
     pub upcoming: Vec<String>,
+}
+
+#[derive(Clone, Debug)]
+pub struct SpotifyPlayback {
+    pub title: String,
+    pub is_playing: bool,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -341,6 +353,47 @@ pub async fn queue_snapshot(
         currently_playing,
         upcoming,
     })
+}
+
+pub async fn current_playback(
+    config: &AppConfig,
+    token: &mut SpotifyToken,
+) -> Result<Option<SpotifyPlayback>> {
+    refresh_if_needed(config, token).await?;
+
+    let response = Client::new()
+        .get(format!("{API_URL}/me/player"))
+        .bearer_auth(&token.access_token)
+        .send()
+        .await
+        .context("failed to read Spotify playback")?;
+
+    let status = response.status();
+    if status == reqwest::StatusCode::NO_CONTENT {
+        return Ok(None);
+    }
+    if !status.is_success() {
+        let body = response.text().await.unwrap_or_default();
+        warn!(
+            status = %status,
+            response = %body,
+            "spotify playback snapshot failed"
+        );
+        bail!("spotify playback snapshot failed with {status}: {body}");
+    }
+
+    let playback = response.json::<SpotifyPlaybackResponse>().await?;
+    let Some(item) = playback.item else {
+        return Ok(None);
+    };
+    let Some(title) = format_playable(item) else {
+        return Ok(None);
+    };
+
+    Ok(Some(SpotifyPlayback {
+        title,
+        is_playing: playback.is_playing,
+    }))
 }
 
 pub async fn current_volume(config: &AppConfig, token: &mut SpotifyToken) -> Result<Option<u8>> {
