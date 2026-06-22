@@ -233,13 +233,18 @@ pub async fn search_and_queue(
     refresh_if_needed(config, token).await?;
 
     let track = search_track(token, query).await?;
+    let title = format_track(&track);
     info!(
         query = %query,
         track = %track.name,
         uri = %track.uri,
         "spotify track resolved"
     );
-    add_to_queue(token, &track.uri).await?;
+    if spotify_queue_contains(token, &title).await? {
+        info!(track = %title, "spotify track already present; skipping duplicate queue add");
+    } else {
+        add_to_queue(token, &track.uri).await?;
+    }
 
     Ok(SongRequest {
         id: 0,
@@ -319,14 +324,22 @@ pub async fn queue_snapshot(
     }
 
     let queue = response.json::<SpotifyQueueResponse>().await?;
+    let currently_playing = queue.currently_playing.and_then(format_playable);
+    let mut seen = HashSet::new();
+    if let Some(current) = &currently_playing {
+        seen.insert(normalize(current));
+    }
+    let upcoming = queue
+        .queue
+        .into_iter()
+        .filter_map(format_playable)
+        .filter(|title| seen.insert(normalize(title)))
+        .take(5)
+        .collect();
+
     Ok(SpotifyQueueSnapshot {
-        currently_playing: queue.currently_playing.and_then(format_playable),
-        upcoming: queue
-            .queue
-            .into_iter()
-            .filter_map(format_playable)
-            .take(5)
-            .collect(),
+        currently_playing,
+        upcoming,
     })
 }
 
@@ -500,6 +513,42 @@ async fn search_track(token: &SpotifyToken, query: &str) -> Result<SpotifyTrack>
     choose_best_track(query, tracks).ok_or_else(|| anyhow!("no Spotify track found for query"))
 }
 
+async fn spotify_queue_contains(token: &SpotifyToken, title: &str) -> Result<bool> {
+    let response = Client::new()
+        .get(format!("{API_URL}/me/player/queue"))
+        .bearer_auth(&token.access_token)
+        .send()
+        .await
+        .context("failed to read Spotify queue before adding duplicate guard")?;
+
+    let status = response.status();
+    if !status.is_success() {
+        let body = response.text().await.unwrap_or_default();
+        warn!(
+            status = %status,
+            response = %body,
+            "spotify duplicate guard queue snapshot failed"
+        );
+        return Ok(false);
+    }
+
+    let target = normalize(title);
+    let queue = response.json::<SpotifyQueueResponse>().await?;
+    let current_matches = queue
+        .currently_playing
+        .and_then(format_playable)
+        .is_some_and(|current| normalize(&current) == target);
+    if current_matches {
+        return Ok(true);
+    }
+
+    Ok(queue
+        .queue
+        .into_iter()
+        .filter_map(format_playable)
+        .any(|queued| normalize(&queued) == target))
+}
+
 fn choose_best_track(query: &str, tracks: Vec<SpotifyTrack>) -> Option<SpotifyTrack> {
     let query_tokens = tokenize(query);
     let mut ranked = tracks
@@ -579,6 +628,10 @@ fn artist_names(track: &SpotifyTrack) -> Vec<String> {
         .iter()
         .map(|artist| artist.name.clone())
         .collect()
+}
+
+fn format_track(track: &SpotifyTrack) -> String {
+    format!("{} - {}", track.name, artist_names(track).join(", "))
 }
 
 fn tokenize(value: &str) -> Vec<String> {
