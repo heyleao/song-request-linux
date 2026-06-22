@@ -966,6 +966,16 @@ mod tests {
             title: "Never Gonna Give You Up".to_string(),
             artist: "Rick Astley".to_string(),
         });
+        state.queue.write().await.add_resolved(SongRequest {
+            id: 0,
+            requester: "viewer".to_string(),
+            query: "https://youtu.be/9bZkp7q19f0".to_string(),
+            source: RequestSource::Youtube {
+                video_id: "9bZkp7q19f0".to_string(),
+            },
+            title: "Gangnam Style".to_string(),
+            artist: "PSY".to_string(),
+        });
 
         let spotify_view = QueueView {
             current_song: Some(spotify_song_request(
@@ -987,6 +997,10 @@ mod tests {
         );
         assert_eq!(
             merged.queue.get(1).map(|song| song.title.as_str()),
+            Some("Gangnam Style")
+        );
+        assert_eq!(
+            merged.queue.get(2).map(|song| song.title.as_str()),
             Some("The Emptiness Machine - Linkin Park")
         );
     }
