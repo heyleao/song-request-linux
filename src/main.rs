@@ -6,6 +6,7 @@ mod http;
 mod overlay;
 mod song_requests;
 mod state;
+mod twitch_chat;
 mod youtube;
 
 use anyhow::Context;
@@ -22,7 +23,14 @@ async fn main() -> anyhow::Result<()> {
     config.ensure_dirs()?;
 
     let addr = config.bind_addr;
-    let app = http::router(AppState::new(config));
+    let state = AppState::new(config);
+    let app = http::router(state.clone());
+
+    if let Some(secrets) = config::TwitchBotSecrets::from_env() {
+        twitch_chat::spawn_bot(state.clone(), secrets);
+    } else {
+        info!("twitch bot disabled; set TWITCH_BOT_USERNAME, TWITCH_BOT_OAUTH_TOKEN and TWITCH_CHANNEL to enable it");
+    }
 
     let listener = tokio::net::TcpListener::bind(addr)
         .await

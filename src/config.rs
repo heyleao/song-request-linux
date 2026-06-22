@@ -16,7 +16,22 @@ pub const APP_NAME: &str = "Song Request Linux";
 pub struct AppConfig {
     pub bind_addr: SocketAddr,
     pub default_provider: MusicProvider,
+    pub twitch: TwitchBotConfig,
     pub paths: AppPaths,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct TwitchBotConfig {
+    pub username: Option<String>,
+    pub channel: Option<String>,
+    pub token_configured: bool,
+}
+
+#[derive(Clone, Debug)]
+pub struct TwitchBotSecrets {
+    pub username: String,
+    pub oauth_token: String,
+    pub channel: String,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -37,12 +52,37 @@ impl AppConfig {
         Ok(Self {
             bind_addr,
             default_provider: MusicProvider::from_env(),
+            twitch: TwitchBotConfig::from_env(),
             paths: AppPaths::from_env()?,
         })
     }
 
     pub fn ensure_dirs(&self) -> Result<()> {
         self.paths.ensure_dirs()
+    }
+}
+
+impl TwitchBotConfig {
+    fn from_env() -> Self {
+        Self {
+            username: clean_optional_env("TWITCH_BOT_USERNAME"),
+            channel: clean_optional_env("TWITCH_CHANNEL"),
+            token_configured: clean_optional_env("TWITCH_BOT_OAUTH_TOKEN").is_some(),
+        }
+    }
+}
+
+impl TwitchBotSecrets {
+    pub fn from_env() -> Option<Self> {
+        let username = clean_optional_env("TWITCH_BOT_USERNAME")?;
+        let oauth_token = clean_optional_env("TWITCH_BOT_OAUTH_TOKEN")?;
+        let channel = clean_optional_env("TWITCH_CHANNEL")?;
+
+        Some(Self {
+            username: username.trim_start_matches('@').to_lowercase(),
+            oauth_token,
+            channel: channel.trim_start_matches('#').to_lowercase(),
+        })
     }
 }
 
@@ -84,6 +124,13 @@ fn env_path(key: &str) -> Option<PathBuf> {
     env::var_os(key)
         .filter(|value| !value.is_empty())
         .map(PathBuf::from)
+}
+
+fn clean_optional_env(key: &str) -> Option<String> {
+    env::var(key)
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
 }
 
 fn home_path(relative: impl AsRef<Path>) -> PathBuf {

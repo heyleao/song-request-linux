@@ -46,3 +46,14 @@ Before Twitch is connected, requests can be tested through local endpoints:
 - `GET /api/queue`
 
 These endpoints are bound to `127.0.0.1` with the rest of the app.
+
+## Twitch Bot MVP
+
+The first Twitch path is bot-only:
+
+- bot account reads chat
+- bot account responds to commands
+- streamer login is not required for plain `!sr`
+
+Streamer OAuth remains reserved for later channel features such as Channel
+Points, reward management and EventSub subscriptions.

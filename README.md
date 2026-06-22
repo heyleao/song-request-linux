@@ -42,6 +42,21 @@ cd ~/songify-linux
 cargo run
 ```
 
+Run with a Twitch bot for `!sr`:
+
+```bash
+export TWITCH_BOT_USERNAME="your_bot_account"
+export TWITCH_BOT_OAUTH_TOKEN="oauth_token_without_oauth_prefix"
+export TWITCH_CHANNEL="your_channel"
+cargo run
+```
+
+The Twitch bot currently supports:
+
+- `!sr <youtube link or search>`
+- `!song`
+- `!skip` for moderators/broadcaster badges
+
 Then open:
 
 - Dashboard: `http://127.0.0.1:7384/`
@@ -87,6 +102,9 @@ Never commit:
 - exported user configs with secrets
 
 Use `.env.example` only for public development defaults.
+
+For the development Twitch bot, keep `TWITCH_BOT_OAUTH_TOKEN` in your shell or
+keyring. Do not save a real token in `.env.example`, docs, commits or logs.
 
 ## License
 

@@ -58,7 +58,12 @@ impl DiagnosticsResponse {
                 ready: false,
             },
             integrations: IntegrationDiagnostics {
-                twitch: IntegrationStatus::empty(),
+                twitch: IntegrationStatus {
+                    configured: config.twitch.username.is_some()
+                        && config.twitch.channel.is_some()
+                        && config.twitch.token_configured,
+                    authenticated: false,
+                },
                 spotify: IntegrationStatus::empty(),
                 youtube: IntegrationStatus::empty(),
             },
