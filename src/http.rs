@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
 
 use crate::{
-    commands::{parse_chat_command, ChatCommand, ChatCommandInput},
+    commands::{parse_chat_command, ChatCommand, ChatCommandInput, PlaybackAction},
     config, connections, dashboard,
     diagnostics::DiagnosticsResponse,
     overlay, request_flow,
@@ -263,13 +263,12 @@ async fn chat_command(
             let queue = effective_queue_view(&state).await;
             ChatCommandResponse::Queue { queue }
         }
-        ChatCommand::Skip { requester } => {
-            let current_song = state.queue.write().await.skip();
-            ChatCommandResponse::Skipped {
-                requester,
-                current_song,
-            }
-        }
+        ChatCommand::Skip { requester } => ChatCommandResponse::Playback {
+            message: skip_message(&state, requester).await,
+        },
+        ChatCommand::Playback { requester, action } => ChatCommandResponse::Playback {
+            message: playback_message(&state, requester, action).await,
+        },
         ChatCommand::Volume { requester, level } => ChatCommandResponse::Volume {
             message: volume_message(&state, requester, level).await,
         },
@@ -280,6 +279,9 @@ async fn chat_command(
                 "!fila".to_string(),
                 "!vol".to_string(),
                 "!vol 30".to_string(),
+                "!play".to_string(),
+                "!pause".to_string(),
+                "!stop".to_string(),
                 "!skip".to_string(),
             ],
         },
@@ -294,6 +296,50 @@ async fn chat_command(
     };
 
     Ok(Json(response))
+}
+
+async fn skip_message(state: &AppState, requester: String) -> String {
+    if let Some(message) =
+        spotify_playback_message(state, requester.clone(), PlaybackAction::Next).await
+    {
+        return message;
+    }
+
+    let current_song = state.queue.write().await.skip();
+    match current_song {
+        Some(song) => format!("@{requester} skip feito. Agora: {}", song.title),
+        None => format!("@{requester} skip feito. Fila vazia."),
+    }
+}
+
+async fn playback_message(state: &AppState, requester: String, action: PlaybackAction) -> String {
+    spotify_playback_message(state, requester, action)
+        .await
+        .unwrap_or_else(|| "Spotify nao conectado.".to_string())
+}
+
+async fn spotify_playback_message(
+    state: &AppState,
+    requester: String,
+    action: PlaybackAction,
+) -> Option<String> {
+    let mut token_guard = state.spotify_token.write().await;
+    let token = token_guard.as_mut()?;
+
+    let result = match action {
+        PlaybackAction::Play => spotify::resume_playback(&state.config, token).await,
+        PlaybackAction::Pause => spotify::pause_playback(&state.config, token).await,
+        PlaybackAction::Next => spotify::skip_next(&state.config, token).await,
+    };
+
+    Some(match result {
+        Ok(()) => match action {
+            PlaybackAction::Play => format!("@{requester} playback retomado."),
+            PlaybackAction::Pause => format!("@{requester} playback pausado."),
+            PlaybackAction::Next => format!("@{requester} pulei para a proxima."),
+        },
+        Err(error) => format!("@{requester} nao consegui controlar o Spotify: {error}"),
+    })
 }
 
 async fn volume_message(state: &AppState, requester: String, level: Option<u8>) -> String {
@@ -392,28 +438,13 @@ async fn not_found() -> impl IntoResponse {
 #[derive(Debug, Serialize)]
 #[serde(tag = "status", rename_all = "snake_case")]
 enum ChatCommandResponse {
-    SongRequest {
-        request: SongRequest,
-    },
-    CurrentSong {
-        current_song: Option<SongRequest>,
-    },
-    Queue {
-        queue: QueueView,
-    },
-    Skipped {
-        requester: String,
-        current_song: Option<SongRequest>,
-    },
-    Volume {
-        message: String,
-    },
-    Help {
-        commands: Vec<String>,
-    },
-    AccessDenied {
-        message: String,
-    },
+    SongRequest { request: SongRequest },
+    CurrentSong { current_song: Option<SongRequest> },
+    Queue { queue: QueueView },
+    Volume { message: String },
+    Playback { message: String },
+    Help { commands: Vec<String> },
+    AccessDenied { message: String },
     Ignored,
 }
 

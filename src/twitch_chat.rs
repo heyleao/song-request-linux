@@ -5,7 +5,7 @@ use tokio_tungstenite::{connect_async, tungstenite::Message};
 use tracing::{error, info, warn};
 
 use crate::{
-    commands::{parse_chat_command, ChatCommand, ChatCommandInput},
+    commands::{parse_chat_command, ChatCommand, ChatCommandInput, PlaybackAction},
     config::TwitchBotSecrets,
     request_flow,
     state::AppState,
@@ -117,17 +117,16 @@ async fn handle_privmsg(state: &AppState, privmsg: Privmsg) -> Option<String> {
         ChatCommand::CurrentSong => Some(current_song_reply(state).await),
         ChatCommand::Queue => Some(queue_reply(state).await),
         ChatCommand::Skip { requester } => {
-            let current_song = state.queue.write().await.skip();
-            match current_song {
-                Some(song) => Some(format!("@{requester} skip feito. Agora: {}", song.title)),
-                None => Some(format!("@{requester} skip feito. Fila vazia.")),
-            }
+            Some(skip_reply(state, requester).await)
+        }
+        ChatCommand::Playback { requester, action } => {
+            Some(playback_reply(state, requester, action).await)
         }
         ChatCommand::Volume { requester, level } => {
             Some(volume_reply(state, requester, level).await)
         }
         ChatCommand::Help => {
-            Some("Comandos: !sr nome/link, !song, !fila, !vol, !vol 30 mod, !skip mod.".to_string())
+            Some("Comandos: !sr nome/link, !song, !fila, !vol, !vol 30 mod, !play mod, !pause/!stop mod, !skip mod.".to_string())
         }
         ChatCommand::AccessDenied {
             requester,
@@ -136,6 +135,50 @@ async fn handle_privmsg(state: &AppState, privmsg: Privmsg) -> Option<String> {
         } => Some(access_denied_reply(requester, &command, required)),
         ChatCommand::Ignored => None,
     }
+}
+
+async fn skip_reply(state: &AppState, requester: String) -> String {
+    if let Some(message) =
+        spotify_playback_reply(state, requester.clone(), PlaybackAction::Next).await
+    {
+        return message;
+    }
+
+    let current_song = state.queue.write().await.skip();
+    match current_song {
+        Some(song) => format!("@{requester} skip feito. Agora: {}", song.title),
+        None => format!("@{requester} skip feito. Fila vazia."),
+    }
+}
+
+async fn playback_reply(state: &AppState, requester: String, action: PlaybackAction) -> String {
+    spotify_playback_reply(state, requester, action)
+        .await
+        .unwrap_or_else(|| "Spotify nao conectado.".to_string())
+}
+
+async fn spotify_playback_reply(
+    state: &AppState,
+    requester: String,
+    action: PlaybackAction,
+) -> Option<String> {
+    let mut token_guard = state.spotify_token.write().await;
+    let token = token_guard.as_mut()?;
+
+    let result = match action {
+        PlaybackAction::Play => crate::spotify::resume_playback(&state.config, token).await,
+        PlaybackAction::Pause => crate::spotify::pause_playback(&state.config, token).await,
+        PlaybackAction::Next => crate::spotify::skip_next(&state.config, token).await,
+    };
+
+    Some(match result {
+        Ok(()) => match action {
+            PlaybackAction::Play => format!("@{requester} playback retomado."),
+            PlaybackAction::Pause => format!("@{requester} playback pausado."),
+            PlaybackAction::Next => format!("@{requester} pulei para a proxima."),
+        },
+        Err(error) => format!("@{requester} nao consegui controlar o Spotify: {error}"),
+    })
 }
 
 async fn current_song_reply(state: &AppState) -> String {

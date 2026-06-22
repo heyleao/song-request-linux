@@ -63,13 +63,16 @@ The Twitch bot currently supports:
 - `!fila`, `!queue` or `!q`
 - `!vol` to read Spotify volume
 - `!vol <0-100>` for moderators/broadcaster badges
+- `!play`, `!resume` for moderators/broadcaster badges
+- `!pause`, `!stop`, `!parar` for moderators/broadcaster badges
+- `!next`, `!pular` for moderators/broadcaster badges
 - `!comandos`, `!commands` or `!help`
 - `!skip` for moderators/broadcaster badges
 
 Command access is intentionally simple:
 
 - Everyone: `!sr`, `!song`, `!fila`, `!queue`, `!q`, `!vol`, `!comandos`.
-- Moderators/broadcaster: `!skip`, `!vol <0-100>`.
+- Moderators/broadcaster: `!skip`, `!vol <0-100>`, `!play`, `!pause`, `!stop`, `!next`.
 
 When Spotify is connected, queue and now-playing status come from Spotify first.
 The app does not restore old runtime queue state after restart, so played songs

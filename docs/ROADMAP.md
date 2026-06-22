@@ -33,6 +33,7 @@
 - [x] Secure Twitch IRC websocket connection.
 - [x] Chat connection.
 - [x] `!sr`, `!song`, `!fila`, `!vol`, `!skip`.
+- [x] Spotify playback controls: `!play`, `!pause`, `!stop`, `!next`.
 - [x] Simple command access levels: everyone vs moderator/broadcaster.
 - [ ] Cooldowns and permissions.
 

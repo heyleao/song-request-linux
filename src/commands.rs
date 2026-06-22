@@ -19,6 +19,10 @@ pub enum ChatCommand {
     Skip {
         requester: String,
     },
+    Playback {
+        requester: String,
+        action: PlaybackAction,
+    },
     Volume {
         requester: String,
         level: Option<u8>,
@@ -36,6 +40,14 @@ pub enum ChatCommand {
 #[serde(rename_all = "snake_case")]
 pub enum CommandAccess {
     Moderator,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum PlaybackAction {
+    Play,
+    Pause,
+    Next,
 }
 
 pub fn parse_chat_command(input: ChatCommandInput) -> ChatCommand {
@@ -59,6 +71,18 @@ pub fn parse_chat_command(input: ChatCommandInput) -> ChatCommand {
 
     if matches_command(message, &["!queue", "!fila", "!q"]) {
         return ChatCommand::Queue;
+    }
+
+    if let Some(action) = playback_action(message) {
+        if !input.is_moderator {
+            return ChatCommand::AccessDenied {
+                requester,
+                command: playback_command_name(action).to_string(),
+                required: CommandAccess::Moderator,
+            };
+        }
+
+        return ChatCommand::Playback { requester, action };
     }
 
     if message.eq_ignore_ascii_case("!skip") {
@@ -119,6 +143,28 @@ fn volume_payload(message: &str) -> Option<Option<u8>> {
     let level = payload.parse::<u8>().ok()?.min(100);
 
     Some(Some(level))
+}
+
+fn playback_action(message: &str) -> Option<PlaybackAction> {
+    if matches_command(message, &["!play", "!resume"]) {
+        return Some(PlaybackAction::Play);
+    }
+    if matches_command(message, &["!pause", "!stop", "!parar"]) {
+        return Some(PlaybackAction::Pause);
+    }
+    if matches_command(message, &["!next", "!pular"]) {
+        return Some(PlaybackAction::Next);
+    }
+
+    None
+}
+
+fn playback_command_name(action: PlaybackAction) -> &'static str {
+    match action {
+        PlaybackAction::Play => "!play",
+        PlaybackAction::Pause => "!pause/!stop",
+        PlaybackAction::Next => "!next",
+    }
 }
 
 fn clean_field(value: &str) -> String {
@@ -225,6 +271,41 @@ mod tests {
                 requester: "viewer".to_string(),
                 command: "!vol <0-100>".to_string(),
                 required: CommandAccess::Moderator
+            }
+        );
+    }
+
+    #[test]
+    fn playback_requires_moderator() {
+        let command = parse_chat_command(ChatCommandInput {
+            requester: "viewer".to_string(),
+            message: "!pause".to_string(),
+            is_moderator: false,
+        });
+
+        assert_eq!(
+            command,
+            ChatCommand::AccessDenied {
+                requester: "viewer".to_string(),
+                command: "!pause/!stop".to_string(),
+                required: CommandAccess::Moderator
+            }
+        );
+    }
+
+    #[test]
+    fn parses_moderator_playback() {
+        let command = parse_chat_command(ChatCommandInput {
+            requester: "mod".to_string(),
+            message: "!stop".to_string(),
+            is_moderator: true,
+        });
+
+        assert_eq!(
+            command,
+            ChatCommand::Playback {
+                requester: "mod".to_string(),
+                action: PlaybackAction::Pause
             }
         );
     }

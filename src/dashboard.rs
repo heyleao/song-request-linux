@@ -212,6 +212,8 @@ pub async fn page() -> Html<&'static str> {
             <button class="secondary" id="song" type="button">!song</button>
             <button class="secondary" id="queue-command" type="button">!fila</button>
             <button class="secondary" id="volume-command" type="button">!vol</button>
+            <button class="secondary" id="play-command" type="button">!play</button>
+            <button class="secondary" id="pause-command" type="button">!pause</button>
             <button class="secondary" id="help-command" type="button">!comandos</button>
             <button class="danger" id="skip" type="button">!skip</button>
           </div>
@@ -389,10 +391,28 @@ pub async fn page() -> Html<&'static str> {
       }
     });
 
+    $('play-command').addEventListener('click', async () => {
+      try {
+        const result = await sendCommand('!play', true);
+        setMessage('command-message', result.message || 'Playback retomado');
+      } catch (error) {
+        setMessage('command-message', error.message, true);
+      }
+    });
+
+    $('pause-command').addEventListener('click', async () => {
+      try {
+        const result = await sendCommand('!pause', true);
+        setMessage('command-message', result.message || 'Playback pausado');
+      } catch (error) {
+        setMessage('command-message', error.message, true);
+      }
+    });
+
     $('skip').addEventListener('click', async () => {
       try {
         const result = await sendCommand('!skip', true);
-        setMessage('command-message', `Skip: ${result.current_song ? result.current_song.title : 'fila vazia'}`);
+        setMessage('command-message', result.message || 'Skip enviado');
         await refresh();
       } catch (error) {
         setMessage('command-message', error.message, true);

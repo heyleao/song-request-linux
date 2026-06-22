@@ -371,6 +371,24 @@ pub async fn set_volume(config: &AppConfig, token: &mut SpotifyToken, level: u8)
     Ok(level.min(100))
 }
 
+pub async fn resume_playback(config: &AppConfig, token: &mut SpotifyToken) -> Result<()> {
+    refresh_if_needed(config, token).await?;
+    ensure_available_device(token).await?;
+    player_empty_request(token, reqwest::Method::PUT, "me/player/play").await
+}
+
+pub async fn pause_playback(config: &AppConfig, token: &mut SpotifyToken) -> Result<()> {
+    refresh_if_needed(config, token).await?;
+    ensure_available_device(token).await?;
+    player_empty_request(token, reqwest::Method::PUT, "me/player/pause").await
+}
+
+pub async fn skip_next(config: &AppConfig, token: &mut SpotifyToken) -> Result<()> {
+    refresh_if_needed(config, token).await?;
+    ensure_available_device(token).await?;
+    player_empty_request(token, reqwest::Method::POST, "me/player/next").await
+}
+
 pub fn load_token(config: &AppConfig) -> Result<Option<SpotifyToken>> {
     let path = token_path(config);
     if !path.exists() {
@@ -722,6 +740,38 @@ async fn ensure_available_device(token: &SpotifyToken) -> Result<SpotifyDevice> 
     }
 
     transfer_to_available_device(token).await
+}
+
+async fn player_empty_request(
+    token: &SpotifyToken,
+    method: reqwest::Method,
+    path: &str,
+) -> Result<()> {
+    let response = Client::builder()
+        .http1_only()
+        .build()?
+        .request(method, format!("{API_URL}/{path}"))
+        .bearer_auth(&token.access_token)
+        .header(CONTENT_LENGTH, "0")
+        .body(Vec::new())
+        .send()
+        .await
+        .with_context(|| format!("failed Spotify player request {path}"))?;
+
+    let status = response.status();
+    if status.is_success() {
+        info!(path, "spotify player command succeeded");
+        return Ok(());
+    }
+
+    let body = response.text().await.unwrap_or_default();
+    warn!(
+        status = %status,
+        response = %body,
+        path,
+        "spotify player command failed"
+    );
+    bail!("Spotify nao aceitou o comando {path} ({status}): {body}");
 }
 
 fn format_playable(item: SpotifyPlayable) -> Option<String> {
