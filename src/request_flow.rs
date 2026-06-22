@@ -29,3 +29,28 @@ fn should_use_spotify(state: &AppState, input: &SongRequestInput) -> bool {
             RequestSource::Youtube { .. }
         )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{config::AppConfig, song_requests::RequestSource};
+
+    #[tokio::test]
+    async fn youtube_link_uses_app_queue_even_when_spotify_is_default() {
+        let mut config = AppConfig::from_env().expect("config");
+        config.default_provider = MusicProvider::Spotify;
+        let state = AppState::new(config);
+
+        let request = add_request(
+            &state,
+            SongRequestInput {
+                requester: "viewer".to_string(),
+                query: "https://youtu.be/dQw4w9WgXcQ".to_string(),
+            },
+        )
+        .await
+        .expect("youtube request");
+
+        assert!(matches!(request.source, RequestSource::Youtube { .. }));
+    }
+}

@@ -16,6 +16,7 @@
 - [x] API endpoint to simulate song requests.
 - [x] API endpoint to simulate Twitch chat commands.
 - [x] YouTube URL parsing for `youtube.com/watch` and `youtu.be`.
+- [x] Hybrid routing: Spotify search by default, YouTube links kept as YouTube requests.
 - [x] Overlay reads current song from app state.
 
 ## Milestone 1.6: GUI Configuration

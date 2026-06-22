@@ -75,7 +75,7 @@ cargo run
 
 The Twitch bot currently supports:
 
-- `!sr <youtube link or search>`
+- `!sr <spotify search or youtube link>`
 - `!song`
 - `!fila`, `!queue` or `!q`
 - `!vol` to read Spotify volume
@@ -94,6 +94,13 @@ Command access is intentionally simple:
 When Spotify is connected, queue and now-playing status come from Spotify first.
 The app does not restore old runtime queue state after restart, so played songs
 do not come back as pending app requests.
+
+Hybrid routing:
+
+- Plain song names/search terms use the default provider, usually Spotify.
+- YouTube links are detected and kept as YouTube requests in the app queue.
+- Spotify cannot play YouTube URLs directly; YouTube requests are shown as
+  pending app items until the dedicated YouTube player integration is added.
 
 Run with Spotify queue control:
 

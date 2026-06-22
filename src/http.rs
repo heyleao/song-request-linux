@@ -444,10 +444,41 @@ async fn add_request_to_queue(
 
 async fn effective_queue_view(state: &AppState) -> QueueView {
     if let Some(view) = spotify_queue_view(state).await {
-        return view;
+        return merge_spotify_and_app_queue(state, view).await;
     }
 
     state.queue.read().await.view()
+}
+
+async fn merge_spotify_and_app_queue(state: &AppState, mut spotify_view: QueueView) -> QueueView {
+    let app_view = state.queue.read().await.view();
+    let mut app_youtube = youtube_requests(app_view);
+
+    if spotify_view.current_song.is_none() && !app_youtube.is_empty() {
+        spotify_view.current_song = Some(app_youtube.remove(0));
+    }
+
+    spotify_view.queue.extend(app_youtube);
+    spotify_view.queue_length = spotify_view.queue.len();
+    spotify_view
+}
+
+fn youtube_requests(view: QueueView) -> Vec<SongRequest> {
+    let mut requests = Vec::new();
+
+    if let Some(song) = view.current_song {
+        if matches!(song.source, RequestSource::Youtube { .. }) {
+            requests.push(song);
+        }
+    }
+
+    requests.extend(
+        view.queue
+            .into_iter()
+            .filter(|song| matches!(song.source, RequestSource::Youtube { .. })),
+    );
+
+    requests
 }
 
 async fn spotify_queue_view(state: &AppState) -> Option<QueueView> {

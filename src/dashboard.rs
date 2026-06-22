@@ -182,7 +182,7 @@ pub async fn page() -> Html<&'static str> {
     <h1>Song Request Linux</h1>
     <div class="status-grid">
       <span class="pill"><span class="dot" id="twitch-dot"></span>Twitch <strong id="twitch-state">...</strong></span>
-      <span class="pill"><span class="dot ok"></span>Provider <strong id="provider">...</strong></span>
+      <span class="pill"><span class="dot ok"></span>Modo <strong id="provider">...</strong></span>
       <span class="pill"><span class="dot ok"></span>Local <strong>127.0.0.1</strong></span>
       <button class="secondary" id="shutdown-app" type="button">Encerrar</button>
     </div>
@@ -254,7 +254,7 @@ pub async fn page() -> Html<&'static str> {
         <section>
           <h2>Pedido manual</h2>
           <form id="request-form">
-            <label>Musica ou link <input id="query" autocomplete="off" placeholder="https://youtu.be/... ou nome da musica"></label>
+            <label>Musica ou link <input id="query" autocomplete="off" placeholder="nome da musica no Spotify ou link YouTube"></label>
             <button type="submit">Adicionar</button>
           </form>
           <div class="message" id="request-message"></div>
@@ -364,7 +364,7 @@ pub async fn page() -> Html<&'static str> {
           api('/api/events')
         ]);
 
-        $('provider').textContent = status.provider;
+        $('provider').textContent = status.provider === 'spotify' ? 'Spotify + YouTube links' : status.provider;
         $('queue-count').textContent = queue.queue_length;
         $('refresh-state').textContent = 'OK';
 
