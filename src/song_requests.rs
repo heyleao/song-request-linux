@@ -109,6 +109,25 @@ impl SongQueue {
         self.current_song.clone()
     }
 
+    pub fn first_youtube(&self) -> Option<SongRequest> {
+        self.current_song
+            .iter()
+            .chain(self.queue.iter())
+            .find(|song| matches!(song.source, RequestSource::Youtube { .. }))
+            .cloned()
+    }
+
+    pub fn remove_by_id(&mut self, id: u64) -> Option<SongRequest> {
+        if self.current_song.as_ref().is_some_and(|song| song.id == id) {
+            let removed = self.current_song.take();
+            self.current_song = self.queue.pop_front();
+            return removed;
+        }
+
+        let index = self.queue.iter().position(|song| song.id == id)?;
+        self.queue.remove(index)
+    }
+
     pub fn view(&self) -> QueueView {
         QueueView {
             current_song: self.current_song.clone(),
@@ -250,5 +269,61 @@ mod tests {
 
         assert_eq!(current.query, "second song");
         assert_eq!(queue.view().queue_length, 0);
+    }
+
+    #[test]
+    fn first_youtube_finds_request_behind_spotify() {
+        let mut queue = SongQueue::new(MusicProvider::Spotify);
+        queue.add_resolved(SongRequest {
+            id: 0,
+            requester: "viewer".to_string(),
+            query: "daft punk one more time".to_string(),
+            source: RequestSource::Spotify {
+                uri: "spotify:track:test".to_string(),
+            },
+            title: "One More Time".to_string(),
+            artist: "Daft Punk".to_string(),
+        });
+        let youtube = queue.add_resolved(SongRequest {
+            id: 0,
+            requester: "viewer".to_string(),
+            query: "https://youtu.be/dQw4w9WgXcQ".to_string(),
+            source: RequestSource::Youtube {
+                video_id: "dQw4w9WgXcQ".to_string(),
+            },
+            title: "Never Gonna Give You Up".to_string(),
+            artist: "Rick Astley".to_string(),
+        });
+
+        assert_eq!(queue.first_youtube(), Some(youtube));
+    }
+
+    #[test]
+    fn remove_by_id_removes_queued_youtube_without_advancing_spotify() {
+        let mut queue = SongQueue::new(MusicProvider::Spotify);
+        let spotify = queue.add_resolved(SongRequest {
+            id: 0,
+            requester: "viewer".to_string(),
+            query: "daft punk one more time".to_string(),
+            source: RequestSource::Spotify {
+                uri: "spotify:track:test".to_string(),
+            },
+            title: "One More Time".to_string(),
+            artist: "Daft Punk".to_string(),
+        });
+        let youtube = queue.add_resolved(SongRequest {
+            id: 0,
+            requester: "viewer".to_string(),
+            query: "https://youtu.be/dQw4w9WgXcQ".to_string(),
+            source: RequestSource::Youtube {
+                video_id: "dQw4w9WgXcQ".to_string(),
+            },
+            title: "Never Gonna Give You Up".to_string(),
+            artist: "Rick Astley".to_string(),
+        });
+
+        assert_eq!(queue.remove_by_id(youtube.id), Some(youtube));
+        assert_eq!(queue.view().current_song, Some(spotify));
+        assert!(queue.first_youtube().is_none());
     }
 }

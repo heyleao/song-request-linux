@@ -329,14 +329,7 @@ async fn youtube_player_finish(
 ) -> Result<Json<YoutubePlayerResponse>, ApiError> {
     {
         let mut queue = state.queue.write().await;
-        let current_matches = queue
-            .view()
-            .current_song
-            .as_ref()
-            .is_some_and(|song| song.id == input.id);
-        if current_matches {
-            queue.skip();
-        }
+        queue.remove_by_id(input.id);
     }
 
     let current_song = current_youtube_song(&state).await;
@@ -647,8 +640,7 @@ async fn current_youtube_song(state: &AppState) -> Option<YoutubePlayerSong> {
         .queue
         .read()
         .await
-        .view()
-        .current_song
+        .first_youtube()
         .and_then(|song| YoutubePlayerSong::from_request(&song))
 }
 
