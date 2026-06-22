@@ -1,4 +1,5 @@
 use std::{
+    collections::HashSet,
     fs,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
@@ -346,7 +347,7 @@ async fn search_track(token: &SpotifyToken, query: &str) -> Result<SpotifyTrack>
     let response = Client::new()
         .get(format!("{API_URL}/search"))
         .bearer_auth(&token.access_token)
-        .query(&[("type", "track"), ("limit", "1"), ("q", query)])
+        .query(&[("type", "track"), ("limit", "10"), ("q", query)])
         .send()
         .await
         .context("failed to search Spotify")?;
@@ -355,14 +356,110 @@ async fn search_track(token: &SpotifyToken, query: &str) -> Result<SpotifyTrack>
         bail!("spotify search failed with {}", response.status());
     }
 
-    response
-        .json::<SearchResponse>()
-        .await?
-        .tracks
-        .items
+    let tracks = response.json::<SearchResponse>().await?.tracks.items;
+    choose_best_track(query, tracks).ok_or_else(|| anyhow!("no Spotify track found for query"))
+}
+
+fn choose_best_track(query: &str, tracks: Vec<SpotifyTrack>) -> Option<SpotifyTrack> {
+    let query_tokens = tokenize(query);
+    let mut ranked = tracks
         .into_iter()
-        .next()
-        .ok_or_else(|| anyhow!("no Spotify track found for query"))
+        .enumerate()
+        .map(|(index, track)| {
+            let score = score_track(&query_tokens, &track, index);
+            debug!(
+                score,
+                track = %track.name,
+                artists = %artist_names(&track).join(", "),
+                "spotify search candidate"
+            );
+            (score, track)
+        })
+        .collect::<Vec<_>>();
+
+    ranked.sort_by(|a, b| b.0.cmp(&a.0));
+    ranked.into_iter().map(|(_, track)| track).next()
+}
+
+fn score_track(query_tokens: &[String], track: &SpotifyTrack, index: usize) -> i64 {
+    let title_tokens = tokenize(&track.name);
+    let artist_tokens = tokenize(&artist_names(track).join(" "));
+    let combined_tokens = title_tokens
+        .iter()
+        .chain(artist_tokens.iter())
+        .cloned()
+        .collect::<HashSet<_>>();
+
+    let title_set = title_tokens.iter().cloned().collect::<HashSet<_>>();
+    let artist_set = artist_tokens.iter().cloned().collect::<HashSet<_>>();
+
+    let mut score = 0;
+    for token in query_tokens {
+        if title_set.contains(token) {
+            score += 12;
+        }
+        if artist_set.contains(token) {
+            score += 10;
+        }
+        if combined_tokens.contains(token) {
+            score += 4;
+        } else {
+            score -= 18;
+        }
+    }
+
+    let query_joined = query_tokens.join(" ");
+    let title_joined = title_tokens.join(" ");
+    let artist_joined = artist_tokens.join(" ");
+    let combined_joined = format!("{artist_joined} {title_joined}");
+
+    if title_joined == query_joined {
+        score += 80;
+    }
+    if combined_joined == query_joined {
+        score += 120;
+    }
+    if combined_joined.contains(&query_joined) {
+        score += 35;
+    }
+    if !query_tokens.is_empty()
+        && query_tokens
+            .iter()
+            .all(|token| combined_tokens.contains(token))
+    {
+        score += 60;
+    }
+
+    score - index as i64
+}
+
+fn artist_names(track: &SpotifyTrack) -> Vec<String> {
+    track
+        .artists
+        .iter()
+        .map(|artist| artist.name.clone())
+        .collect()
+}
+
+fn tokenize(value: &str) -> Vec<String> {
+    normalize(value)
+        .split_whitespace()
+        .filter(|token| !token.is_empty())
+        .map(ToOwned::to_owned)
+        .collect()
+}
+
+fn normalize(value: &str) -> String {
+    value
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() {
+                ch.to_ascii_lowercase()
+            } else {
+                ' '
+            }
+        })
+        .collect()
 }
 
 async fn add_to_queue(token: &SpotifyToken, uri: &str) -> Result<()> {
@@ -447,5 +544,29 @@ mod tests {
         assert!(!challenge.contains('+'));
         assert!(!challenge.contains('/'));
         assert!(!challenge.contains('='));
+    }
+
+    #[test]
+    fn ranking_prefers_title_artist_match_over_first_result() {
+        let tracks = vec![
+            SpotifyTrack {
+                name: "Aerials".to_string(),
+                uri: "spotify:track:aerials".to_string(),
+                artists: vec![SpotifyArtist {
+                    name: "System Of A Down".to_string(),
+                }],
+            },
+            SpotifyTrack {
+                name: "Spiders".to_string(),
+                uri: "spotify:track:spiders".to_string(),
+                artists: vec![SpotifyArtist {
+                    name: "System Of A Down".to_string(),
+                }],
+            },
+        ];
+
+        let track = choose_best_track("system of a down spiders", tracks).expect("track");
+
+        assert_eq!(track.uri, "spotify:track:spiders");
     }
 }

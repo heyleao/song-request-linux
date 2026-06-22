@@ -81,6 +81,18 @@ http://127.0.0.1:7384/auth/spotify/callback
 The connections page also lets you choose a Spotify fallback playlist. Reconnect
 Spotify if playlist loading asks for updated scopes.
 
+Most development settings can be saved from `http://127.0.0.1:7384/connections`:
+
+- default provider
+- Spotify Client ID
+- Twitch bot username
+- Twitch channel
+- Twitch bot token
+
+Public config is stored in `~/.config/song-request-linux/config.json`.
+Temporary local secrets are stored in `~/.local/state/song-request-linux/secrets.json`
+with restricted file permissions. Secret Service/KWallet is planned.
+
 Then open:
 
 - Dashboard: `http://127.0.0.1:7384/`

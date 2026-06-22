@@ -11,7 +11,7 @@ use tower_http::{cors::CorsLayer, trace::TraceLayer};
 
 use crate::{
     commands::{parse_chat_command, ChatCommand, ChatCommandInput},
-    connections, dashboard,
+    config, connections, dashboard,
     diagnostics::DiagnosticsResponse,
     overlay,
     song_requests::{MusicProvider, QueueView, RequestSource, SongRequest, SongRequestInput},
@@ -27,6 +27,7 @@ pub fn router(state: AppState) -> Router {
         .route("/health", get(health))
         .route("/api/status", get(status))
         .route("/api/diagnostics", get(diagnostics))
+        .route("/api/config", get(get_config).post(save_config))
         .route("/api/connections/status", get(connections_status))
         .route("/api/connections/spotify/start", post(spotify_start))
         .route("/api/spotify/playlists", get(spotify_playlists))
@@ -57,6 +58,19 @@ async fn status(State(state): State<AppState>) -> Json<StatusResponse> {
 
 async fn diagnostics(State(state): State<AppState>) -> Json<DiagnosticsResponse> {
     Json(DiagnosticsResponse::collect(&state.config))
+}
+
+async fn get_config(State(state): State<AppState>) -> Json<config::UiConfigView> {
+    Json(config::UiConfigView::load(&state.config.paths))
+}
+
+async fn save_config(
+    State(state): State<AppState>,
+    Json(input): Json<config::UiConfigInput>,
+) -> Result<Json<config::UiConfigView>, ApiError> {
+    let view = config::save_ui_config(&state.config.paths, input).map_err(ApiError::bad_request)?;
+
+    Ok(Json(view))
 }
 
 async fn connections_status(State(state): State<AppState>) -> Json<ConnectionsStatus> {

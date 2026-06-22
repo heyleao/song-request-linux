@@ -29,7 +29,7 @@ pub enum RequestSource {
     Youtube { video_id: String },
 }
 
-#[derive(Clone, Copy, Debug, Serialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum MusicProvider {
     Spotify,
@@ -125,10 +125,11 @@ impl SongQueue {
 }
 
 impl MusicProvider {
-    pub fn from_env() -> Self {
+    pub fn from_env() -> Option<Self> {
         match std::env::var("SONG_REQUEST_PROVIDER") {
-            Ok(value) if value.eq_ignore_ascii_case("spotify") => Self::Spotify,
-            _ => Self::Youtube,
+            Ok(value) if value.eq_ignore_ascii_case("spotify") => Some(Self::Spotify),
+            Ok(value) if value.eq_ignore_ascii_case("youtube") => Some(Self::Youtube),
+            _ => None,
         }
     }
 }

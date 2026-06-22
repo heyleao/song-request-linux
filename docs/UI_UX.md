@@ -23,6 +23,7 @@ secrets.
 
 - Status bar: Twitch, provider, queue count and overlay.
 - Setup: bot account, channel and provider.
+- Connections/config: provider, Spotify Client ID, Twitch bot username/channel and masked token.
 - Test command: simulate `!sr`, `!song` and `!skip`.
 - Now playing: current song and requester.
 - Queue: upcoming requests.
@@ -44,4 +45,3 @@ secrets.
 4. User opens the OBS overlay.
 5. User watches current song and queue update.
 6. User can skip when needed.
-

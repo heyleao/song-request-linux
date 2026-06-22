@@ -59,6 +59,21 @@ pub async fn page() -> Html<&'static str> {
       padding: 8px 10px;
       min-width: min(100%, 420px);
     }
+    input {
+      min-height: 38px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--panel-2);
+      color: var(--text);
+      padding: 8px 10px;
+      min-width: min(100%, 420px);
+    }
+    label {
+      display: grid;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 13px;
+    }
     a.secondary {
       border-color: var(--line);
       background: var(--panel-2);
@@ -86,6 +101,37 @@ pub async fn page() -> Html<&'static str> {
     <a class="button secondary" href="/">Dashboard</a>
   </header>
   <main>
+    <section>
+      <h2>Configuracao</h2>
+      <label>
+        Provider padrao
+        <select id="default-provider">
+          <option value="spotify">Spotify</option>
+          <option value="youtube">YouTube</option>
+        </select>
+      </label>
+      <label>
+        Spotify Client ID
+        <input id="spotify-client-id" autocomplete="off" placeholder="Client ID do app Spotify">
+      </label>
+      <label>
+        Twitch Bot Username
+        <input id="twitch-bot-username" autocomplete="off" placeholder="nome_da_conta_bot">
+      </label>
+      <label>
+        Twitch Channel
+        <input id="twitch-channel" autocomplete="off" placeholder="canal_do_streamer">
+      </label>
+      <label>
+        Twitch Bot OAuth Token
+        <input id="twitch-bot-token" type="password" autocomplete="off" placeholder="cole apenas para salvar/atualizar">
+      </label>
+      <div class="row">
+        <button id="save-config">Salvar configuracao</button>
+      </div>
+      <div class="message" id="config-message"></div>
+    </section>
+
     <section>
       <h2>Spotify</h2>
       <div class="muted" id="spotify-status">Carregando...</div>
@@ -126,6 +172,7 @@ pub async fn page() -> Html<&'static str> {
     const linkEl = document.getElementById('spotify-link');
     const playlistSelect = document.getElementById('playlist-select');
     const playlistMessage = document.getElementById('playlist-message');
+    const configMessage = document.getElementById('config-message');
     let playlists = [];
     async function api(path, options = {}) {
       const response = await fetch(path, {
@@ -137,7 +184,17 @@ pub async fn page() -> Html<&'static str> {
       return data;
     }
     async function refresh() {
-      const status = await api('/api/connections/status');
+      const [status, config] = await Promise.all([
+        api('/api/connections/status'),
+        api('/api/config')
+      ]);
+      document.getElementById('default-provider').value = config.default_provider;
+      document.getElementById('spotify-client-id').value = config.spotify_client_id || '';
+      document.getElementById('twitch-bot-username').value = config.twitch_bot_username || '';
+      document.getElementById('twitch-channel').value = config.twitch_channel || '';
+      document.getElementById('twitch-bot-token').placeholder = config.twitch_bot_token_configured
+        ? 'token salvo; preencha apenas para trocar'
+        : 'token do bot Twitch';
       statusEl.textContent = status.spotify.token_configured
         ? 'Spotify conectado.'
         : status.spotify.client_id_configured
@@ -156,6 +213,27 @@ pub async fn page() -> Html<&'static str> {
         window.open(result.auth_url, '_blank', 'noopener,noreferrer');
       } catch (error) {
         linkEl.textContent = error.message;
+      }
+    });
+    document.getElementById('save-config').addEventListener('click', async () => {
+      try {
+        await api('/api/config', {
+          method: 'POST',
+          body: JSON.stringify({
+            default_provider: document.getElementById('default-provider').value,
+            spotify_client_id: document.getElementById('spotify-client-id').value,
+            twitch_bot_username: document.getElementById('twitch-bot-username').value,
+            twitch_channel: document.getElementById('twitch-channel').value,
+            twitch_bot_oauth_token: document.getElementById('twitch-bot-token').value
+          })
+        });
+        document.getElementById('twitch-bot-token').value = '';
+        configMessage.textContent = 'Configuracao salva. Reinicie o app para aplicar provider/Twitch bot.';
+        configMessage.className = 'message';
+        await refresh();
+      } catch (error) {
+        configMessage.textContent = error.message;
+        configMessage.className = 'message error';
       }
     });
     document.getElementById('load-playlists').addEventListener('click', async () => {

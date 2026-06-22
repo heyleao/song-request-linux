@@ -18,6 +18,14 @@
 - [x] YouTube URL parsing for `youtube.com/watch` and `youtu.be`.
 - [x] Overlay reads current song from app state.
 
+## Milestone 1.6: GUI Configuration
+
+- [x] Save default provider from GUI.
+- [x] Save Spotify Client ID from GUI.
+- [x] Save Twitch bot username/channel from GUI.
+- [x] Save Twitch bot token in local state file with restricted permissions.
+- [ ] Move secrets to Secret Service/KWallet/libsecret.
+
 ## Milestone 2: Twitch Chat
 
 - [ ] Twitch OAuth PKCE.

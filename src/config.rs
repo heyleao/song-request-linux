@@ -1,11 +1,11 @@
 use std::{
-    env,
+    env, fs,
     net::SocketAddr,
     path::{Path, PathBuf},
 };
 
 use anyhow::{Context, Result};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::song_requests::MusicProvider;
 
@@ -19,6 +19,38 @@ pub struct AppConfig {
     pub spotify: SpotifyConfig,
     pub twitch: TwitchBotConfig,
     pub paths: AppPaths,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct UserConfig {
+    pub default_provider: MusicProvider,
+    pub spotify_client_id: Option<String>,
+    pub spotify_redirect_uri: Option<String>,
+    pub twitch_bot_username: Option<String>,
+    pub twitch_channel: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct UserSecrets {
+    pub twitch_bot_oauth_token: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct UiConfigInput {
+    pub default_provider: MusicProvider,
+    pub spotify_client_id: Option<String>,
+    pub twitch_bot_username: Option<String>,
+    pub twitch_channel: Option<String>,
+    pub twitch_bot_oauth_token: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct UiConfigView {
+    pub default_provider: MusicProvider,
+    pub spotify_client_id: Option<String>,
+    pub twitch_bot_username: Option<String>,
+    pub twitch_channel: Option<String>,
+    pub twitch_bot_token_configured: bool,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -51,6 +83,9 @@ pub struct AppPaths {
 
 impl AppConfig {
     pub fn from_env() -> Result<Self> {
+        let paths = AppPaths::from_env()?;
+        let user_config = load_user_config_from_paths(&paths).unwrap_or_default();
+        let user_secrets = load_user_secrets_from_paths(&paths).unwrap_or_default();
         let bind_addr = env::var("SONG_REQUEST_BIND")
             .unwrap_or_else(|_| "127.0.0.1:7384".to_string())
             .parse()
@@ -58,10 +93,10 @@ impl AppConfig {
 
         Ok(Self {
             bind_addr,
-            default_provider: MusicProvider::from_env(),
-            spotify: SpotifyConfig::from_env(),
-            twitch: TwitchBotConfig::from_env(),
-            paths: AppPaths::from_env()?,
+            default_provider: MusicProvider::from_env().unwrap_or(user_config.default_provider),
+            spotify: SpotifyConfig::from_sources(&user_config),
+            twitch: TwitchBotConfig::from_sources(&user_config, &user_secrets),
+            paths,
         })
     }
 
@@ -70,31 +105,62 @@ impl AppConfig {
     }
 }
 
-impl SpotifyConfig {
-    fn from_env() -> Self {
+impl Default for UserConfig {
+    fn default() -> Self {
         Self {
-            client_id: clean_optional_env("SPOTIFY_CLIENT_ID"),
+            default_provider: MusicProvider::Youtube,
+            spotify_client_id: None,
+            spotify_redirect_uri: None,
+            twitch_bot_username: None,
+            twitch_channel: None,
+        }
+    }
+}
+
+impl Default for UserSecrets {
+    fn default() -> Self {
+        Self {
+            twitch_bot_oauth_token: None,
+        }
+    }
+}
+
+impl SpotifyConfig {
+    fn from_sources(user_config: &UserConfig) -> Self {
+        Self {
+            client_id: clean_optional_env("SPOTIFY_CLIENT_ID")
+                .or_else(|| user_config.spotify_client_id.clone()),
             redirect_uri: clean_optional_env("SPOTIFY_REDIRECT_URI")
+                .or_else(|| user_config.spotify_redirect_uri.clone())
                 .unwrap_or_else(|| "http://127.0.0.1:7384/auth/spotify/callback".to_string()),
         }
     }
 }
 
 impl TwitchBotConfig {
-    fn from_env() -> Self {
+    fn from_sources(user_config: &UserConfig, user_secrets: &UserSecrets) -> Self {
         Self {
-            username: clean_optional_env("TWITCH_BOT_USERNAME"),
-            channel: clean_optional_env("TWITCH_CHANNEL"),
-            token_configured: clean_optional_env("TWITCH_BOT_OAUTH_TOKEN").is_some(),
+            username: clean_optional_env("TWITCH_BOT_USERNAME")
+                .or_else(|| user_config.twitch_bot_username.clone()),
+            channel: clean_optional_env("TWITCH_CHANNEL")
+                .or_else(|| user_config.twitch_channel.clone()),
+            token_configured: clean_optional_env("TWITCH_BOT_OAUTH_TOKEN")
+                .or_else(|| user_secrets.twitch_bot_oauth_token.clone())
+                .is_some(),
         }
     }
 }
 
 impl TwitchBotSecrets {
     pub fn from_env() -> Option<Self> {
-        let username = clean_optional_env("TWITCH_BOT_USERNAME")?;
-        let oauth_token = clean_optional_env("TWITCH_BOT_OAUTH_TOKEN")?;
-        let channel = clean_optional_env("TWITCH_CHANNEL")?;
+        let paths = AppPaths::from_env().ok()?;
+        let user_config = load_user_config_from_paths(&paths).unwrap_or_default();
+        let user_secrets = load_user_secrets_from_paths(&paths).unwrap_or_default();
+        let username =
+            clean_optional_env("TWITCH_BOT_USERNAME").or(user_config.twitch_bot_username)?;
+        let oauth_token =
+            clean_optional_env("TWITCH_BOT_OAUTH_TOKEN").or(user_secrets.twitch_bot_oauth_token)?;
+        let channel = clean_optional_env("TWITCH_CHANNEL").or(user_config.twitch_channel)?;
 
         Some(Self {
             username: username.trim_start_matches('@').to_lowercase(),
@@ -102,6 +168,49 @@ impl TwitchBotSecrets {
             channel: channel.trim_start_matches('#').to_lowercase(),
         })
     }
+}
+
+impl UiConfigView {
+    pub fn load(paths: &AppPaths) -> Self {
+        let user_config = load_user_config_from_paths(paths).unwrap_or_default();
+        let user_secrets = load_user_secrets_from_paths(paths).unwrap_or_default();
+
+        Self {
+            default_provider: user_config.default_provider,
+            spotify_client_id: user_config.spotify_client_id,
+            twitch_bot_username: user_config.twitch_bot_username,
+            twitch_channel: user_config.twitch_channel,
+            twitch_bot_token_configured: user_secrets.twitch_bot_oauth_token.is_some(),
+        }
+    }
+}
+
+pub fn save_ui_config(paths: &AppPaths, input: UiConfigInput) -> Result<UiConfigView> {
+    fs::create_dir_all(&paths.config_dir)?;
+    fs::create_dir_all(&paths.state_dir)?;
+
+    let existing_secrets = load_user_secrets_from_paths(paths).unwrap_or_default();
+    let user_config = UserConfig {
+        default_provider: input.default_provider,
+        spotify_client_id: clean_optional_value(input.spotify_client_id),
+        spotify_redirect_uri: None,
+        twitch_bot_username: clean_optional_value(input.twitch_bot_username),
+        twitch_channel: clean_optional_value(input.twitch_channel),
+    };
+    let user_secrets = UserSecrets {
+        twitch_bot_oauth_token: clean_optional_value(input.twitch_bot_oauth_token)
+            .or(existing_secrets.twitch_bot_oauth_token),
+    };
+
+    fs::write(
+        user_config_path(paths),
+        serde_json::to_vec_pretty(&user_config)?,
+    )?;
+    let secrets_path = user_secrets_path(paths);
+    fs::write(&secrets_path, serde_json::to_vec_pretty(&user_secrets)?)?;
+    restrict_file_permissions(&secrets_path);
+
+    Ok(UiConfigView::load(paths))
 }
 
 impl AppPaths {
@@ -150,6 +259,40 @@ fn clean_optional_env(key: &str) -> Option<String> {
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty())
 }
+
+fn clean_optional_value(value: Option<String>) -> Option<String> {
+    value
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+}
+
+fn load_user_config_from_paths(paths: &AppPaths) -> Result<UserConfig> {
+    let data = fs::read_to_string(user_config_path(paths))?;
+    Ok(serde_json::from_str(&data)?)
+}
+
+fn load_user_secrets_from_paths(paths: &AppPaths) -> Result<UserSecrets> {
+    let data = fs::read_to_string(user_secrets_path(paths))?;
+    Ok(serde_json::from_str(&data)?)
+}
+
+fn user_config_path(paths: &AppPaths) -> PathBuf {
+    paths.config_dir.join("config.json")
+}
+
+fn user_secrets_path(paths: &AppPaths) -> PathBuf {
+    paths.state_dir.join("secrets.json")
+}
+
+#[cfg(unix)]
+fn restrict_file_permissions(path: &std::path::Path) {
+    use std::os::unix::fs::PermissionsExt;
+
+    let _ = fs::set_permissions(path, fs::Permissions::from_mode(0o600));
+}
+
+#[cfg(not(unix))]
+fn restrict_file_permissions(_path: &std::path::Path) {}
 
 fn home_path(relative: impl AsRef<Path>) -> PathBuf {
     let home = env::var_os("HOME")
