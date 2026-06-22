@@ -5,6 +5,7 @@ mod dashboard;
 mod diagnostics;
 mod http;
 mod overlay;
+mod player;
 mod request_flow;
 mod song_requests;
 mod spotify;

@@ -199,6 +199,7 @@ pub async fn page() -> Html<&'static str> {
       <button class="tab-button active" data-tab="overview">Visao geral</button>
       <button class="tab-button" data-tab="queue-tab">Fila</button>
       <a class="tab-button" href="/overlay" target="_blank" rel="noreferrer">Overlay</a>
+      <a class="tab-button" href="/player" target="_blank" rel="noreferrer">YouTube Player</a>
       <button class="tab-button" data-tab="commands-tab">Comandos</button>
       <button class="tab-button" data-tab="player-tab">Player</button>
       <button class="tab-button" data-tab="logs-tab">Logs</button>
@@ -211,7 +212,8 @@ pub async fn page() -> Html<&'static str> {
         <section>
           <div class="toolbar">
             <h2>Operacao</h2>
-            <code>http://127.0.0.1:7384/overlay</code>
+            <code>Overlay: http://127.0.0.1:7384/overlay</code>
+            <code>Player: http://127.0.0.1:7384/player</code>
           </div>
           <div class="metric">
             <div><strong id="queue-count">0</strong><span>na fila</span></div>

@@ -14,7 +14,7 @@ use crate::{
     commands::{parse_chat_command, ChatCommand, ChatCommandInput, PlaybackAction},
     config, connections, dashboard,
     diagnostics::DiagnosticsResponse,
-    overlay, request_flow,
+    overlay, player, request_flow,
     song_requests::{MusicProvider, QueueView, RequestSource, SongRequest, SongRequestInput},
     spotify,
     state::{AppState, HealthResponse, StatusResponse},
@@ -48,6 +48,8 @@ pub fn router(state: AppState) -> Router {
         .route("/api/chat-command", post(chat_command))
         .route("/api/skip", post(skip))
         .route("/overlay", get(overlay::page))
+        .route("/player", get(player::page))
+        .route("/api/player/youtube", get(youtube_player_current))
         .fallback(not_found)
         .layer(TraceLayer::new_for_http())
         .with_state(state)
@@ -262,6 +264,18 @@ async fn spotify_callback(
 
 async fn queue(State(state): State<AppState>) -> Json<QueueView> {
     Json(effective_queue_view(&state).await)
+}
+
+async fn youtube_player_current(State(state): State<AppState>) -> Json<YoutubePlayerResponse> {
+    let current_song = state
+        .queue
+        .read()
+        .await
+        .view()
+        .current_song
+        .and_then(|song| YoutubePlayerSong::from_request(&song));
+
+    Json(YoutubePlayerResponse { current_song })
 }
 
 async fn add_song_request(
@@ -557,6 +571,36 @@ struct SkipResponse {
 }
 
 #[derive(Debug, Serialize)]
+struct YoutubePlayerResponse {
+    current_song: Option<YoutubePlayerSong>,
+}
+
+#[derive(Debug, Serialize)]
+struct YoutubePlayerSong {
+    id: u64,
+    video_id: String,
+    title: String,
+    artist: String,
+    requester: String,
+}
+
+impl YoutubePlayerSong {
+    fn from_request(song: &SongRequest) -> Option<Self> {
+        let RequestSource::Youtube { video_id } = &song.source else {
+            return None;
+        };
+
+        Some(Self {
+            id: song.id,
+            video_id: video_id.clone(),
+            title: song.title.clone(),
+            artist: song.artist.clone(),
+            requester: song.requester.clone(),
+        })
+    }
+}
+
+#[derive(Debug, Serialize)]
 struct ShutdownResponse {
     status: &'static str,
 }
@@ -617,6 +661,24 @@ mod tests {
             .oneshot(
                 Request::builder()
                     .uri("/health")
+                    .body(Body::empty())
+                    .expect("request"),
+            )
+            .await
+            .expect("response");
+
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn player_page_returns_ok() {
+        let config = AppConfig::from_env().expect("config");
+        let app = router(AppState::new(config));
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/player")
                     .body(Body::empty())
                     .expect("request"),
             )

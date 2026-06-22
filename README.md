@@ -14,6 +14,7 @@ Songify.Rocks.
 - Hybrid request routing: Spotify search by default, YouTube links as YouTube requests.
 - YouTube link validation with duration/category policy through YouTube Data API v3.
 - Local OBS overlay at `http://127.0.0.1:7384/overlay`.
+- Local YouTube player source at `http://127.0.0.1:7384/player`.
 - Local web dashboard with tabs for overview, queue, commands, player, logs, setup and guide.
 - Desktop-style launcher with single-instance behavior and clean shutdown.
 
@@ -62,6 +63,7 @@ You can also stop it from the dashboard with `Encerrar`.
 
 - Dashboard: `http://127.0.0.1:7384/`
 - OBS overlay: `http://127.0.0.1:7384/overlay`
+- OBS YouTube player/audio source: `http://127.0.0.1:7384/player`
 - Queue API: `http://127.0.0.1:7384/api/queue`
 - Events API: `http://127.0.0.1:7384/api/events`
 - Diagnostics API: `http://127.0.0.1:7384/api/diagnostics`
@@ -100,8 +102,9 @@ Moderator/broadcaster:
 - By default, YouTube videos must be marked as Music by YouTube metadata.
 - Non-music YouTube videos can be allowed from the setup tab when needed.
 
-Spotify is still the main active player today. YouTube requests are visible in
-the app queue; dedicated YouTube playback is a separate future step.
+Spotify plays through your active Spotify device. YouTube requests play through
+the local browser player at `http://127.0.0.1:7384/player`; add it to OBS as a
+Browser Source and enable browser-source audio control in OBS when available.
 
 ## Local Data
 

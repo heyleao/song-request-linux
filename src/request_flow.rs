@@ -42,6 +42,22 @@ pub async fn add_request(state: &AppState, input: SongRequestInput) -> Result<So
         return Ok(state.queue.write().await.add_resolved(request));
     }
 
+    if should_use_youtube(state, &input) {
+        let metadata = youtube::search_and_validate(&state.config, &input.query).await?;
+        let request = SongRequest {
+            id: 0,
+            requester: input.requester.trim().to_string(),
+            query: input.query.trim().to_string(),
+            source: RequestSource::Youtube {
+                video_id: metadata.video_id,
+            },
+            title: metadata.title,
+            artist: metadata.channel_title,
+        };
+
+        return Ok(state.queue.write().await.add_resolved(request));
+    }
+
     state.queue.write().await.add(input)
 }
 
@@ -49,6 +65,14 @@ fn should_use_spotify(state: &AppState, input: &SongRequestInput) -> bool {
     matches!(state.config.default_provider, MusicProvider::Spotify)
         && !matches!(
             RequestSource::from_query_public(&input.query, MusicProvider::Spotify),
+            RequestSource::Youtube { .. }
+        )
+}
+
+fn should_use_youtube(state: &AppState, input: &SongRequestInput) -> bool {
+    matches!(state.config.default_provider, MusicProvider::Youtube)
+        && !matches!(
+            RequestSource::from_query_public(&input.query, MusicProvider::Youtube),
             RequestSource::Youtube { .. }
         )
 }

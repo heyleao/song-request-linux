@@ -27,6 +27,22 @@ struct VideosResponse {
 }
 
 #[derive(Debug, Deserialize)]
+struct SearchResponse {
+    items: Vec<SearchItem>,
+}
+
+#[derive(Debug, Deserialize)]
+struct SearchItem {
+    id: SearchItemId,
+}
+
+#[derive(Debug, Deserialize)]
+struct SearchItemId {
+    #[serde(rename = "videoId")]
+    video_id: String,
+}
+
+#[derive(Debug, Deserialize)]
 struct VideoItem {
     id: String,
     snippet: VideoSnippet,
@@ -84,12 +100,59 @@ pub async fn validate_video(
     Ok(metadata)
 }
 
+pub async fn search_and_validate(config: &AppConfig, query: &str) -> Result<YoutubeVideoMetadata> {
+    let candidates = search_videos(config, query).await?;
+    let mut last_error = None;
+
+    for video_id in candidates {
+        match validate_video(config, &YoutubeVideoRef { video_id }).await {
+            Ok(metadata) => return Ok(metadata),
+            Err(error) => last_error = Some(error),
+        }
+    }
+
+    Err(last_error.unwrap_or_else(|| anyhow!("Nenhum video YouTube encontrado para {query}")))
+}
+
+async fn search_videos(config: &AppConfig, query: &str) -> Result<Vec<String>> {
+    let api_key = youtube_api_key(config)?;
+    let response = Client::new()
+        .get(format!("{API_URL}/search"))
+        .query(&[
+            ("part", "snippet"),
+            ("type", "video"),
+            ("maxResults", "5"),
+            ("q", query.trim()),
+            ("key", api_key),
+        ])
+        .send()
+        .await
+        .context("failed to search YouTube videos")?;
+
+    let status = response.status();
+    if !status.is_success() {
+        let body = response.text().await.unwrap_or_default();
+        bail!("YouTube search failed with {status}: {body}");
+    }
+
+    let video_ids = response
+        .json::<SearchResponse>()
+        .await?
+        .items
+        .into_iter()
+        .map(|item| item.id.video_id)
+        .filter(|video_id| is_valid_video_id(video_id))
+        .collect::<Vec<_>>();
+
+    if video_ids.is_empty() {
+        bail!("Nenhum video YouTube encontrado para {}", query.trim());
+    }
+
+    Ok(video_ids)
+}
+
 async fn fetch_video_metadata(config: &AppConfig, video_id: &str) -> Result<YoutubeVideoMetadata> {
-    let api_key = config
-        .youtube
-        .api_key
-        .as_ref()
-        .context("YouTube API key nao configurada; configure para validar duracao/categoria")?;
+    let api_key = youtube_api_key(config)?;
     let response = Client::new()
         .get(format!("{API_URL}/videos"))
         .query(&[
@@ -129,6 +192,14 @@ async fn fetch_video_metadata(config: &AppConfig, video_id: &str) -> Result<Yout
         duration_seconds,
         category_id: item.snippet.category_id,
     })
+}
+
+fn youtube_api_key(config: &AppConfig) -> Result<&str> {
+    config
+        .youtube
+        .api_key
+        .as_deref()
+        .context("YouTube API key nao configurada; configure para validar duracao/categoria")
 }
 
 fn parse_iso8601_duration(value: &str) -> Option<u64> {
