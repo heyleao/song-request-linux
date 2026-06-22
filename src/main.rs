@@ -1,8 +1,11 @@
+mod commands;
 mod config;
 mod diagnostics;
 mod http;
 mod overlay;
+mod song_requests;
 mod state;
+mod youtube;
 
 use anyhow::Context;
 use tracing::info;

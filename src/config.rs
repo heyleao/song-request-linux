@@ -7,12 +7,15 @@ use std::{
 use anyhow::{Context, Result};
 use serde::Serialize;
 
+use crate::song_requests::MusicProvider;
+
 pub const APP_ID: &str = "song-request-linux";
 pub const APP_NAME: &str = "Song Request Linux";
 
 #[derive(Clone, Debug, Serialize)]
 pub struct AppConfig {
     pub bind_addr: SocketAddr,
+    pub default_provider: MusicProvider,
     pub paths: AppPaths,
 }
 
@@ -33,6 +36,7 @@ impl AppConfig {
 
         Ok(Self {
             bind_addr,
+            default_provider: MusicProvider::from_env(),
             paths: AppPaths::from_env()?,
         })
     }

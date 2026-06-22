@@ -2,12 +2,21 @@
 
 ## Milestone 1: Local Shell
 
-- Local server.
-- Health endpoint.
-- JSON status endpoint.
-- OBS overlay page.
-- Config/cache/state directory creation.
-- Log redaction helper.
+- [x] Local server.
+- [x] Health endpoint.
+- [x] JSON status endpoint.
+- [x] OBS overlay page.
+- [x] Config/cache/state directory creation.
+- [ ] Log redaction helper.
+
+## Milestone 1.5: Local Song Request Loop
+
+- [x] In-memory queue.
+- [x] `!sr`, `!song`, `!skip` parser.
+- [x] API endpoint to simulate song requests.
+- [x] API endpoint to simulate Twitch chat commands.
+- [x] YouTube URL parsing for `youtube.com/watch` and `youtu.be`.
+- [x] Overlay reads current song from app state.
 
 ## Milestone 2: Twitch Chat
 
@@ -38,4 +47,3 @@
 - Flatpak.
 - AUR package.
 - GitHub Actions release workflow.
-

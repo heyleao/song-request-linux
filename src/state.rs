@@ -1,12 +1,17 @@
+use std::sync::Arc;
+
 use serde::Serialize;
+use tokio::sync::RwLock;
 
 use crate::config::{AppConfig, APP_NAME};
+use crate::song_requests::{QueueView, SongQueue};
 
 #[derive(Clone)]
 pub struct AppState {
     pub config: AppConfig,
     pub app_name: &'static str,
     pub version: &'static str,
+    pub queue: Arc<RwLock<SongQueue>>,
 }
 
 #[derive(Serialize)]
@@ -32,22 +37,38 @@ pub struct SongView {
 
 impl AppState {
     pub fn new(config: AppConfig) -> Self {
+        let queue = SongQueue::new(config.default_provider);
+
         Self {
             config,
             app_name: APP_NAME,
             version: env!("CARGO_PKG_VERSION"),
+            queue: Arc::new(RwLock::new(queue)),
         }
     }
 }
 
 impl StatusResponse {
-    pub fn from_state(state: &AppState) -> Self {
+    pub fn from_queue(state: &AppState, queue: QueueView) -> Self {
         Self {
             app: state.app_name,
             version: state.version,
-            provider: "not_configured",
-            current_song: None,
-            queue_length: 0,
+            provider: match state.config.default_provider {
+                crate::song_requests::MusicProvider::Spotify => "spotify",
+                crate::song_requests::MusicProvider::Youtube => "youtube",
+            },
+            current_song: queue.current_song.map(SongView::from),
+            queue_length: queue.queue_length,
+        }
+    }
+}
+
+impl From<crate::song_requests::SongRequest> for SongView {
+    fn from(song: crate::song_requests::SongRequest) -> Self {
+        Self {
+            title: song.title,
+            artist: song.artist,
+            requester: song.requester,
         }
     }
 }

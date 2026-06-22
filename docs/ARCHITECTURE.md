@@ -12,6 +12,7 @@ Initial modules:
 - `auth_twitch`: Twitch OAuth PKCE and token refresh.
 - `twitch_chat`: chat connection and command dispatch.
 - `song_requests`: queue, cooldowns, validation and permissions.
+- `commands`: chat command parsing for `!sr`, `!song` and `!skip`.
 - `spotify_player`: Spotify search, metadata, playback and queue.
 - `youtube_search`: YouTube URL parsing, Data API lookup, metadata and cache.
 - `youtube_player`: initial external player integration; future MPRIS/Pear support.
@@ -35,3 +36,13 @@ http://127.0.0.1:7384/overlay
 
 The overlay must not require internet access to render basic state.
 
+## Local Test API
+
+Before Twitch is connected, requests can be tested through local endpoints:
+
+- `POST /api/song-requests`
+- `POST /api/chat-command`
+- `POST /api/skip`
+- `GET /api/queue`
+
+These endpoints are bound to `127.0.0.1` with the rest of the app.

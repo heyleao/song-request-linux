@@ -46,8 +46,25 @@ Then open:
 
 - App status: `http://127.0.0.1:7384/api/status`
 - Diagnostics: `http://127.0.0.1:7384/api/diagnostics`
+- Queue: `http://127.0.0.1:7384/api/queue`
 - OBS overlay: `http://127.0.0.1:7384/overlay`
 - Health check: `http://127.0.0.1:7384/health`
+
+Simulate a song request:
+
+```bash
+curl -X POST http://127.0.0.1:7384/api/song-requests \
+  -H 'content-type: application/json' \
+  -d '{"requester":"bruno","query":"https://youtu.be/dQw4w9WgXcQ"}'
+```
+
+Simulate a Twitch chat command:
+
+```bash
+curl -X POST http://127.0.0.1:7384/api/chat-command \
+  -H 'content-type: application/json' \
+  -d '{"requester":"viewer","message":"!sr daft punk one more time"}'
+```
 
 Run checks:
 
