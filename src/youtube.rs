@@ -1,6 +1,9 @@
+use std::collections::HashSet;
+
 use anyhow::{anyhow, bail, Context, Result};
 use reqwest::Client;
 use serde::Deserialize;
+use tracing::debug;
 
 use crate::config::AppConfig;
 
@@ -103,15 +106,18 @@ pub async fn validate_video(
 pub async fn search_and_validate(config: &AppConfig, query: &str) -> Result<YoutubeVideoMetadata> {
     let candidates = search_videos(config, query).await?;
     let mut last_error = None;
+    let mut valid_candidates = Vec::new();
 
     for video_id in candidates {
         match validate_video(config, &YoutubeVideoRef { video_id }).await {
-            Ok(metadata) => return Ok(metadata),
+            Ok(metadata) => valid_candidates.push(metadata),
             Err(error) => last_error = Some(error),
         }
     }
 
-    Err(last_error.unwrap_or_else(|| anyhow!("Nenhum video YouTube encontrado para {query}")))
+    choose_best_video(query, valid_candidates).ok_or_else(|| {
+        last_error.unwrap_or_else(|| anyhow!("Nenhum video YouTube encontrado para {query}"))
+    })
 }
 
 async fn search_videos(config: &AppConfig, query: &str) -> Result<Vec<String>> {
@@ -277,6 +283,102 @@ fn is_valid_video_id(id: &str) -> bool {
             .all(|ch| ch.is_ascii_alphanumeric() || ch == '-' || ch == '_')
 }
 
+fn choose_best_video(
+    query: &str,
+    videos: Vec<YoutubeVideoMetadata>,
+) -> Option<YoutubeVideoMetadata> {
+    let query_tokens = tokenize(query);
+    let mut ranked = videos
+        .into_iter()
+        .enumerate()
+        .map(|(index, video)| {
+            let score = score_video(&query_tokens, &video, index);
+            debug!(
+                score,
+                title = %video.title,
+                channel = %video.channel_title,
+                "youtube search candidate"
+            );
+            (score, video)
+        })
+        .collect::<Vec<_>>();
+
+    ranked.sort_by_key(|item| std::cmp::Reverse(item.0));
+    ranked.into_iter().map(|(_, video)| video).next()
+}
+
+fn score_video(query_tokens: &[String], video: &YoutubeVideoMetadata, index: usize) -> i64 {
+    let title_tokens = tokenize(&video.title);
+    let channel_tokens = tokenize(&video.channel_title);
+    let combined_tokens = title_tokens
+        .iter()
+        .chain(channel_tokens.iter())
+        .cloned()
+        .collect::<HashSet<_>>();
+    let title_set = title_tokens.iter().cloned().collect::<HashSet<_>>();
+    let channel_set = channel_tokens.iter().cloned().collect::<HashSet<_>>();
+
+    let mut score = 0;
+    for token in query_tokens {
+        if title_set.contains(token) {
+            score += 14;
+        }
+        if channel_set.contains(token) {
+            score += 8;
+        }
+        if combined_tokens.contains(token) {
+            score += 4;
+        } else {
+            score -= 20;
+        }
+    }
+
+    let query_joined = query_tokens.join(" ");
+    let title_joined = title_tokens.join(" ");
+    let channel_joined = channel_tokens.join(" ");
+    let combined_joined = format!("{channel_joined} {title_joined}");
+
+    if title_joined == query_joined {
+        score += 90;
+    }
+    if combined_joined == query_joined {
+        score += 120;
+    }
+    if combined_joined.contains(&query_joined) {
+        score += 35;
+    }
+    if !query_tokens.is_empty()
+        && query_tokens
+            .iter()
+            .all(|token| combined_tokens.contains(token))
+    {
+        score += 65;
+    }
+
+    score - index as i64
+}
+
+fn tokenize(value: &str) -> Vec<String> {
+    normalize(value)
+        .split_whitespace()
+        .filter(|token| !token.is_empty())
+        .map(ToOwned::to_owned)
+        .collect()
+}
+
+fn normalize(value: &str) -> String {
+    value
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() {
+                ch.to_ascii_lowercase()
+            } else {
+                ' '
+            }
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -306,5 +408,29 @@ mod tests {
         assert_eq!(parse_iso8601_duration("PT6M"), Some(360));
         assert_eq!(parse_iso8601_duration("PT5M32S"), Some(332));
         assert_eq!(parse_iso8601_duration("PT1H2M3S"), Some(3723));
+    }
+
+    #[test]
+    fn ranking_prefers_requested_title_over_first_result() {
+        let videos = vec![
+            YoutubeVideoMetadata {
+                video_id: "aaaaaaaaaaa".to_string(),
+                title: "System Of A Down - Aerials".to_string(),
+                channel_title: "systemofadownVEVO".to_string(),
+                duration_seconds: 240,
+                category_id: MUSIC_CATEGORY_ID.to_string(),
+            },
+            YoutubeVideoMetadata {
+                video_id: "bbbbbbbbbbb".to_string(),
+                title: "System Of A Down - Spiders".to_string(),
+                channel_title: "System Of A Down".to_string(),
+                duration_seconds: 215,
+                category_id: MUSIC_CATEGORY_ID.to_string(),
+            },
+        ];
+
+        let video = choose_best_video("system of a down spiders", videos).expect("video");
+
+        assert_eq!(video.video_id, "bbbbbbbbbbb");
     }
 }

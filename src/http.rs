@@ -54,6 +54,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/player/youtube/audio", post(youtube_player_audio))
         .route("/api/player/youtube/start", post(youtube_player_start))
         .route("/api/player/youtube/finish", post(youtube_player_finish))
+        .route("/api/player/youtube/event", post(youtube_player_event))
         .fallback(not_found)
         .layer(TraceLayer::new_for_http())
         .with_state(state)
@@ -355,6 +356,15 @@ async fn youtube_player_finish(
         current_song,
         waiting_for_spotify: None,
     }))
+}
+
+async fn youtube_player_event(
+    State(state): State<AppState>,
+    Json(input): Json<YoutubePlayerEventInput>,
+) -> Json<YoutubePlayerEventResponse> {
+    state.record_event("player", input.message).await;
+
+    Json(YoutubePlayerEventResponse { ok: true })
 }
 
 async fn add_song_request(
@@ -899,6 +909,16 @@ struct YoutubePlayerResponse {
 #[derive(Debug, Deserialize)]
 struct YoutubePlayerSyncInput {
     id: u64,
+}
+
+#[derive(Debug, Deserialize)]
+struct YoutubePlayerEventInput {
+    message: String,
+}
+
+#[derive(Debug, Serialize)]
+struct YoutubePlayerEventResponse {
+    ok: bool,
 }
 
 #[derive(Debug, Serialize)]
