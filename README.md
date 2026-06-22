@@ -126,11 +126,16 @@ the local certificate the first time.
 Then open:
 
 - Dashboard: `http://127.0.0.1:7384/`
+- Live events: `http://127.0.0.1:7384/api/events`
 - App status: `http://127.0.0.1:7384/api/status`
 - Diagnostics: `http://127.0.0.1:7384/api/diagnostics`
 - Queue: `http://127.0.0.1:7384/api/queue`
 - OBS overlay: `http://127.0.0.1:7384/overlay`
 - Health check: `http://127.0.0.1:7384/health`
+
+The dashboard is organized as a local web app with tabs for overview, queue,
+commands, player controls, live logs and setup. The live log is in memory only
+and is intended for operational feedback during a stream.
 
 Simulate a song request:
 

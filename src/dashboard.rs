@@ -21,7 +21,7 @@ pub async fn page() -> Html<&'static str> {
       --ok: #2bd180;
       --warn: #f0b84b;
       --bad: #ff6b6b;
-          --action: #62a8ff;
+      --action: #62a8ff;
       font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
     * { box-sizing: border-box; }
@@ -38,22 +38,8 @@ pub async fn page() -> Html<&'static str> {
     }
     h1 { margin: 0; font-size: 19px; line-height: 1.2; }
     h2 { margin: 0; font-size: 15px; }
-    main {
-      display: grid;
-      grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
-      gap: 14px;
-      padding: 14px;
-      max-width: 1320px;
-      margin: 0 auto;
-    }
-    section {
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      padding: 14px;
-    }
-    .stack { display: grid; gap: 14px; }
-    .toolbar, .actions, .status-grid {
+    main { max-width: 1320px; margin: 0 auto; padding: 14px; }
+    .status-grid, .tabs, .actions, .toolbar {
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
@@ -73,14 +59,43 @@ pub async fn page() -> Html<&'static str> {
       font-size: 13px;
       white-space: nowrap;
     }
-    .dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 999px;
-      background: var(--warn);
-    }
+    .dot { width: 8px; height: 8px; border-radius: 999px; background: var(--warn); }
     .dot.ok { background: var(--ok); }
     .dot.bad { background: var(--bad); }
+    .tabs {
+      margin-bottom: 12px;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 8px;
+    }
+    .tab-button {
+      min-height: 34px;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--muted);
+      padding: 7px 10px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .tab-button.active {
+      border-color: var(--line);
+      background: var(--panel-2);
+      color: var(--text);
+    }
+    .tab { display: none; }
+    .tab.active { display: block; }
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
+      gap: 14px;
+    }
+    section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+    }
+    .stack { display: grid; gap: 14px; }
     label {
       display: grid;
       gap: 6px;
@@ -125,11 +140,11 @@ pub async fn page() -> Html<&'static str> {
     .muted { color: var(--muted); }
     .metric {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 8px;
       margin-top: 12px;
     }
-    .metric div, .current, .queue-item, .diagnostic-row {
+    .metric div, .current, .queue-item, .diagnostic-row, .event-row {
       border: 1px solid var(--line);
       border-radius: 8px;
       background: var(--panel-2);
@@ -137,32 +152,14 @@ pub async fn page() -> Html<&'static str> {
     }
     .metric strong { display: block; font-size: 20px; }
     .metric span { color: var(--muted); font-size: 12px; }
-    .current {
-      display: grid;
-      gap: 4px;
-      min-height: 82px;
-      margin-top: 12px;
-    }
-    .song-title {
-      font-size: 19px;
-      font-weight: 800;
-      overflow-wrap: anywhere;
-    }
-    .queue {
-      display: grid;
-      gap: 8px;
-      margin-top: 12px;
-    }
-    .queue-item {
-      display: grid;
-      gap: 3px;
-      overflow-wrap: anywhere;
-    }
-    .diagnostics {
-      display: grid;
-      gap: 8px;
-      margin-top: 12px;
-    }
+    .current { display: grid; gap: 4px; min-height: 82px; margin-top: 12px; }
+    .song-title { font-size: 19px; font-weight: 800; overflow-wrap: anywhere; }
+    .queue, .events, .diagnostics { display: grid; gap: 8px; margin-top: 12px; }
+    .queue-item, .event-row { display: grid; gap: 3px; overflow-wrap: anywhere; }
+    .event-row strong { font-size: 12px; color: var(--ok); text-transform: uppercase; }
+    .event-row.error strong { color: var(--bad); }
+    .event-row.player strong { color: var(--action); }
+    .event-row.volume strong { color: var(--warn); }
     .diagnostic-row {
       display: flex;
       justify-content: space-between;
@@ -174,9 +171,9 @@ pub async fn page() -> Html<&'static str> {
     .message { min-height: 20px; color: var(--muted); font-size: 13px; margin-top: 10px; }
     .message.error { color: var(--bad); }
     @media (max-width: 900px) {
-      header, main { grid-template-columns: 1fr; }
+      header, .layout { grid-template-columns: 1fr; }
       .status-grid { justify-content: flex-start; }
-      .metric { grid-template-columns: 1fr; }
+      .metric { grid-template-columns: 1fr 1fr; }
     }
   </style>
 </head>
@@ -191,7 +188,103 @@ pub async fn page() -> Html<&'static str> {
   </header>
 
   <main>
-    <div class="stack">
+    <nav class="tabs">
+      <button class="tab-button active" data-tab="overview">Visao geral</button>
+      <button class="tab-button" data-tab="queue-tab">Fila</button>
+      <button class="tab-button" data-tab="commands-tab">Comandos</button>
+      <button class="tab-button" data-tab="player-tab">Player</button>
+      <button class="tab-button" data-tab="logs-tab">Logs</button>
+      <button class="tab-button" data-tab="setup-tab">Setup</button>
+    </nav>
+
+    <div class="tab active" id="overview">
+      <div class="layout">
+        <section>
+          <div class="toolbar">
+            <h2>Operacao</h2>
+            <code>http://127.0.0.1:7384/overlay</code>
+          </div>
+          <div class="metric">
+            <div><strong id="queue-count">0</strong><span>na fila</span></div>
+            <div><strong id="current-source">-</strong><span>origem atual</span></div>
+            <div><strong id="event-count">0</strong><span>eventos</span></div>
+            <div><strong id="refresh-state">OK</strong><span>dashboard</span></div>
+          </div>
+          <div class="current">
+            <div class="muted">Tocando agora</div>
+            <div class="song-title" id="current-title">Aguardando pedido</div>
+            <div id="current-meta" class="muted">Nenhuma musica tocando</div>
+          </div>
+        </section>
+        <section>
+          <h2>Log ao vivo</h2>
+          <div class="events" id="events-preview"></div>
+        </section>
+      </div>
+    </div>
+
+    <div class="tab" id="queue-tab">
+      <section>
+        <div class="toolbar">
+          <h2>Fila</h2>
+          <button class="secondary" id="refresh-queue" type="button">Atualizar</button>
+        </div>
+        <div class="queue" id="queue"></div>
+      </section>
+    </div>
+
+    <div class="tab" id="commands-tab">
+      <div class="layout">
+        <section>
+          <h2>Teste rapido</h2>
+          <form id="command-form">
+            <label>Requester <input id="requester" autocomplete="off" value="heyleao"></label>
+            <label>Comando <input id="command" autocomplete="off" value="!sr daft punk one more time"></label>
+            <div class="actions">
+              <button type="submit">Enviar</button>
+              <button class="secondary" id="song" type="button">!song</button>
+              <button class="secondary" id="queue-command" type="button">!fila</button>
+              <button class="secondary" id="volume-command" type="button">!vol</button>
+              <button class="secondary" id="help-command" type="button">!comandos</button>
+            </div>
+          </form>
+          <div class="message" id="command-message"></div>
+        </section>
+        <section>
+          <h2>Pedido manual</h2>
+          <form id="request-form">
+            <label>Musica ou link <input id="query" autocomplete="off" placeholder="https://youtu.be/... ou nome da musica"></label>
+            <button type="submit">Adicionar</button>
+          </form>
+          <div class="message" id="request-message"></div>
+        </section>
+      </div>
+    </div>
+
+    <div class="tab" id="player-tab">
+      <section>
+        <h2>Player</h2>
+        <div class="actions">
+          <button class="secondary" id="play-command" type="button">!play</button>
+          <button class="secondary" id="pause-command" type="button">!pause</button>
+          <button class="secondary" id="stop-command" type="button">!stop</button>
+          <button class="danger" id="skip" type="button">!skip</button>
+        </div>
+        <div class="message" id="player-message"></div>
+      </section>
+    </div>
+
+    <div class="tab" id="logs-tab">
+      <section>
+        <div class="toolbar">
+          <h2>Logs em tempo real</h2>
+          <button class="secondary" id="refresh-events" type="button">Atualizar</button>
+        </div>
+        <div class="events" id="events"></div>
+      </section>
+    </div>
+
+    <div class="tab" id="setup-tab">
       <section>
         <div class="toolbar">
           <h2>Setup</h2>
@@ -201,53 +294,7 @@ pub async fn page() -> Html<&'static str> {
         </div>
         <div class="diagnostics" id="setup-diagnostics"></div>
       </section>
-
-      <section>
-        <h2>Teste Rapido</h2>
-        <form id="command-form">
-          <label>Requester <input id="requester" autocomplete="off" value="heyleao"></label>
-          <label>Comando <input id="command" autocomplete="off" value="!sr daft punk one more time"></label>
-          <div class="actions">
-            <button type="submit">Enviar</button>
-            <button class="secondary" id="song" type="button">!song</button>
-            <button class="secondary" id="queue-command" type="button">!fila</button>
-            <button class="secondary" id="volume-command" type="button">!vol</button>
-            <button class="secondary" id="play-command" type="button">!play</button>
-            <button class="secondary" id="pause-command" type="button">!pause</button>
-            <button class="secondary" id="help-command" type="button">!comandos</button>
-            <button class="danger" id="skip" type="button">!skip</button>
-          </div>
-        </form>
-        <div class="message" id="command-message"></div>
-      </section>
-
-      <section>
-        <h2>Pedido Manual</h2>
-        <form id="request-form">
-          <label>Musica ou link <input id="query" autocomplete="off" placeholder="https://youtu.be/... ou nome da musica"></label>
-          <button type="submit">Adicionar</button>
-        </form>
-        <div class="message" id="request-message"></div>
-      </section>
     </div>
-
-    <section>
-      <div class="toolbar">
-        <h2>Operacao</h2>
-        <code>http://127.0.0.1:7384/overlay</code>
-      </div>
-      <div class="metric">
-        <div><strong id="queue-count">0</strong><span>na fila</span></div>
-        <div><strong id="current-source">-</strong><span>origem atual</span></div>
-        <div><strong id="refresh-state">OK</strong><span>dashboard</span></div>
-      </div>
-      <div class="current">
-        <div class="muted">Tocando agora</div>
-        <div class="song-title" id="current-title">Aguardando pedido</div>
-        <div id="current-meta" class="muted">Nenhuma musica tocando</div>
-      </div>
-      <div class="queue" id="queue"></div>
-    </section>
   </main>
 
   <script>
@@ -285,13 +332,35 @@ pub async fn page() -> Html<&'static str> {
       element.classList.toggle('error', isError);
     }
 
+    function renderEvents(events) {
+      $('event-count').textContent = events.length;
+      const html = events.length
+        ? events.map((event) => `
+            <div class="event-row ${escapeHtml(event.kind)}">
+              <strong>${escapeHtml(event.kind)}</strong>
+              <span>${escapeHtml(event.message)}</span>
+            </div>
+          `).join('')
+        : '<div class="event-row muted">Nenhum evento ainda</div>';
+      $('events').innerHTML = html;
+      $('events-preview').innerHTML = events.slice(0, 8).length
+        ? events.slice(0, 8).map((event) => `
+            <div class="event-row ${escapeHtml(event.kind)}">
+              <strong>${escapeHtml(event.kind)}</strong>
+              <span>${escapeHtml(event.message)}</span>
+            </div>
+          `).join('')
+        : '<div class="event-row muted">Nenhum evento ainda</div>';
+    }
+
     async function refresh() {
       try {
-        const [status, queue, diagnostics, connections] = await Promise.all([
+        const [status, queue, diagnostics, connections, events] = await Promise.all([
           api('/api/status'),
           api('/api/queue'),
           api('/api/diagnostics'),
-          api('/api/connections/status')
+          api('/api/connections/status'),
+          api('/api/events')
         ]);
 
         $('provider').textContent = status.provider;
@@ -325,6 +394,7 @@ pub async fn page() -> Html<&'static str> {
               </div>
             `).join('')
           : '<div class="queue-item muted">Fila vazia</div>';
+        renderEvents(events);
       } catch (error) {
         $('refresh-state').textContent = 'ERRO';
       }
@@ -341,11 +411,20 @@ pub async fn page() -> Html<&'static str> {
       });
     }
 
+    document.querySelectorAll('.tab-button').forEach((button) => {
+      button.addEventListener('click', () => {
+        document.querySelectorAll('.tab-button').forEach((item) => item.classList.remove('active'));
+        document.querySelectorAll('.tab').forEach((item) => item.classList.remove('active'));
+        button.classList.add('active');
+        document.getElementById(button.dataset.tab).classList.add('active');
+      });
+    });
+
     $('command-form').addEventListener('submit', async (event) => {
       event.preventDefault();
       try {
         const result = await sendCommand($('command').value);
-        setMessage('command-message', `Resultado: ${result.status}`);
+        setMessage('command-message', result.message || `Resultado: ${result.status}`);
         await refresh();
       } catch (error) {
         setMessage('command-message', error.message, true);
@@ -377,6 +456,7 @@ pub async fn page() -> Html<&'static str> {
       try {
         const result = await sendCommand('!vol');
         setMessage('command-message', result.message || 'Volume consultado');
+        await refresh();
       } catch (error) {
         setMessage('command-message', error.message, true);
       }
@@ -391,33 +471,22 @@ pub async fn page() -> Html<&'static str> {
       }
     });
 
-    $('play-command').addEventListener('click', async () => {
+    async function playerCommand(command) {
       try {
-        const result = await sendCommand('!play', true);
-        setMessage('command-message', result.message || 'Playback retomado');
-      } catch (error) {
-        setMessage('command-message', error.message, true);
-      }
-    });
-
-    $('pause-command').addEventListener('click', async () => {
-      try {
-        const result = await sendCommand('!pause', true);
-        setMessage('command-message', result.message || 'Playback pausado');
-      } catch (error) {
-        setMessage('command-message', error.message, true);
-      }
-    });
-
-    $('skip').addEventListener('click', async () => {
-      try {
-        const result = await sendCommand('!skip', true);
-        setMessage('command-message', result.message || 'Skip enviado');
+        const result = await sendCommand(command, true);
+        setMessage('player-message', result.message || `${command} enviado`);
         await refresh();
       } catch (error) {
-        setMessage('command-message', error.message, true);
+        setMessage('player-message', error.message, true);
       }
-    });
+    }
+
+    $('play-command').addEventListener('click', () => playerCommand('!play'));
+    $('pause-command').addEventListener('click', () => playerCommand('!pause'));
+    $('stop-command').addEventListener('click', () => playerCommand('!stop'));
+    $('skip').addEventListener('click', () => playerCommand('!skip'));
+    $('refresh-queue').addEventListener('click', refresh);
+    $('refresh-events').addEventListener('click', refresh);
 
     $('request-form').addEventListener('submit', async (event) => {
       event.preventDefault();
@@ -438,7 +507,7 @@ pub async fn page() -> Html<&'static str> {
     });
 
     refresh();
-    setInterval(refresh, 3000);
+    setInterval(refresh, 2500);
   </script>
 </body>
 </html>"#,

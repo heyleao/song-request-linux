@@ -37,11 +37,18 @@ async fn main() -> anyhow::Result<()> {
     let state = AppState::new(config);
     let app = http::router(state.clone());
     let https_app = http::router(state.clone());
+    state
+        .record_event("system", format!("{} iniciado", config::APP_NAME))
+        .await;
 
     if let Some(secrets) = config::TwitchBotSecrets::from_env() {
         twitch_chat::spawn_bot(state.clone(), secrets);
+        state.record_event("twitch", "bot Twitch iniciando").await;
     } else {
         info!("twitch bot disabled; set TWITCH_BOT_USERNAME, TWITCH_BOT_OAUTH_TOKEN and TWITCH_CHANNEL to enable it");
+        state
+            .record_event("twitch", "bot Twitch sem configuracao ativa")
+            .await;
     }
 
     let tls_config = tls::rustls_config(&state.config).await?;

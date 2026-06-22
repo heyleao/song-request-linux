@@ -28,6 +28,7 @@ pub fn router(state: AppState) -> Router {
         .route("/auth/twitch/callback", get(twitch_callback))
         .route("/health", get(health))
         .route("/api/status", get(status))
+        .route("/api/events", get(events))
         .route("/api/diagnostics", get(diagnostics))
         .route("/api/config", get(get_config).post(save_config))
         .route("/api/connections/status", get(connections_status))
@@ -63,6 +64,10 @@ async fn status(State(state): State<AppState>) -> Json<StatusResponse> {
 
 async fn diagnostics(State(state): State<AppState>) -> Json<DiagnosticsResponse> {
     Json(DiagnosticsResponse::collect(&state.config))
+}
+
+async fn events(State(state): State<AppState>) -> Json<Vec<crate::state::AppEvent>> {
+    Json(state.events.read().await.recent(80))
 }
 
 async fn get_config(State(state): State<AppState>) -> Json<config::UiConfigView> {
@@ -251,6 +256,15 @@ async fn chat_command(
     let response = match command {
         ChatCommand::SongRequest(input) => {
             let request = add_request_to_queue(&state, input).await?;
+            state
+                .record_event(
+                    "request",
+                    format!(
+                        "{} pediu {} - {}",
+                        request.requester, request.title, request.artist
+                    ),
+                )
+                .await;
             ChatCommandResponse::SongRequest { request }
         }
         ChatCommand::CurrentSong => {
@@ -290,7 +304,11 @@ async fn chat_command(
             command,
             required,
         } => ChatCommandResponse::AccessDenied {
-            message: access_denied_message(requester, &command, required),
+            message: {
+                let message = access_denied_message(requester, &command, required);
+                state.record_event("access", message.clone()).await;
+                message
+            },
         },
         ChatCommand::Ignored => ChatCommandResponse::Ignored,
     };
@@ -302,20 +320,25 @@ async fn skip_message(state: &AppState, requester: String) -> String {
     if let Some(message) =
         spotify_playback_message(state, requester.clone(), PlaybackAction::Next).await
     {
+        state.record_event("player", message.clone()).await;
         return message;
     }
 
     let current_song = state.queue.write().await.skip();
-    match current_song {
+    let message = match current_song {
         Some(song) => format!("@{requester} skip feito. Agora: {}", song.title),
         None => format!("@{requester} skip feito. Fila vazia."),
-    }
+    };
+    state.record_event("player", message.clone()).await;
+    message
 }
 
 async fn playback_message(state: &AppState, requester: String, action: PlaybackAction) -> String {
-    spotify_playback_message(state, requester, action)
+    let message = spotify_playback_message(state, requester, action)
         .await
-        .unwrap_or_else(|| "Spotify nao conectado.".to_string())
+        .unwrap_or_else(|| "Spotify nao conectado.".to_string());
+    state.record_event("player", message.clone()).await;
+    message
 }
 
 async fn spotify_playback_message(
@@ -350,13 +373,34 @@ async fn volume_message(state: &AppState, requester: String, level: Option<u8>) 
 
     match level {
         Some(level) => match spotify::set_volume(&state.config, token, level).await {
-            Ok(level) => format!("@{requester} volume ajustado para {level}%."),
-            Err(error) => format!("@{requester} nao consegui mudar volume: {error}"),
+            Ok(level) => {
+                let message = format!("@{requester} volume ajustado para {level}%.");
+                state.record_event("volume", message.clone()).await;
+                message
+            }
+            Err(error) => {
+                let message = format!("@{requester} nao consegui mudar volume: {error}");
+                state.record_event("error", message.clone()).await;
+                message
+            }
         },
         None => match spotify::current_volume(&state.config, token).await {
-            Ok(Some(level)) => format!("Volume atual: {level}%."),
-            Ok(None) => "Nao encontrei um device Spotify ativo para ler o volume.".to_string(),
-            Err(error) => format!("Nao consegui ler o volume: {error}"),
+            Ok(Some(level)) => {
+                let message = format!("Volume atual: {level}%.");
+                state.record_event("volume", message.clone()).await;
+                message
+            }
+            Ok(None) => {
+                let message =
+                    "Nao encontrei um device Spotify ativo para ler o volume.".to_string();
+                state.record_event("volume", message.clone()).await;
+                message
+            }
+            Err(error) => {
+                let message = format!("Nao consegui ler o volume: {error}");
+                state.record_event("error", message.clone()).await;
+                message
+            }
         },
     }
 }
@@ -377,9 +421,13 @@ async fn add_request_to_queue(
     state: &AppState,
     input: SongRequestInput,
 ) -> Result<SongRequest, ApiError> {
-    request_flow::add_request(&state, input)
-        .await
-        .map_err(ApiError::bad_request)
+    match request_flow::add_request(state, input).await {
+        Ok(request) => Ok(request),
+        Err(error) => {
+            state.record_event("error", error.to_string()).await;
+            Err(ApiError::bad_request(error))
+        }
+    }
 }
 
 async fn effective_queue_view(state: &AppState) -> QueueView {

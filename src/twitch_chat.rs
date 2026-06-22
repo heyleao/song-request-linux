@@ -110,8 +110,23 @@ async fn handle_privmsg(state: &AppState, privmsg: Privmsg) -> Option<String> {
         ChatCommand::SongRequest(input) => {
             let requester = input.requester.clone();
             match request_flow::add_request(state, input).await {
-                Ok(request) => Some(format!("@{requester} pedido adicionado: {}", request.title)),
-                Err(error) => Some(format!("@{requester} nao consegui adicionar: {error}")),
+                Ok(request) => {
+                    state
+                        .record_event(
+                            "request",
+                            format!(
+                                "{} pediu {} - {}",
+                                request.requester, request.title, request.artist
+                            ),
+                        )
+                        .await;
+                    Some(format!("@{requester} pedido adicionado: {}", request.title))
+                }
+                Err(error) => {
+                    let message = format!("@{requester} nao consegui adicionar: {error}");
+                    state.record_event("error", message.clone()).await;
+                    Some(message)
+                }
             }
         }
         ChatCommand::CurrentSong => Some(current_song_reply(state).await),
@@ -132,7 +147,11 @@ async fn handle_privmsg(state: &AppState, privmsg: Privmsg) -> Option<String> {
             requester,
             command,
             required,
-        } => Some(access_denied_reply(requester, &command, required)),
+        } => {
+            let message = access_denied_reply(requester, &command, required);
+            state.record_event("access", message.clone()).await;
+            Some(message)
+        }
         ChatCommand::Ignored => None,
     }
 }
@@ -141,20 +160,25 @@ async fn skip_reply(state: &AppState, requester: String) -> String {
     if let Some(message) =
         spotify_playback_reply(state, requester.clone(), PlaybackAction::Next).await
     {
+        state.record_event("player", message.clone()).await;
         return message;
     }
 
     let current_song = state.queue.write().await.skip();
-    match current_song {
+    let message = match current_song {
         Some(song) => format!("@{requester} skip feito. Agora: {}", song.title),
         None => format!("@{requester} skip feito. Fila vazia."),
-    }
+    };
+    state.record_event("player", message.clone()).await;
+    message
 }
 
 async fn playback_reply(state: &AppState, requester: String, action: PlaybackAction) -> String {
-    spotify_playback_reply(state, requester, action)
+    let message = spotify_playback_reply(state, requester, action)
         .await
-        .unwrap_or_else(|| "Spotify nao conectado.".to_string())
+        .unwrap_or_else(|| "Spotify nao conectado.".to_string());
+    state.record_event("player", message.clone()).await;
+    message
 }
 
 async fn spotify_playback_reply(
@@ -232,13 +256,34 @@ async fn volume_reply(state: &AppState, requester: String, level: Option<u8>) ->
 
     match level {
         Some(level) => match crate::spotify::set_volume(&state.config, token, level).await {
-            Ok(level) => format!("@{requester} volume ajustado para {level}%."),
-            Err(error) => format!("@{requester} nao consegui mudar volume: {error}"),
+            Ok(level) => {
+                let message = format!("@{requester} volume ajustado para {level}%.");
+                state.record_event("volume", message.clone()).await;
+                message
+            }
+            Err(error) => {
+                let message = format!("@{requester} nao consegui mudar volume: {error}");
+                state.record_event("error", message.clone()).await;
+                message
+            }
         },
         None => match crate::spotify::current_volume(&state.config, token).await {
-            Ok(Some(level)) => format!("Volume atual: {level}%."),
-            Ok(None) => "Nao encontrei um device Spotify ativo para ler o volume.".to_string(),
-            Err(error) => format!("Nao consegui ler o volume: {error}"),
+            Ok(Some(level)) => {
+                let message = format!("Volume atual: {level}%.");
+                state.record_event("volume", message.clone()).await;
+                message
+            }
+            Ok(None) => {
+                let message =
+                    "Nao encontrei um device Spotify ativo para ler o volume.".to_string();
+                state.record_event("volume", message.clone()).await;
+                message
+            }
+            Err(error) => {
+                let message = format!("Nao consegui ler o volume: {error}");
+                state.record_event("error", message.clone()).await;
+                message
+            }
         },
     }
 }

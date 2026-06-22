@@ -1,4 +1,8 @@
-use std::sync::{atomic::AtomicBool, Arc};
+use std::{
+    collections::VecDeque,
+    sync::{atomic::AtomicBool, Arc},
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use serde::Serialize;
 use tokio::sync::RwLock;
@@ -16,6 +20,21 @@ pub struct AppState {
     pub spotify_auth: Arc<RwLock<Option<SpotifyAuthSession>>>,
     pub spotify_token: Arc<RwLock<Option<SpotifyToken>>>,
     pub twitch_bot_running: Arc<AtomicBool>,
+    pub events: Arc<RwLock<EventLog>>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct AppEvent {
+    pub id: u64,
+    pub timestamp: u64,
+    pub kind: &'static str,
+    pub message: String,
+}
+
+#[derive(Debug)]
+pub struct EventLog {
+    next_id: u64,
+    events: VecDeque<AppEvent>,
 }
 
 #[derive(Serialize)]
@@ -51,8 +70,48 @@ impl AppState {
             queue: Arc::new(RwLock::new(queue)),
             spotify_auth: Arc::new(RwLock::new(None)),
             twitch_bot_running: Arc::new(AtomicBool::new(false)),
+            events: Arc::new(RwLock::new(EventLog::new())),
         }
     }
+
+    pub async fn record_event(&self, kind: &'static str, message: impl Into<String>) {
+        self.events.write().await.push(kind, message.into());
+    }
+}
+
+impl EventLog {
+    fn new() -> Self {
+        Self {
+            next_id: 1,
+            events: VecDeque::new(),
+        }
+    }
+
+    fn push(&mut self, kind: &'static str, message: String) {
+        let event = AppEvent {
+            id: self.next_id,
+            timestamp: unix_now(),
+            kind,
+            message,
+        };
+        self.next_id += 1;
+        self.events.push_front(event);
+
+        while self.events.len() > 120 {
+            self.events.pop_back();
+        }
+    }
+
+    pub fn recent(&self, limit: usize) -> Vec<AppEvent> {
+        self.events.iter().take(limit).cloned().collect()
+    }
+}
+
+fn unix_now() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_secs())
+        .unwrap_or_default()
 }
 
 impl StatusResponse {
