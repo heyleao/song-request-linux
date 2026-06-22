@@ -29,6 +29,11 @@ pub fn router(state: AppState) -> Router {
         .route("/api/diagnostics", get(diagnostics))
         .route("/api/connections/status", get(connections_status))
         .route("/api/connections/spotify/start", post(spotify_start))
+        .route("/api/spotify/playlists", get(spotify_playlists))
+        .route(
+            "/api/spotify/fallback-playlist",
+            post(spotify_fallback_playlist),
+        )
         .route("/api/queue", get(queue))
         .route("/api/song-requests", post(add_song_request))
         .route("/api/chat-command", post(chat_command))
@@ -60,6 +65,29 @@ async fn connections_status(State(state): State<AppState>) -> Json<ConnectionsSt
     Json(ConnectionsStatus {
         spotify: spotify::connection_status(&state.config, spotify_token.as_ref()),
     })
+}
+
+async fn spotify_playlists(
+    State(state): State<AppState>,
+) -> Result<Json<Vec<spotify::SpotifyPlaylistItem>>, ApiError> {
+    let mut token_guard = state.spotify_token.write().await;
+    let token = token_guard
+        .as_mut()
+        .ok_or_else(|| ApiError::bad_request(anyhow::anyhow!("Spotify is not connected")))?;
+    let playlists = spotify::list_playlists(&state.config, token)
+        .await
+        .map_err(ApiError::bad_request)?;
+
+    Ok(Json(playlists))
+}
+
+async fn spotify_fallback_playlist(
+    State(state): State<AppState>,
+    Json(input): Json<spotify::SpotifyFallbackPlaylist>,
+) -> Result<Json<spotify::SpotifyFallbackPlaylist>, ApiError> {
+    spotify::save_fallback_playlist(&state.config, &input).map_err(ApiError::bad_request)?;
+
+    Ok(Json(input))
 }
 
 async fn spotify_start(

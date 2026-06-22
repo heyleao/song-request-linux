@@ -78,6 +78,9 @@ Register this redirect URI in your Spotify developer app:
 http://127.0.0.1:7384/auth/spotify/callback
 ```
 
+The connections page also lets you choose a Spotify fallback playlist. Reconnect
+Spotify if playlist loading asks for updated scopes.
+
 Then open:
 
 - Dashboard: `http://127.0.0.1:7384/`

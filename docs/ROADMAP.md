@@ -34,6 +34,8 @@
 - Current song.
 - Add to queue.
 - Duration and explicit filters.
+- Choose fallback playlist for when there are no requests.
+- Start/resume fallback playlist when request queue is empty.
 
 ## Milestone 4: YouTube
 

@@ -24,7 +24,7 @@ const AUTH_URL: &str = "https://accounts.spotify.com/authorize";
 const TOKEN_URL: &str = "https://accounts.spotify.com/api/token";
 const API_URL: &str = "https://api.spotify.com/v1";
 const SCOPES: &str =
-    "user-read-playback-state user-modify-playback-state user-read-currently-playing";
+    "user-read-playback-state user-modify-playback-state user-read-currently-playing playlist-read-private playlist-read-collaborative";
 
 #[derive(Clone, Debug)]
 pub struct SpotifyAuthSession {
@@ -51,6 +51,14 @@ pub struct SpotifyConnectionStatus {
     pub token_configured: bool,
     pub redirect_uri: String,
     pub scopes: &'static str,
+    pub fallback_playlist: Option<SpotifyFallbackPlaylist>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct SpotifyFallbackPlaylist {
+    pub id: String,
+    pub name: String,
+    pub uri: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -69,6 +77,24 @@ struct SearchResponse {
 #[derive(Debug, Deserialize)]
 struct SearchTracks {
     items: Vec<SpotifyTrack>,
+}
+
+#[derive(Debug, Deserialize)]
+struct PlaylistsResponse {
+    items: Vec<SpotifyPlaylistItem>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct SpotifyPlaylistItem {
+    pub id: String,
+    pub name: String,
+    pub uri: String,
+    pub tracks: SpotifyPlaylistTracks,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct SpotifyPlaylistTracks {
+    pub total: u64,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -92,6 +118,7 @@ pub fn connection_status(
         token_configured: token.is_some(),
         redirect_uri: config.spotify.redirect_uri.clone(),
         scopes: SCOPES,
+        fallback_playlist: load_fallback_playlist(config).ok().flatten(),
     }
 }
 
@@ -193,6 +220,34 @@ pub async fn search_and_queue(
     })
 }
 
+pub async fn list_playlists(
+    config: &AppConfig,
+    token: &mut SpotifyToken,
+) -> Result<Vec<SpotifyPlaylistItem>> {
+    refresh_if_needed(config, token).await?;
+
+    let response = Client::new()
+        .get(format!("{API_URL}/me/playlists"))
+        .bearer_auth(&token.access_token)
+        .query(&[("limit", "50")])
+        .send()
+        .await
+        .context("failed to list Spotify playlists")?;
+
+    let status = response.status();
+    if !status.is_success() {
+        let body = response.text().await.unwrap_or_default();
+        warn!(
+            status = %status,
+            response = %body,
+            "spotify playlists request failed"
+        );
+        bail!("spotify playlists failed with {status}: {body}. Reconnect Spotify if playlist scopes were just added.");
+    }
+
+    Ok(response.json::<PlaylistsResponse>().await?.items)
+}
+
 pub fn load_token(config: &AppConfig) -> Result<Option<SpotifyToken>> {
     let path = token_path(config);
     if !path.exists() {
@@ -212,8 +267,36 @@ pub fn save_token(config: &AppConfig, token: &SpotifyToken) -> Result<()> {
     Ok(())
 }
 
+pub fn load_fallback_playlist(config: &AppConfig) -> Result<Option<SpotifyFallbackPlaylist>> {
+    let path = fallback_playlist_path(config);
+    if !path.exists() {
+        return Ok(None);
+    }
+
+    let data =
+        fs::read_to_string(&path).with_context(|| format!("failed to read {}", path.display()))?;
+    Ok(Some(serde_json::from_str(&data)?))
+}
+
+pub fn save_fallback_playlist(
+    config: &AppConfig,
+    playlist: &SpotifyFallbackPlaylist,
+) -> Result<()> {
+    fs::create_dir_all(&config.paths.config_dir)?;
+    let path = fallback_playlist_path(config);
+    fs::write(&path, serde_json::to_vec_pretty(playlist)?)?;
+    Ok(())
+}
+
 fn token_path(config: &AppConfig) -> std::path::PathBuf {
     config.paths.state_dir.join("spotify-token.json")
+}
+
+fn fallback_playlist_path(config: &AppConfig) -> std::path::PathBuf {
+    config
+        .paths
+        .config_dir
+        .join("spotify-fallback-playlist.json")
 }
 
 async fn refresh_if_needed(config: &AppConfig, token: &mut SpotifyToken) -> Result<()> {

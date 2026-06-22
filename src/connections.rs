@@ -50,6 +50,15 @@ pub async fn page() -> Html<&'static str> {
       text-decoration: none;
       cursor: pointer;
     }
+    select {
+      min-height: 38px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--panel-2);
+      color: var(--text);
+      padding: 8px 10px;
+      min-width: min(100%, 420px);
+    }
     a.secondary {
       border-color: var(--line);
       background: var(--panel-2);
@@ -57,6 +66,8 @@ pub async fn page() -> Html<&'static str> {
     }
     .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
     .muted { color: var(--muted); }
+    .message { min-height: 20px; color: var(--muted); }
+    .message.error { color: var(--bad); }
     code {
       display: block;
       padding: 10px;
@@ -88,6 +99,21 @@ pub async fn page() -> Html<&'static str> {
     </section>
 
     <section>
+      <h2>Playlist fallback</h2>
+      <div class="muted">
+        Esta playlist sera usada quando nao houver pedidos na fila. Nesta etapa ela fica salva; a reproducao automatica entra no proximo passo.
+      </div>
+      <div class="row">
+        <button id="load-playlists">Carregar playlists</button>
+        <select id="playlist-select">
+          <option value="">Nenhuma playlist carregada</option>
+        </select>
+        <button id="save-playlist">Salvar fallback</button>
+      </div>
+      <div class="message" id="playlist-message"></div>
+    </section>
+
+    <section>
       <h2>Twitch Bot</h2>
       <div class="muted">
         MVP atual usa variaveis de ambiente para o bot. A conexao OAuth separada do streamer fica para Channel Points/EventSub.
@@ -98,6 +124,9 @@ pub async fn page() -> Html<&'static str> {
   <script>
     const statusEl = document.getElementById('spotify-status');
     const linkEl = document.getElementById('spotify-link');
+    const playlistSelect = document.getElementById('playlist-select');
+    const playlistMessage = document.getElementById('playlist-message');
+    let playlists = [];
     async function api(path, options = {}) {
       const response = await fetch(path, {
         headers: { 'content-type': 'application/json', ...(options.headers || {}) },
@@ -115,6 +144,10 @@ pub async fn page() -> Html<&'static str> {
           ? 'Client ID configurado. Falta login.'
           : 'Configure SPOTIFY_CLIENT_ID antes de conectar.';
       statusEl.className = status.spotify.client_id_configured ? 'muted' : 'bad';
+      if (status.spotify.fallback_playlist) {
+        playlistMessage.textContent = `Fallback atual: ${status.spotify.fallback_playlist.name}`;
+        playlistMessage.className = 'message';
+      }
     }
     document.getElementById('spotify-start').addEventListener('click', async () => {
       try {
@@ -123,6 +156,37 @@ pub async fn page() -> Html<&'static str> {
         window.open(result.auth_url, '_blank', 'noopener,noreferrer');
       } catch (error) {
         linkEl.textContent = error.message;
+      }
+    });
+    document.getElementById('load-playlists').addEventListener('click', async () => {
+      try {
+        playlists = await api('/api/spotify/playlists');
+        playlistSelect.innerHTML = playlists.length
+          ? playlists.map((playlist, index) => `<option value="${index}">${playlist.name} (${playlist.tracks.total})</option>`).join('')
+          : '<option value="">Nenhuma playlist encontrada</option>';
+        playlistMessage.textContent = playlists.length
+          ? `${playlists.length} playlists carregadas.`
+          : 'Nenhuma playlist encontrada.';
+        playlistMessage.className = 'message';
+      } catch (error) {
+        playlistMessage.textContent = error.message;
+        playlistMessage.className = 'message error';
+      }
+    });
+    document.getElementById('save-playlist').addEventListener('click', async () => {
+      try {
+        const playlist = playlists[Number(playlistSelect.value)];
+        if (!playlist) throw new Error('Carregue e selecione uma playlist primeiro.');
+        await api('/api/spotify/fallback-playlist', {
+          method: 'POST',
+          body: JSON.stringify({ id: playlist.id, name: playlist.name, uri: playlist.uri })
+        });
+        playlistMessage.textContent = `Fallback salvo: ${playlist.name}`;
+        playlistMessage.className = 'message';
+        await refresh();
+      } catch (error) {
+        playlistMessage.textContent = error.message;
+        playlistMessage.className = 'message error';
       }
     });
     refresh();
