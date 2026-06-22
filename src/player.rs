@@ -52,6 +52,7 @@ pub async fn page() -> Html<&'static str> {
     let player;
     let ready = false;
     let activeVideoId = null;
+    let activeSongId = null;
     let loading = false;
 
     function setStatus(title, meta) {
@@ -103,6 +104,7 @@ pub async fn page() -> Html<&'static str> {
         const song = data.current_song;
         if (!song) {
           activeVideoId = null;
+          activeSongId = null;
           setStatus('Aguardando video do YouTube', 'Nenhum pedido YouTube ativo na fila local.');
           loading = false;
           return;
@@ -110,7 +112,13 @@ pub async fn page() -> Html<&'static str> {
 
         if (song.video_id !== activeVideoId) {
           activeVideoId = song.video_id;
+          activeSongId = song.id;
           setStatus(song.title, `${song.artist} - pedido por ${song.requester}`);
+          await api('/api/player/youtube/start', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ id: song.id })
+          });
           player.loadVideoById(song.video_id);
         }
       } catch (error) {
@@ -121,12 +129,19 @@ pub async fn page() -> Html<&'static str> {
     }
 
     async function finishCurrent() {
+      const finishedSongId = activeSongId;
+      if (!finishedSongId) return;
       try {
-        await api('/api/skip', { method: 'POST' });
+        await api('/api/player/youtube/finish', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ id: finishedSongId })
+        });
       } catch (error) {
         setStatus('Erro ao avancar fila', error.message);
       } finally {
         activeVideoId = null;
+        activeSongId = null;
         setTimeout(refresh, 750);
       }
     }

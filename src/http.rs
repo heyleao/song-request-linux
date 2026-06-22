@@ -6,8 +6,8 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use serde::Serialize;
-use std::collections::HashMap;
+use serde::{Deserialize, Serialize};
+use std::{collections::HashMap, sync::atomic::Ordering};
 use tower_http::trace::TraceLayer;
 
 use crate::{
@@ -50,6 +50,8 @@ pub fn router(state: AppState) -> Router {
         .route("/overlay", get(overlay::page))
         .route("/player", get(player::page))
         .route("/api/player/youtube", get(youtube_player_current))
+        .route("/api/player/youtube/start", post(youtube_player_start))
+        .route("/api/player/youtube/finish", post(youtube_player_finish))
         .fallback(not_found)
         .layer(TraceLayer::new_for_http())
         .with_state(state)
@@ -267,15 +269,46 @@ async fn queue(State(state): State<AppState>) -> Json<QueueView> {
 }
 
 async fn youtube_player_current(State(state): State<AppState>) -> Json<YoutubePlayerResponse> {
-    let current_song = state
-        .queue
-        .read()
-        .await
-        .view()
-        .current_song
-        .and_then(|song| YoutubePlayerSong::from_request(&song));
+    Json(youtube_player_response(&state).await)
+}
 
-    Json(YoutubePlayerResponse { current_song })
+async fn youtube_player_start(
+    State(state): State<AppState>,
+    Json(input): Json<YoutubePlayerSyncInput>,
+) -> Result<Json<YoutubePlayerResponse>, ApiError> {
+    let current_song = current_youtube_song(&state).await;
+    if current_song
+        .as_ref()
+        .is_some_and(|song| song.id == input.id)
+    {
+        pause_spotify_for_youtube(&state).await;
+    }
+
+    Ok(Json(YoutubePlayerResponse { current_song }))
+}
+
+async fn youtube_player_finish(
+    State(state): State<AppState>,
+    Json(input): Json<YoutubePlayerSyncInput>,
+) -> Result<Json<YoutubePlayerResponse>, ApiError> {
+    {
+        let mut queue = state.queue.write().await;
+        let current_matches = queue
+            .view()
+            .current_song
+            .as_ref()
+            .is_some_and(|song| song.id == input.id);
+        if current_matches {
+            queue.skip();
+        }
+    }
+
+    let current_song = current_youtube_song(&state).await;
+    if current_song.is_none() {
+        resume_spotify_after_youtube(&state).await;
+    }
+
+    Ok(Json(YoutubePlayerResponse { current_song }))
 }
 
 async fn add_song_request(
@@ -548,6 +581,76 @@ async fn skip(State(state): State<AppState>) -> Json<SkipResponse> {
     Json(SkipResponse { current_song })
 }
 
+async fn youtube_player_response(state: &AppState) -> YoutubePlayerResponse {
+    YoutubePlayerResponse {
+        current_song: current_youtube_song(state).await,
+    }
+}
+
+async fn current_youtube_song(state: &AppState) -> Option<YoutubePlayerSong> {
+    state
+        .queue
+        .read()
+        .await
+        .view()
+        .current_song
+        .and_then(|song| YoutubePlayerSong::from_request(&song))
+}
+
+async fn pause_spotify_for_youtube(state: &AppState) {
+    if state.youtube_player_paused_spotify.load(Ordering::SeqCst) {
+        return;
+    }
+
+    let mut token_guard = state.spotify_token.write().await;
+    let Some(token) = token_guard.as_mut() else {
+        return;
+    };
+
+    match spotify::pause_playback(&state.config, token).await {
+        Ok(()) => {
+            state
+                .youtube_player_paused_spotify
+                .store(true, Ordering::SeqCst);
+            state
+                .record_event("player", "Spotify pausado para tocar YouTube")
+                .await;
+        }
+        Err(error) => {
+            state
+                .record_event("error", format!("Nao consegui pausar Spotify: {error}"))
+                .await;
+        }
+    }
+}
+
+async fn resume_spotify_after_youtube(state: &AppState) {
+    if !state
+        .youtube_player_paused_spotify
+        .swap(false, Ordering::SeqCst)
+    {
+        return;
+    }
+
+    let mut token_guard = state.spotify_token.write().await;
+    let Some(token) = token_guard.as_mut() else {
+        return;
+    };
+
+    match spotify::resume_playback(&state.config, token).await {
+        Ok(()) => {
+            state
+                .record_event("player", "Spotify retomado apos fila YouTube")
+                .await;
+        }
+        Err(error) => {
+            state
+                .record_event("error", format!("Nao consegui retomar Spotify: {error}"))
+                .await;
+        }
+    }
+}
+
 async fn not_found() -> impl IntoResponse {
     (StatusCode::NOT_FOUND, "not found")
 }
@@ -573,6 +676,11 @@ struct SkipResponse {
 #[derive(Debug, Serialize)]
 struct YoutubePlayerResponse {
     current_song: Option<YoutubePlayerSong>,
+}
+
+#[derive(Debug, Deserialize)]
+struct YoutubePlayerSyncInput {
+    id: u64,
 }
 
 #[derive(Debug, Serialize)]

@@ -20,6 +20,7 @@ pub struct AppState {
     pub spotify_auth: Arc<RwLock<Option<SpotifyAuthSession>>>,
     pub spotify_token: Arc<RwLock<Option<SpotifyToken>>>,
     pub twitch_bot_running: Arc<AtomicBool>,
+    pub youtube_player_paused_spotify: Arc<AtomicBool>,
     pub events: Arc<RwLock<EventLog>>,
     pub shutdown: broadcast::Sender<()>,
 }
@@ -72,6 +73,7 @@ impl AppState {
             queue: Arc::new(RwLock::new(queue)),
             spotify_auth: Arc::new(RwLock::new(None)),
             twitch_bot_running: Arc::new(AtomicBool::new(false)),
+            youtube_player_paused_spotify: Arc::new(AtomicBool::new(false)),
             events: Arc::new(RwLock::new(EventLog::new())),
             shutdown,
         }

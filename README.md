@@ -105,6 +105,8 @@ Moderator/broadcaster:
 Spotify plays through your active Spotify device. YouTube requests play through
 the local browser player at `http://127.0.0.1:7384/player`; add it to OBS as a
 Browser Source and enable browser-source audio control in OBS when available.
+When a YouTube request starts, the app pauses Spotify. When the YouTube queue is
+empty again, Spotify is resumed only if the app was the one that paused it.
 
 ## Local Data
 
