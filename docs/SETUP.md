@@ -93,7 +93,6 @@ Moderador/broadcaster:
 !vol 30
 !play
 !pause
-!stop
 !next
 ```
 

@@ -149,7 +149,7 @@ fn playback_action(message: &str) -> Option<PlaybackAction> {
     if matches_command(message, &["!play", "!resume"]) {
         return Some(PlaybackAction::Play);
     }
-    if matches_command(message, &["!pause", "!stop", "!parar"]) {
+    if matches_command(message, &["!pause"]) {
         return Some(PlaybackAction::Pause);
     }
     if matches_command(message, &["!next", "!pular"]) {
@@ -162,7 +162,7 @@ fn playback_action(message: &str) -> Option<PlaybackAction> {
 fn playback_command_name(action: PlaybackAction) -> &'static str {
     match action {
         PlaybackAction::Play => "!play",
-        PlaybackAction::Pause => "!pause/!stop",
+        PlaybackAction::Pause => "!pause",
         PlaybackAction::Next => "!next",
     }
 }
@@ -287,7 +287,7 @@ mod tests {
             command,
             ChatCommand::AccessDenied {
                 requester: "viewer".to_string(),
-                command: "!pause/!stop".to_string(),
+                command: "!pause".to_string(),
                 required: CommandAccess::Moderator
             }
         );
@@ -297,7 +297,7 @@ mod tests {
     fn parses_moderator_playback() {
         let command = parse_chat_command(ChatCommandInput {
             requester: "mod".to_string(),
-            message: "!stop".to_string(),
+            message: "!pause".to_string(),
             is_moderator: true,
         });
 

@@ -276,7 +276,6 @@ pub async fn page() -> Html<&'static str> {
         <div class="actions">
           <button class="secondary" id="play-command" type="button">!play</button>
           <button class="secondary" id="pause-command" type="button">!pause</button>
-          <button class="secondary" id="stop-command" type="button">!stop</button>
           <button class="danger" id="skip" type="button">!skip</button>
         </div>
         <div class="message" id="player-message"></div>
@@ -551,7 +550,6 @@ pub async fn page() -> Html<&'static str> {
 
     $('play-command').addEventListener('click', () => playerCommand('!play'));
     $('pause-command').addEventListener('click', () => playerCommand('!pause'));
-    $('stop-command').addEventListener('click', () => playerCommand('!stop'));
     $('skip').addEventListener('click', () => playerCommand('!skip'));
     $('refresh-queue').addEventListener('click', refresh);
     $('refresh-events').addEventListener('click', refresh);

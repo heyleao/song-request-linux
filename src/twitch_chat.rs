@@ -141,7 +141,7 @@ async fn handle_privmsg(state: &AppState, privmsg: Privmsg) -> Option<String> {
             Some(volume_reply(state, requester, level).await)
         }
         ChatCommand::Help => {
-            Some("Comandos: !sr nome/link, !song, !fila, !vol, !vol 30 mod, !play mod, !pause/!stop mod, !skip mod.".to_string())
+            Some("Comandos: !sr nome/link, !song, !fila, !vol, !vol 30 mod, !play mod, !pause mod, !skip mod.".to_string())
         }
         ChatCommand::AccessDenied {
             requester,

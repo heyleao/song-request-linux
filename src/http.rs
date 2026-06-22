@@ -307,7 +307,6 @@ async fn chat_command(
                 "!vol 30".to_string(),
                 "!play".to_string(),
                 "!pause".to_string(),
-                "!stop".to_string(),
                 "!skip".to_string(),
             ],
         },
