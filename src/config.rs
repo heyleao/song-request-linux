@@ -36,7 +36,7 @@ pub struct UserConfig {
     pub twitch_channel: Option<String>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(default)]
 pub struct UserSecrets {
     pub twitch_bot_oauth_token: Option<String>,
@@ -146,15 +146,6 @@ impl Default for UserConfig {
             twitch_client_id: None,
             twitch_bot_username: None,
             twitch_channel: None,
-        }
-    }
-}
-
-impl Default for UserSecrets {
-    fn default() -> Self {
-        Self {
-            twitch_bot_oauth_token: None,
-            youtube_api_key: None,
         }
     }
 }

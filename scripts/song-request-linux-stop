@@ -3,7 +3,7 @@ set -euo pipefail
 
 PID_FILE="${XDG_RUNTIME_DIR:-/tmp}/song-request-linux.pid"
 
-curl -fsS -X POST "http://127.0.0.1:7384/api/shutdown" >/dev/null 2>&1 || true
+curl -fsS -X POST -H 'x-song-request-action: shutdown' "http://127.0.0.1:7384/api/shutdown" >/dev/null 2>&1 || true
 sleep 0.5
 
 if [[ -f "$PID_FILE" ]] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then

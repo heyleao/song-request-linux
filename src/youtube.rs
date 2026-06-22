@@ -132,12 +132,12 @@ async fn fetch_video_metadata(config: &AppConfig, video_id: &str) -> Result<Yout
 }
 
 fn parse_iso8601_duration(value: &str) -> Option<u64> {
-    let mut chars = value.strip_prefix('P')?.chars().peekable();
+    let chars = value.strip_prefix('P')?.chars().peekable();
     let mut in_time = false;
     let mut number = String::new();
     let mut seconds = 0u64;
 
-    while let Some(ch) = chars.next() {
+    for ch in chars {
         if ch == 'T' {
             in_time = true;
             continue;

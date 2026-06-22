@@ -1,13 +1,14 @@
+use anyhow::anyhow;
 use axum::{
     extract::{Query, State},
-    http::StatusCode,
+    http::{HeaderMap, StatusCode},
     response::{Html, IntoResponse},
     routing::{get, post},
     Json, Router,
 };
 use serde::Serialize;
 use std::collections::HashMap;
-use tower_http::{cors::CorsLayer, trace::TraceLayer};
+use tower_http::trace::TraceLayer;
 
 use crate::{
     commands::{parse_chat_command, ChatCommand, ChatCommandInput, PlaybackAction},
@@ -48,7 +49,6 @@ pub fn router(state: AppState) -> Router {
         .route("/api/skip", post(skip))
         .route("/overlay", get(overlay::page))
         .fallback(not_found)
-        .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http())
         .with_state(state)
 }
@@ -57,15 +57,28 @@ async fn health() -> Json<HealthResponse> {
     Json(HealthResponse { status: "ok" })
 }
 
-async fn shutdown(State(state): State<AppState>) -> Json<ShutdownResponse> {
+async fn shutdown(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<ShutdownResponse>, ApiError> {
+    let allowed = headers
+        .get("x-song-request-action")
+        .and_then(|value| value.to_str().ok())
+        .is_some_and(|value| value == "shutdown");
+    if !allowed {
+        return Err(ApiError::bad_request(anyhow!(
+            "shutdown confirmation header missing"
+        )));
+    }
+
     state
         .record_event("system", "encerramento solicitado")
         .await;
     let _ = state.shutdown.send(());
 
-    Json(ShutdownResponse {
+    Ok(Json(ShutdownResponse {
         status: "shutting_down",
-    })
+    }))
 }
 
 async fn status(State(state): State<AppState>) -> Json<StatusResponse> {

@@ -603,7 +603,11 @@ pub async fn page() -> Html<&'static str> {
       setMessage('player-message', 'App encerrando. Esta aba pode ser fechada.');
       $('shutdown-app').disabled = true;
 
-      fetch('/api/shutdown', { method: 'POST', keepalive: true }).catch(() => {});
+      fetch('/api/shutdown', {
+        method: 'POST',
+        keepalive: true,
+        headers: { 'x-song-request-action': 'shutdown' }
+      }).catch(() => {});
       setTimeout(() => {
         document.body.innerHTML = '<main><section><h2>Song Request Linux encerrado</h2><p class="muted">Esta aba pode ser fechada.</p></section></main>';
         window.close();

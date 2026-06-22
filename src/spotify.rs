@@ -517,7 +517,7 @@ fn choose_best_track(query: &str, tracks: Vec<SpotifyTrack>) -> Option<SpotifyTr
         })
         .collect::<Vec<_>>();
 
-    ranked.sort_by(|a, b| b.0.cmp(&a.0));
+    ranked.sort_by_key(|item| std::cmp::Reverse(item.0));
     ranked.into_iter().map(|(_, track)| track).next()
 }
 
@@ -604,7 +604,7 @@ fn normalize(value: &str) -> String {
 
 async fn add_to_queue(token: &SpotifyToken, uri: &str) -> Result<()> {
     match add_to_queue_once(token, uri).await {
-        Ok(()) => return Ok(()),
+        Ok(()) => Ok(()),
         Err(error) if error.no_active_device => {
             let device = transfer_to_available_device(token).await?;
             info!(
