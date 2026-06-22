@@ -61,6 +61,9 @@ pub async fn save_bot_token(config: &AppConfig, input: TwitchTokenInput) -> Resu
         twitch_bot_username: Some(login),
         twitch_channel: current.twitch_channel,
         twitch_bot_oauth_token: Some(token),
+        youtube_api_key: None,
+        youtube_max_duration_seconds: Some(current.youtube_max_duration_seconds),
+        youtube_allow_non_music: current.youtube_allow_non_music,
     };
 
     save_ui_config(&config.paths, user_config)

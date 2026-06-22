@@ -68,7 +68,10 @@ impl DiagnosticsResponse {
                     configured: config.spotify.client_id.is_some(),
                     authenticated: false,
                 },
-                youtube: IntegrationStatus::empty(),
+                youtube: IntegrationStatus {
+                    configured: config.youtube.api_key.is_some(),
+                    authenticated: false,
+                },
             },
         }
     }
@@ -79,15 +82,6 @@ impl PathCheck {
         Self {
             path: path.display().to_string(),
             exists: path.exists(),
-        }
-    }
-}
-
-impl IntegrationStatus {
-    fn empty() -> Self {
-        Self {
-            configured: false,
-            authenticated: false,
         }
     }
 }

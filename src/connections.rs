@@ -69,6 +69,11 @@ pub async fn page() -> Html<&'static str> {
       padding: 8px 10px;
       min-width: min(100%, 420px);
     }
+    input[type="checkbox"] {
+      width: auto;
+      min-width: auto;
+      min-height: auto;
+    }
     label {
       display: grid;
       gap: 6px;
@@ -141,6 +146,17 @@ pub async fn page() -> Html<&'static str> {
       <label>
         Twitch Channel
         <input id="twitch-channel" autocomplete="off" placeholder="canal_do_streamer">
+      </label>
+      <label>
+        YouTube API Key
+        <input id="youtube-api-key" autocomplete="off" placeholder="salva como segredo; deixe vazio para manter">
+      </label>
+      <label>
+        Maximo YouTube (segundos)
+        <input id="youtube-max-duration" type="number" min="30" max="86400" step="30" value="360">
+      </label>
+      <label>
+        <span><input id="youtube-allow-non-music" type="checkbox"> Aceitar YouTube nao marcado como musica</span>
       </label>
       <div class="row">
         <button id="save-config">Salvar configuracao</button>
@@ -235,6 +251,8 @@ pub async fn page() -> Html<&'static str> {
       document.getElementById('twitch-client-id').value = config.twitch_client_id || '';
       document.getElementById('twitch-bot-username').value = config.twitch_bot_username || '';
       document.getElementById('twitch-channel').value = config.twitch_channel || '';
+      document.getElementById('youtube-max-duration').value = config.youtube_max_duration_seconds || 360;
+      document.getElementById('youtube-allow-non-music').checked = Boolean(config.youtube_allow_non_music);
       setCard(
         'spotify-client-card',
         status.spotify.client_id_configured ? 'ok' : 'bad',
@@ -315,7 +333,10 @@ pub async fn page() -> Html<&'static str> {
             twitch_client_id: document.getElementById('twitch-client-id').value,
             twitch_bot_username: document.getElementById('twitch-bot-username').value,
             twitch_channel: document.getElementById('twitch-channel').value,
-            twitch_bot_oauth_token: null
+            twitch_bot_oauth_token: null,
+            youtube_api_key: document.getElementById('youtube-api-key').value,
+            youtube_max_duration_seconds: Number(document.getElementById('youtube-max-duration').value || 360),
+            youtube_allow_non_music: document.getElementById('youtube-allow-non-music').checked
           })
         });
         configMessage.textContent = 'Configuracao salva. Para o Twitch chat conectar com o token novo, reinicie o app.';

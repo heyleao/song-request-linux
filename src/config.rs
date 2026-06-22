@@ -18,6 +18,7 @@ pub struct AppConfig {
     pub https_bind_addr: SocketAddr,
     pub default_provider: MusicProvider,
     pub spotify: SpotifyConfig,
+    pub youtube: YoutubeConfig,
     pub twitch: TwitchBotConfig,
     pub paths: AppPaths,
 }
@@ -28,6 +29,8 @@ pub struct UserConfig {
     pub default_provider: MusicProvider,
     pub spotify_client_id: Option<String>,
     pub spotify_redirect_uri: Option<String>,
+    pub youtube_max_duration_seconds: u64,
+    pub youtube_allow_non_music: bool,
     pub twitch_client_id: Option<String>,
     pub twitch_bot_username: Option<String>,
     pub twitch_channel: Option<String>,
@@ -37,6 +40,7 @@ pub struct UserConfig {
 #[serde(default)]
 pub struct UserSecrets {
     pub twitch_bot_oauth_token: Option<String>,
+    pub youtube_api_key: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -47,6 +51,9 @@ pub struct UiConfigInput {
     pub twitch_bot_username: Option<String>,
     pub twitch_channel: Option<String>,
     pub twitch_bot_oauth_token: Option<String>,
+    pub youtube_api_key: Option<String>,
+    pub youtube_max_duration_seconds: Option<u64>,
+    pub youtube_allow_non_music: bool,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -57,12 +64,22 @@ pub struct UiConfigView {
     pub twitch_bot_username: Option<String>,
     pub twitch_channel: Option<String>,
     pub twitch_bot_token_configured: bool,
+    pub youtube_api_key_configured: bool,
+    pub youtube_max_duration_seconds: u64,
+    pub youtube_allow_non_music: bool,
 }
 
 #[derive(Clone, Debug, Serialize)]
 pub struct SpotifyConfig {
     pub client_id: Option<String>,
     pub redirect_uri: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct YoutubeConfig {
+    pub api_key: Option<String>,
+    pub max_duration_seconds: u64,
+    pub allow_non_music: bool,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -107,6 +124,7 @@ impl AppConfig {
             https_bind_addr,
             default_provider: MusicProvider::from_env().unwrap_or(user_config.default_provider),
             spotify: SpotifyConfig::from_sources(&user_config),
+            youtube: YoutubeConfig::from_sources(&user_config, &user_secrets),
             twitch: TwitchBotConfig::from_sources(&user_config, &user_secrets),
             paths,
         })
@@ -123,6 +141,8 @@ impl Default for UserConfig {
             default_provider: MusicProvider::Youtube,
             spotify_client_id: None,
             spotify_redirect_uri: None,
+            youtube_max_duration_seconds: 360,
+            youtube_allow_non_music: false,
             twitch_client_id: None,
             twitch_bot_username: None,
             twitch_channel: None,
@@ -134,6 +154,7 @@ impl Default for UserSecrets {
     fn default() -> Self {
         Self {
             twitch_bot_oauth_token: None,
+            youtube_api_key: None,
         }
     }
 }
@@ -146,6 +167,25 @@ impl SpotifyConfig {
             redirect_uri: clean_optional_env("SPOTIFY_REDIRECT_URI")
                 .or_else(|| user_config.spotify_redirect_uri.clone())
                 .unwrap_or_else(|| "http://127.0.0.1:7384/auth/spotify/callback".to_string()),
+        }
+    }
+}
+
+impl YoutubeConfig {
+    fn from_sources(user_config: &UserConfig, user_secrets: &UserSecrets) -> Self {
+        let max_duration_seconds = clean_optional_env("YOUTUBE_MAX_DURATION_SECONDS")
+            .and_then(|value| value.parse::<u64>().ok())
+            .unwrap_or(user_config.youtube_max_duration_seconds)
+            .clamp(30, 86_400);
+        let allow_non_music = clean_optional_env("YOUTUBE_ALLOW_NON_MUSIC")
+            .map(|value| matches!(value.as_str(), "1" | "true" | "yes" | "on"))
+            .unwrap_or(user_config.youtube_allow_non_music);
+
+        Self {
+            api_key: clean_optional_env("YOUTUBE_API_KEY")
+                .or_else(|| user_secrets.youtube_api_key.clone()),
+            max_duration_seconds,
+            allow_non_music,
         }
     }
 }
@@ -195,6 +235,9 @@ impl UiConfigView {
             twitch_bot_username: user_config.twitch_bot_username,
             twitch_channel: user_config.twitch_channel,
             twitch_bot_token_configured: user_secrets.twitch_bot_oauth_token.is_some(),
+            youtube_api_key_configured: user_secrets.youtube_api_key.is_some(),
+            youtube_max_duration_seconds: user_config.youtube_max_duration_seconds,
+            youtube_allow_non_music: user_config.youtube_allow_non_music,
         }
     }
 }
@@ -208,6 +251,11 @@ pub fn save_ui_config(paths: &AppPaths, input: UiConfigInput) -> Result<UiConfig
         default_provider: input.default_provider,
         spotify_client_id: clean_optional_value(input.spotify_client_id),
         spotify_redirect_uri: None,
+        youtube_max_duration_seconds: input
+            .youtube_max_duration_seconds
+            .unwrap_or(360)
+            .clamp(30, 86_400),
+        youtube_allow_non_music: input.youtube_allow_non_music,
         twitch_client_id: clean_optional_value(input.twitch_client_id),
         twitch_bot_username: clean_optional_value(input.twitch_bot_username),
         twitch_channel: clean_optional_value(input.twitch_channel),
@@ -215,6 +263,8 @@ pub fn save_ui_config(paths: &AppPaths, input: UiConfigInput) -> Result<UiConfig
     let user_secrets = UserSecrets {
         twitch_bot_oauth_token: clean_optional_value(input.twitch_bot_oauth_token)
             .or(existing_secrets.twitch_bot_oauth_token),
+        youtube_api_key: clean_optional_value(input.youtube_api_key)
+            .or(existing_secrets.youtube_api_key),
     };
 
     fs::write(
