@@ -1,9 +1,9 @@
 use anyhow::anyhow;
 use axum::{
-    extract::{DefaultBodyLimit, Query, State},
+    extract::{DefaultBodyLimit, Path as AxumPath, Query, State},
     http::{header::CONTENT_TYPE, HeaderMap, StatusCode},
     response::{Html, IntoResponse},
-    routing::{get, post},
+    routing::{delete, get, post},
     Json, Router,
 };
 use serde::{Deserialize, Serialize};
@@ -17,7 +17,9 @@ use crate::{
     connections, dashboard,
     diagnostics::DiagnosticsResponse,
     overlay, pear, player, request_flow,
-    song_requests::{MusicProvider, QueueView, RequestSource, SongRequest, SongRequestInput},
+    song_requests::{
+        MusicProvider, QueuePersistence, QueueView, RequestSource, SongRequest, SongRequestInput,
+    },
     spotify,
     state::{AppState, HealthResponse, StatusResponse},
     twitch_auth,
@@ -50,6 +52,7 @@ pub fn router(state: AppState) -> Router {
             post(spotify_fallback_playlist),
         )
         .route("/api/queue", get(queue).delete(clear_queue))
+        .route("/api/queue/:id", delete(remove_queue_item))
         .route("/api/song-requests", post(add_song_request))
         .route("/api/chat-command", post(chat_command))
         .route("/api/skip", post(skip))
@@ -321,7 +324,9 @@ async fn spotify_callback(
 }
 
 async fn queue(State(state): State<AppState>) -> Json<QueueView> {
-    Json(effective_queue_view(&state).await)
+    let mut view = effective_queue_view(&state).await;
+    view.persistence = Some(queue_persistence(&state).await);
+    Json(view)
 }
 
 async fn clear_queue(State(state): State<AppState>) -> Result<Json<QueueView>, ApiError> {
@@ -333,7 +338,38 @@ async fn clear_queue(State(state): State<AppState>) -> Result<Json<QueueView>, A
     *state.youtube_waiting_spotify_title.lock().await = None;
     state.record_event("queue", "fila de pedidos zerada").await;
 
-    Ok(Json(effective_queue_view(&state).await))
+    let mut view = effective_queue_view(&state).await;
+    view.persistence = Some(queue_persistence(&state).await);
+    Ok(Json(view))
+}
+
+async fn remove_queue_item(
+    State(state): State<AppState>,
+    AxumPath(id): AxumPath<u64>,
+) -> Result<Json<QueueView>, ApiError> {
+    let removed = {
+        let mut queue = state.queue.write().await;
+        let removed = queue.remove_by_id(id);
+        save_queue_state(&state, &queue)?;
+        removed
+    };
+
+    match removed {
+        Some(song) => {
+            state
+                .record_event("queue", format!("removido do painel: {}", song.title))
+                .await;
+        }
+        None => {
+            state
+                .record_event("queue", format!("item {id} nao estava na fila local"))
+                .await;
+        }
+    }
+
+    let mut view = effective_queue_view(&state).await;
+    view.persistence = Some(queue_persistence(&state).await);
+    Ok(Json(view))
 }
 
 async fn youtube_player_current(State(state): State<AppState>) -> Json<YoutubePlayerResponse> {
@@ -797,6 +833,16 @@ fn save_queue_state(
         .map_err(ApiError::bad_request)
 }
 
+async fn queue_persistence(state: &AppState) -> QueuePersistence {
+    let view = state.queue.read().await.view();
+    QueuePersistence {
+        enabled: true,
+        path: state.config.paths.queue_file.display().to_string(),
+        exists: state.config.paths.queue_file.exists(),
+        saved_items: usize::from(view.current_song.is_some()) + view.queue.len(),
+    }
+}
+
 async fn merge_spotify_and_app_queue(state: &AppState, mut spotify_view: QueueView) -> QueueView {
     let app_view = state.queue.read().await.view();
     let mut app_requests = app_pending_requests(app_view);
@@ -893,6 +939,7 @@ async fn spotify_queue_view(state: &AppState) -> Option<QueueView> {
         current_song,
         queue_length: queue.len(),
         queue,
+        persistence: None,
     })
 }
 
@@ -1412,6 +1459,7 @@ mod tests {
                 "The Emptiness Machine - Linkin Park".to_string(),
             )],
             queue_length: 1,
+            persistence: None,
         };
 
         let merged = merge_spotify_and_app_queue(&state, spotify_view).await;
@@ -1471,6 +1519,7 @@ mod tests {
             )),
             queue: Vec::new(),
             queue_length: 0,
+            persistence: None,
         };
 
         let merged = merge_spotify_and_app_queue(&state, spotify_view).await;

@@ -41,6 +41,16 @@ pub struct QueueView {
     pub current_song: Option<SongRequest>,
     pub queue: Vec<SongRequest>,
     pub queue_length: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub persistence: Option<QueuePersistence>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct QueuePersistence {
+    pub enabled: bool,
+    pub path: String,
+    pub exists: bool,
+    pub saved_items: usize,
 }
 
 #[derive(Clone, Debug)]
@@ -210,6 +220,7 @@ impl SongQueue {
             current_song: self.current_song.clone(),
             queue: self.queue.iter().cloned().collect(),
             queue_length: self.queue.len(),
+            persistence: None,
         }
     }
 

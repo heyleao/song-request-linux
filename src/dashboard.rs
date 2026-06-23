@@ -406,6 +406,31 @@ pub async fn page() -> Html<&'static str> {
     }
     .queue-item .queue-meta { grid-column: 1 / -1; color: var(--muted); }
     .queue-item strong { font-size: 15px; }
+    .remove-queue-item {
+      width: 30px;
+      min-width: 30px;
+      min-height: 30px;
+      padding: 0;
+      color: #ffd7d7;
+    }
+    .queue-persistence {
+      display: grid;
+      gap: 3px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface-2);
+      padding: 8px 10px;
+      margin-bottom: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    .queue-persistence strong { color: var(--ok); }
+    .queue-persistence code {
+      color: var(--soft);
+      overflow-wrap: anywhere;
+      white-space: normal;
+    }
     .event-row strong { font-size: 12px; color: var(--ok); text-transform: uppercase; }
     .event-row.error strong { color: var(--bad); }
     .event-row.player strong { color: var(--action); }
@@ -593,6 +618,7 @@ pub async fn page() -> Html<&'static str> {
                 <button class="danger" id="clear-queue" type="button">Zerar</button>
               </div>
             </div>
+            <div class="queue-persistence" id="queue-persistence">Persistência: verificando...</div>
             <div class="queue" id="queue"></div>
             <div class="message" id="queue-message"></div>
           </section>
@@ -1010,6 +1036,20 @@ pub async fn page() -> Html<&'static str> {
         : '<div class="event-row muted">Nenhum evento ainda</div>';
     }
 
+    function renderQueuePersistence(queue) {
+      const persistence = queue.persistence;
+      if (!persistence) {
+        $('queue-persistence').innerHTML = '<span>Persistência: não informada nesta resposta.</span>';
+        return;
+      }
+      const saved = `${persistence.saved_items} item(ns) salvo(s)`;
+      const state = persistence.exists ? 'arquivo encontrado' : 'arquivo será criado no próximo pedido';
+      $('queue-persistence').innerHTML = `
+        <span><strong>Persistência ativa</strong> - ${escapeHtml(saved)} - ${escapeHtml(state)}</span>
+        <code>${escapeHtml(persistence.path)}</code>
+      `;
+    }
+
     function renderVolume(volume) {
       const label = volume.level === null || volume.level === undefined
         ? 'Volume --'
@@ -1109,11 +1149,17 @@ pub async fn page() -> Html<&'static str> {
           ? `${current.artist} - pedido por ${current.requester}`
           : 'Nenhuma música tocando';
         $('current-source').textContent = sourceLabel(current?.source);
+        renderQueuePersistence(queue);
         $('queue').innerHTML = queue.queue.length
           ? queue.queue.map((item, index) => `
               <div class="queue-item">
                 <strong>${index + 1}. ${escapeHtml(item.title)}</strong>
-                <span class="pill compact">${escapeHtml(sourceLabel(item.source))}</span>
+                ${item.id > 0 && item.requester !== 'spotify'
+                  ? `<button class="secondary remove-queue-item" type="button" data-id="${item.id}" aria-label="Remover ${escapeHtml(item.title)}" title="Remover da fila">x</button>`
+                  : `<span class="pill compact">${escapeHtml(sourceLabel(item.source))}</span>`}
+                ${item.id > 0 && item.requester !== 'spotify'
+                  ? `<span class="pill compact">${escapeHtml(sourceLabel(item.source))}</span>`
+                  : ''}
                 <span class="queue-meta">${escapeHtml(item.artist)} - pedido por ${escapeHtml(item.requester)}</span>
               </div>
             `).join('')
@@ -1237,6 +1283,27 @@ pub async fn page() -> Html<&'static str> {
         await refresh();
       } catch (error) {
         setMessage('queue-message', error.message, true);
+      }
+    });
+
+    $('queue').addEventListener('click', async (event) => {
+      const button = event.target.closest('.remove-queue-item');
+      if (!button) return;
+      const item = button.closest('.queue-item');
+      button.disabled = true;
+      if (item) {
+        item.remove();
+        if (!$('queue').querySelector('.queue-item')) {
+          $('queue').innerHTML = '<div class="queue-item muted">Fila vazia</div>';
+        }
+      }
+      try {
+        await api(`/api/queue/${button.dataset.id}`, { method: 'DELETE' });
+        setMessage('queue-message', 'Música removida da fila.');
+        await refresh();
+      } catch (error) {
+        setMessage('queue-message', error.message, true);
+        await refresh();
       }
     });
 
