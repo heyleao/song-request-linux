@@ -11,22 +11,27 @@ pub async fn page() -> Html<&'static str> {
   <style>
     :root {
       color-scheme: dark;
-      --bg: #0d1014;
-      --surface: #151922;
-      --surface-2: #1d2330;
-      --surface-3: #11151c;
+      --bg: #0b0f14;
+      --chrome: #101720;
+      --surface: #151b24;
+      --surface-2: #1d2530;
+      --surface-3: #0f151d;
       --text: #f4f7fb;
-      --muted: #aeb7c4;
-      --line: #303849;
-      --ok: #32d583;
+      --muted: #9aa6b5;
+      --soft: #c7d0dc;
+      --line: #2c3442;
+      --line-2: #3a4557;
+      --ok: #22c55e;
       --warn: #f7b955;
       --bad: #ff7373;
-      --action: #6bb6ff;
-      --action-2: #a78bfa;
+      --action: #5aa9ff;
+      --action-2: #7dd3fc;
       --focus: #f7d774;
+      --shadow: 0 18px 42px rgba(0, 0, 0, .28);
       font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
     * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
     body {
       margin: 0;
       background: var(--bg);
@@ -48,21 +53,71 @@ pub async fn page() -> Html<&'static str> {
     }
     a.skip-link:focus { top: 12px; }
     header {
-      display: grid;
-      grid-template-columns: minmax(220px, 1fr) auto;
-      gap: 16px;
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: flex;
+      justify-content: space-between;
       align-items: center;
-      min-height: 64px;
-      padding: 14px 20px;
+      gap: 14px;
+      min-height: 68px;
+      padding: 12px 18px;
       border-bottom: 1px solid var(--line);
-      background: #121720;
+      background: rgba(16, 23, 32, .96);
+      backdrop-filter: blur(12px);
     }
     h1, h2, h3, p { margin: 0; }
-    h1 { font-size: 20px; line-height: 1.2; }
-    h2 { font-size: 16px; line-height: 1.25; }
-    h3 { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
-    main { max-width: 1380px; margin: 0 auto; padding: 14px; }
-    .top-status, .tabs, .actions, .toolbar, .inline-status {
+    h1 { font-size: 20px; line-height: 1.2; font-weight: 900; }
+    h2 { font-size: 16px; line-height: 1.25; font-weight: 900; }
+    h3 { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+    main { padding: 18px; }
+    .app-shell {
+      display: grid;
+      grid-template-columns: 248px minmax(0, 1fr);
+      min-height: 100dvh;
+      width: 100%;
+      overflow-x: hidden;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+    .brand-mark {
+      display: grid;
+      place-items: center;
+      width: 38px;
+      height: 38px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #22c55e 0%, #5aa9ff 100%);
+      color: #061016;
+      font-weight: 950;
+    }
+    .brand span { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+    .sidebar {
+      position: sticky;
+      top: 0;
+      align-self: start;
+      height: 100dvh;
+      padding: 18px 14px;
+      border-right: 1px solid var(--line);
+      background: #0e141c;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 18px;
+    }
+    .nav-section { display: grid; gap: 7px; }
+    .side-note {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      padding: 10px;
+      color: var(--muted);
+      line-height: 1.45;
+      font-size: 12px;
+    }
+    .top-status, .tabs, .actions, .toolbar, .inline-status, .provider-options {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
@@ -81,26 +136,33 @@ pub async fn page() -> Html<&'static str> {
       color: var(--muted);
       font-size: 13px;
       white-space: nowrap;
+      min-width: 0;
     }
     .pill strong { color: var(--text); }
+    .pill.compact { min-height: 26px; padding: 4px 8px; font-size: 12px; }
     .dot { width: 8px; height: 8px; border-radius: 999px; background: var(--warn); flex: 0 0 auto; }
     .dot.ok { background: var(--ok); }
     .dot.bad { background: var(--bad); }
     .tabs {
-      margin-bottom: 14px;
-      border-bottom: 1px solid var(--line);
-      padding-bottom: 8px;
+      display: grid;
+      align-content: start;
+      gap: 7px;
     }
     .tab-button {
-      min-height: 36px;
+      width: 100%;
+      min-height: 40px;
       border: 1px solid transparent;
-      border-radius: 6px;
+      border-radius: 8px;
       background: transparent;
       color: var(--muted);
-      padding: 8px 11px;
+      padding: 9px 10px;
       font-weight: 800;
       cursor: pointer;
       text-decoration: none;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 10px;
       transition: border-color .18s ease, background .18s ease, color .18s ease;
     }
     .tab-button:hover, .tab-button.active {
@@ -108,11 +170,31 @@ pub async fn page() -> Html<&'static str> {
       background: var(--surface-2);
       color: var(--text);
     }
+    .nav-icon {
+      width: 20px;
+      height: 20px;
+      display: inline-grid;
+      place-items: center;
+      color: var(--soft);
+      flex: 0 0 auto;
+    }
+    .nav-icon svg { width: 18px; height: 18px; stroke: currentColor; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
     .tab { display: none; }
     .tab.active { display: block; }
+    .content {
+      min-width: 0;
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+    .page-title {
+      display: grid;
+      gap: 4px;
+      min-width: 220px;
+    }
+    .page-title p { color: var(--muted); line-height: 1.35; }
     .grid-main {
       display: grid;
-      grid-template-columns: minmax(360px, 1.05fr) minmax(360px, .95fr);
+      grid-template-columns: minmax(390px, 1.08fr) minmax(360px, .92fr);
       gap: 14px;
       align-items: start;
     }
@@ -133,6 +215,7 @@ pub async fn page() -> Html<&'static str> {
       border: 1px solid var(--line);
       border-radius: 8px;
       padding: 14px;
+      box-shadow: var(--shadow);
     }
     .stack { display: grid; gap: 14px; }
     .substack { display: grid; gap: 10px; }
@@ -159,10 +242,36 @@ pub async fn page() -> Html<&'static str> {
       display: grid;
       gap: 6px;
       min-height: 112px;
-      background: linear-gradient(180deg, #202635 0%, #1a202b 100%);
+      background: linear-gradient(180deg, #202a38 0%, #151d28 100%);
     }
     .song-title { font-size: 20px; font-weight: 900; overflow-wrap: anywhere; line-height: 1.25; }
     .song-meta { color: var(--muted); overflow-wrap: anywhere; }
+    .provider-card {
+      display: grid;
+      gap: 12px;
+      background: #111922;
+    }
+    .provider-options {
+      align-items: stretch;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+    }
+    .provider-option {
+      min-height: 74px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface-2);
+      padding: 10px;
+      display: grid;
+      align-content: center;
+      gap: 4px;
+    }
+    .provider-option.active {
+      border-color: rgba(34, 197, 94, .75);
+      background: linear-gradient(180deg, rgba(34, 197, 94, .14), rgba(29, 37, 48, 1));
+    }
+    .provider-option strong { font-size: 15px; }
+    .provider-option span { color: var(--muted); font-size: 12px; line-height: 1.35; }
     form { display: grid; gap: 10px; }
     label {
       display: grid;
@@ -223,6 +332,11 @@ pub async fn page() -> Html<&'static str> {
     }
     .queue, .events, .diagnostics, .endpoints { display: grid; gap: 8px; }
     .queue-item, .event-row { display: grid; gap: 4px; overflow-wrap: anywhere; }
+    .queue-item {
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+    }
+    .queue-item .queue-meta { grid-column: 1 / -1; color: var(--muted); }
     .queue-item strong { font-size: 15px; }
     .event-row strong { font-size: 12px; color: var(--ok); text-transform: uppercase; }
     .event-row.error strong { color: var(--bad); }
@@ -257,48 +371,93 @@ pub async fn page() -> Html<&'static str> {
       * { transition: none !important; }
     }
     @media (max-width: 1100px) {
+      .app-shell { grid-template-columns: 1fr; }
+      .sidebar {
+        position: static;
+        height: auto;
+        width: 100%;
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+      .tabs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .side-note { display: none; }
       .grid-config { grid-template-columns: 1fr 1fr; }
       .status-board { grid-template-columns: 1fr 1fr; }
     }
     @media (max-width: 880px) {
       header, .grid-main, .grid-config, .grid-logs { grid-template-columns: 1fr; }
+      header { align-items: flex-start; }
+      .page-title, .top-status { width: 100%; min-width: 0; }
       .top-status { justify-content: flex-start; }
       main { padding: 10px; }
+      .toolbar { align-items: flex-start; }
     }
     @media (max-width: 520px) {
+      .tabs { grid-template-columns: 1fr; }
+      .provider-options { grid-template-columns: 1fr; }
       .status-board { grid-template-columns: 1fr; }
+      .toolbar { display: grid; grid-template-columns: 1fr; }
       .diagnostic-row, .endpoint-row { grid-template-columns: 1fr; }
       .diagnostic-row code, .endpoint-row code { text-align: left; }
-      button, a.button, .tab-button { width: 100%; }
+      .top-status { display: grid; grid-template-columns: 1fr; }
+      .pill { width: 100%; white-space: normal; justify-content: flex-start; }
+      button, a.button { width: 100%; }
       .actions { align-items: stretch; }
     }
   </style>
 </head>
 <body>
   <a class="skip-link" href="#main">Ir para o painel</a>
-  <header>
-    <h1>Song Request Linux</h1>
-    <div class="top-status">
-      <span class="pill"><span class="dot" id="twitch-dot"></span>Twitch <strong id="twitch-state">...</strong></span>
-      <span class="pill"><span class="dot" id="spotify-dot"></span>Spotify <strong id="spotify-state">...</strong></span>
-      <span class="pill"><span class="dot" id="youtube-dot"></span>YouTube <strong id="youtube-state">...</strong></span>
-      <button class="secondary" id="shutdown-app" type="button">Encerrar</button>
-    </div>
-  </header>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">SR</div>
+        <div>
+          <h1>Song Request Linux</h1>
+          <span>Controle de músicas para live</span>
+        </div>
+      </div>
+      <nav class="tabs" aria-label="Seções">
+        <button class="tab-button active" data-tab="operation-tab" type="button"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M4 13h5l2-7 4 14 2-7h3"/></svg></span>Operação</button>
+        <button class="tab-button" data-tab="setup-tab" type="button"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="M19.4 15a1.8 1.8 0 0 0 .36 1.98l.03.03a2 2 0 1 1-2.83 2.83l-.03-.03A1.8 1.8 0 0 0 15 19.4a1.8 1.8 0 0 0-1 .6l-.02.02a2 2 0 1 1-3.96 0L10 20a1.8 1.8 0 0 0-1-.6 1.8 1.8 0 0 0-1.98.36l-.03.03a2 2 0 1 1-2.83-2.83l.03-.03A1.8 1.8 0 0 0 4.6 15a1.8 1.8 0 0 0-.6-1l-.02-.02a2 2 0 1 1 0-3.96L4 10a1.8 1.8 0 0 0 .6-1 1.8 1.8 0 0 0-.36-1.98l-.03-.03a2 2 0 1 1 2.83-2.83l.03.03A1.8 1.8 0 0 0 9 4.6a1.8 1.8 0 0 0 1-.6l.02-.02a2 2 0 1 1 3.96 0L14 4a1.8 1.8 0 0 0 1 .6 1.8 1.8 0 0 0 1.98-.36l.03-.03a2 2 0 1 1 2.83 2.83l-.03.03A1.8 1.8 0 0 0 19.4 9c.22.38.43.61.6 1l.02.02a2 2 0 1 1 0 3.96L20 14a1.8 1.8 0 0 0-.6 1Z"/></svg></span>Configuração</button>
+        <button class="tab-button" data-tab="logs-tab" type="button"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg></span>Logs</button>
+        <button class="tab-button" data-tab="guide-tab" type="button"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15Z"/></svg></span>Guia</button>
+        <a class="tab-button" href="/overlay" target="_blank" rel="noreferrer"><span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 9h5M7 13h10"/></svg></span>Overlay</a>
+        <a class="tab-button" href="/player" target="_blank" rel="noreferrer"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="m8 5 11 7-11 7V5Z"/></svg></span>Player OBS</a>
+      </nav>
+      <div class="side-note">Use um provider por vez. Links do YouTube entram direto no YouTube/Pear; texto segue o provider ativo.</div>
+    </aside>
 
-  <main id="main">
-    <nav class="tabs" aria-label="Seções">
-      <button class="tab-button active" data-tab="operation-tab" type="button">Operação</button>
-      <button class="tab-button" data-tab="setup-tab" type="button">Configuração</button>
-      <button class="tab-button" data-tab="logs-tab" type="button">Logs</button>
-      <button class="tab-button" data-tab="guide-tab" type="button">Guia</button>
-      <a class="tab-button" href="/overlay" target="_blank" rel="noreferrer">Overlay</a>
-      <a class="tab-button" href="/player" target="_blank" rel="noreferrer">Player OBS</a>
-    </nav>
+    <div class="content">
+      <header>
+        <div class="page-title">
+          <h1>Operação da live</h1>
+          <p>Fila, player, eventos e conexões em uma tela.</p>
+        </div>
+        <div class="top-status">
+          <span class="pill"><span class="dot" id="twitch-dot"></span>Twitch <strong id="twitch-state">...</strong></span>
+          <span class="pill"><span class="dot" id="spotify-dot"></span>Spotify <strong id="spotify-state">...</strong></span>
+          <span class="pill"><span class="dot" id="youtube-dot"></span>YouTube <strong id="youtube-state">...</strong></span>
+          <button class="secondary" id="shutdown-app" type="button">Encerrar</button>
+        </div>
+      </header>
 
-    <div class="tab active" id="operation-tab">
+      <main id="main">
+        <div class="tab active" id="operation-tab">
       <div class="grid-main">
         <div class="stack">
+          <section class="provider-card">
+            <div class="toolbar">
+              <h2>Provider ativo</h2>
+              <span class="pill compact"><span class="dot ok"></span>Modo <strong id="provider-mode">...</strong></span>
+            </div>
+            <div class="provider-options">
+              <div class="provider-option" id="provider-spotify"><strong>Spotify</strong><span>Busca e fila pelo app Spotify.</span></div>
+              <div class="provider-option" id="provider-youtube"><strong>YouTube/Pear</strong><span>Pedidos via YouTube Music ou Browser Source.</span></div>
+            </div>
+            <div class="hint" id="provider-detail">Carregando modo atual...</div>
+          </section>
+
           <section>
             <div class="toolbar">
               <h2>Ao vivo</h2>
@@ -486,7 +645,9 @@ pub async fn page() -> Html<&'static str> {
         </section>
       </div>
     </div>
-  </main>
+      </main>
+    </div>
+  </div>
 
   <script>
     const $ = (id) => document.getElementById(id);
@@ -565,6 +726,12 @@ pub async fn page() -> Html<&'static str> {
         ? pear.reachable ? 'Pear ok' : 'Pear pendente'
         : config.youtube_api_key_configured ? 'API ok' : 'API pendente';
       $('youtube-dot').className = stateClass(youtubeReady, config.youtube_api_key_configured || config.youtube_playback === 'pear');
+      $('provider-mode').textContent = config.default_provider === 'spotify' ? 'Spotify' : 'YouTube';
+      $('provider-spotify').classList.toggle('active', config.default_provider === 'spotify');
+      $('provider-youtube').classList.toggle('active', config.default_provider === 'youtube');
+      $('provider-detail').textContent = config.default_provider === 'spotify'
+        ? 'Texto do !sr busca no Spotify. Links do YouTube continuam entrando direto no YouTube/Pear.'
+        : 'Texto do !sr busca no YouTube. Use Spotify apenas quando trocar o provider para Spotify.';
 
       const rows = [
         ['Bot Twitch', twitchReady ? 'configurado' : 'não configurado'],
@@ -620,7 +787,8 @@ pub async fn page() -> Html<&'static str> {
           ? queue.queue.map((item, index) => `
               <div class="queue-item">
                 <strong>${index + 1}. ${escapeHtml(item.title)}</strong>
-                <span class="muted">${escapeHtml(item.artist)} - pedido por ${escapeHtml(item.requester)} - ${escapeHtml(sourceLabel(item.source))}</span>
+                <span class="pill compact">${escapeHtml(sourceLabel(item.source))}</span>
+                <span class="queue-meta">${escapeHtml(item.artist)} - pedido por ${escapeHtml(item.requester)}</span>
               </div>
             `).join('')
           : '<div class="queue-item muted">Fila vazia</div>';
