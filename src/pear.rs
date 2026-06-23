@@ -33,6 +33,7 @@ struct PearQueueRequest<'a> {
 
 #[derive(Clone, Copy, Debug, Serialize)]
 enum PearInsertPosition {
+    #[serde(rename = "INSERT_AFTER_CURRENT_VIDEO")]
     InsertAfterCurrentVideo,
 }
 

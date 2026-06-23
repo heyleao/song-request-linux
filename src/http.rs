@@ -606,8 +606,10 @@ async fn add_request_to_queue(
 }
 
 async fn effective_queue_view(state: &AppState) -> QueueView {
-    if let Some(view) = spotify_queue_view(state).await {
-        return merge_spotify_and_app_queue(state, view).await;
+    if matches!(state.config.default_provider, MusicProvider::Spotify) {
+        if let Some(view) = spotify_queue_view(state).await {
+            return merge_spotify_and_app_queue(state, view).await;
+        }
     }
 
     state.queue.read().await.view()
