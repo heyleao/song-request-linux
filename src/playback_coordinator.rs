@@ -87,7 +87,6 @@ async fn coordinate_pear_once(state: &AppState) {
         *state.youtube_active_pear_video_id.lock().await = None;
         *state.youtube_failed_pear_video_id.lock().await = None;
         finish_pear_background(state).await;
-        start_spotify_fallback_if_idle(state).await;
         return;
     };
 
@@ -102,44 +101,12 @@ async fn coordinate_pear_once(state: &AppState) {
         return;
     }
 
-    let waiting_title = state.youtube_waiting_spotify_title.lock().await.clone();
-    let Some(waiting_title) = waiting_title else {
-        arm_against_current_spotify(state).await;
-        if state.youtube_player_paused_spotify.load(Ordering::SeqCst) {
-            coordinate_active_pear_request(state, pending).await;
-        }
-        return;
-    };
-
-    let mut token_guard = state.spotify_token.write().await;
-    let Some(token) = token_guard.as_mut() else {
-        start_pear_request(state, pending).await;
-        return;
-    };
-
-    let playback = match spotify::current_playback(&state.config, token).await {
-        Ok(playback) => playback,
-        Err(error) => {
-            state
-                .record_event("error", format!("Nao consegui coordenar Spotify: {error}"))
-                .await;
-            return;
-        }
-    };
-    drop(token_guard);
-
-    let still_same_track = playback
-        .as_ref()
-        .is_some_and(|playback| playback.is_playing && playback.title == waiting_title);
-    if still_same_track {
+    if wait_for_current_spotify_before_pear(state).await {
         return;
     }
 
     *state.youtube_waiting_spotify_title.lock().await = None;
-    pause_spotify_for_youtube(state, "Spotify pausado para iniciar pedido YouTube").await;
-    if state.youtube_player_paused_spotify.load(Ordering::SeqCst) {
-        coordinate_active_pear_request(state, pending).await;
-    }
+    start_pear_request(state, pending).await;
 }
 
 async fn coordinate_active_pear_request(state: &AppState, pending: SongRequest) {
@@ -318,17 +285,17 @@ async fn wait_for_current_pear_if_needed(state: &AppState, pending: &SongRequest
     }
 
     if current_is_paused {
-        *state.youtube_waiting_pear_video_id.lock().await = Some(current_video_id.clone());
+        *state.youtube_waiting_pear_video_id.lock().await = None;
         state
             .record_event(
                 "player",
                 format!(
-                    "Pear pausado manualmente; pedido aguardando play: {}",
+                    "Pear estava pausado; iniciando pedido agora: {}",
                     pending.title
                 ),
             )
             .await;
-        return true;
+        return false;
     }
 
     *state.youtube_waiting_pear_video_id.lock().await = Some(current_video_id);
@@ -339,6 +306,46 @@ async fn wait_for_current_pear_if_needed(state: &AppState, pending: &SongRequest
                 "Pear aguardando fim da musica atual para tocar: {}",
                 pending.title
             ),
+        )
+        .await;
+    true
+}
+
+async fn wait_for_current_spotify_before_pear(state: &AppState) -> bool {
+    let mut token_guard = state.spotify_token.write().await;
+    let Some(token) = token_guard.as_mut() else {
+        return false;
+    };
+
+    let playback = match spotify::current_playback(&state.config, token).await {
+        Ok(playback) => playback,
+        Err(error) => {
+            tracing::debug!(%error, "Spotify unavailable while coordinating Pear");
+            return false;
+        }
+    };
+    drop(token_guard);
+
+    let Some(playback) = playback else {
+        return false;
+    };
+
+    if !playback.is_playing {
+        return false;
+    }
+
+    let mut waiting = state.youtube_waiting_spotify_title.lock().await;
+    if waiting.as_deref() == Some(playback.title.as_str()) {
+        return true;
+    }
+
+    *waiting = Some(playback.title.clone());
+    drop(waiting);
+    pause_pear_while_waiting_for_spotify(state).await;
+    state
+        .record_event(
+            "player",
+            format!("Pear aguardando fim do Spotify atual: {}", playback.title),
         )
         .await;
     true

@@ -4,6 +4,7 @@ use anyhow::{bail, Context, Result};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use tokio::time::sleep;
 
 use crate::config::AppConfig;
 
@@ -137,11 +138,19 @@ pub async fn next(config: &AppConfig) -> Result<()> {
 }
 
 pub async fn select_video_from_queue(config: &AppConfig, video_id: &str) -> Result<bool> {
-    let Some(index) = queue_video_ids(config)
-        .await?
-        .into_iter()
-        .position(|id| id == video_id)
-    else {
+    let mut index = None;
+    for _ in 0..10 {
+        index = queue_video_ids(config)
+            .await?
+            .into_iter()
+            .position(|id| id == video_id);
+        if index.is_some() {
+            break;
+        }
+        sleep(Duration::from_millis(150)).await;
+    }
+
+    let Some(index) = index else {
         return Ok(false);
     };
 
