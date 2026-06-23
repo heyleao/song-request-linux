@@ -60,6 +60,7 @@ pub async fn save_bot_token(config: &AppConfig, input: TwitchTokenInput) -> Resu
         pear_base_url: Some(current.pear_base_url),
         spotify_client_id: current.spotify_client_id,
         spotify_fallback_enabled: current.spotify_fallback_enabled,
+        queue_persistence_enabled: current.queue_persistence_enabled,
         twitch_client_id: current.twitch_client_id,
         twitch_bot_username: Some(login),
         twitch_channel: current.twitch_channel,

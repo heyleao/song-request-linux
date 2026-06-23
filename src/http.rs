@@ -163,6 +163,13 @@ async fn save_config(
     Json(input): Json<config::UiConfigInput>,
 ) -> Result<Json<config::UiConfigView>, ApiError> {
     let view = config::save_ui_config(&state.config.paths, input).map_err(ApiError::bad_request)?;
+    if view.queue_persistence_enabled {
+        save_current_queue_state(&state).await?;
+    } else if let Err(error) = std::fs::remove_file(&state.config.paths.queue_file) {
+        if error.kind() != std::io::ErrorKind::NotFound {
+            return Err(ApiError::bad_request(anyhow::anyhow!(error)));
+        }
+    }
 
     Ok(Json(view))
 }
@@ -858,18 +865,27 @@ fn save_queue_state(
     state: &AppState,
     queue: &crate::song_requests::SongQueue,
 ) -> Result<(), ApiError> {
+    if !config::queue_persistence_enabled(&state.config.paths) {
+        return Ok(());
+    }
+
     queue
         .save(&state.config.paths.queue_file)
         .map_err(ApiError::bad_request)
 }
 
 async fn queue_persistence(state: &AppState) -> QueuePersistence {
+    let enabled = config::queue_persistence_enabled(&state.config.paths);
     let view = state.queue.read().await.view();
     QueuePersistence {
-        enabled: true,
+        enabled,
         path: state.config.paths.queue_file.display().to_string(),
         exists: state.config.paths.queue_file.exists(),
-        saved_items: usize::from(view.current_song.is_some()) + view.queue.len(),
+        saved_items: if enabled {
+            usize::from(view.current_song.is_some()) + view.queue.len()
+        } else {
+            0
+        },
     }
 }
 

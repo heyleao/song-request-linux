@@ -271,13 +271,15 @@ async fn remove_last_request_reply(state: &AppState, requester: String) -> Strin
         let mut queue = state.queue.write().await;
         queue.remove_last_by_requester(&requester)
     };
-    if let Err(error) = state
-        .queue
-        .read()
-        .await
-        .save(&state.config.paths.queue_file)
-    {
-        state.record_event("error", error.to_string()).await;
+    if config::queue_persistence_enabled(&state.config.paths) {
+        if let Err(error) = state
+            .queue
+            .read()
+            .await
+            .save(&state.config.paths.queue_file)
+        {
+            state.record_event("error", error.to_string()).await;
+        }
     }
 
     let message = match removed {

@@ -33,6 +33,7 @@ pub struct UserConfig {
     pub spotify_client_id: Option<String>,
     pub spotify_redirect_uri: Option<String>,
     pub spotify_fallback_enabled: bool,
+    pub queue_persistence_enabled: bool,
     pub youtube_playback: YoutubePlayback,
     pub pear_base_url: Option<String>,
     pub youtube_max_duration_seconds: u64,
@@ -58,6 +59,7 @@ pub struct UiConfigInput {
     pub pear_base_url: Option<String>,
     pub spotify_client_id: Option<String>,
     pub spotify_fallback_enabled: bool,
+    pub queue_persistence_enabled: bool,
     pub twitch_client_id: Option<String>,
     pub twitch_bot_username: Option<String>,
     pub twitch_channel: Option<String>,
@@ -76,6 +78,7 @@ pub struct UiConfigView {
     pub pear_base_url: String,
     pub spotify_client_id: Option<String>,
     pub spotify_fallback_enabled: bool,
+    pub queue_persistence_enabled: bool,
     pub twitch_client_id: Option<String>,
     pub twitch_bot_username: Option<String>,
     pub twitch_channel: Option<String>,
@@ -211,6 +214,7 @@ impl Default for UserConfig {
             spotify_client_id: None,
             spotify_redirect_uri: None,
             spotify_fallback_enabled: false,
+            queue_persistence_enabled: false,
             youtube_playback: YoutubePlayback::Browser,
             pear_base_url: None,
             youtube_max_duration_seconds: 360,
@@ -322,6 +326,7 @@ impl UiConfigView {
                 .unwrap_or_else(default_pear_base_url),
             spotify_client_id: user_config.spotify_client_id,
             spotify_fallback_enabled: user_config.spotify_fallback_enabled,
+            queue_persistence_enabled: user_config.queue_persistence_enabled,
             twitch_client_id: user_config.twitch_client_id,
             twitch_bot_username: user_config.twitch_bot_username,
             twitch_channel: user_config.twitch_channel,
@@ -336,6 +341,12 @@ impl UiConfigView {
     }
 }
 
+pub fn queue_persistence_enabled(paths: &AppPaths) -> bool {
+    load_user_config_from_paths(paths)
+        .map(|config| config.queue_persistence_enabled)
+        .unwrap_or_default()
+}
+
 pub fn save_ui_config(paths: &AppPaths, input: UiConfigInput) -> Result<UiConfigView> {
     fs::create_dir_all(&paths.config_dir)?;
     fs::create_dir_all(&paths.state_dir)?;
@@ -348,6 +359,7 @@ pub fn save_ui_config(paths: &AppPaths, input: UiConfigInput) -> Result<UiConfig
         spotify_client_id: clean_optional_value(input.spotify_client_id),
         spotify_redirect_uri: None,
         spotify_fallback_enabled: input.spotify_fallback_enabled,
+        queue_persistence_enabled: input.queue_persistence_enabled,
         youtube_max_duration_seconds: input
             .youtube_max_duration_seconds
             .unwrap_or(360)

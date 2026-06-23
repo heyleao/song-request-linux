@@ -7,7 +7,7 @@ use std::{
 use serde::Serialize;
 use tokio::sync::{broadcast, Mutex, RwLock};
 
-use crate::config::{AppConfig, APP_NAME};
+use crate::config::{self, AppConfig, APP_NAME};
 use crate::song_requests::{QueueView, SongQueue};
 use crate::spotify::{load_token, SpotifyAuthSession, SpotifyToken};
 
@@ -66,7 +66,11 @@ pub struct SongView {
 
 impl AppState {
     pub fn new(config: AppConfig) -> Self {
-        let queue = SongQueue::load_or_new(config.default_provider, &config.paths.queue_file);
+        let queue = if config::queue_persistence_enabled(&config.paths) {
+            SongQueue::load_or_new(config.default_provider, &config.paths.queue_file)
+        } else {
+            SongQueue::new(config.default_provider)
+        };
         let (shutdown, _) = broadcast::channel(1);
 
         Self {

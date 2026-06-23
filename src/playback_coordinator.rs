@@ -460,10 +460,12 @@ async fn finish_pear_request(state: &AppState, id: u64) {
     {
         let mut queue = state.queue.write().await;
         queue.remove_by_id(id);
-        if let Err(error) = queue.save(&state.config.paths.queue_file) {
-            state
-                .record_event("error", format!("Nao consegui salvar fila: {error}"))
-                .await;
+        if crate::config::queue_persistence_enabled(&state.config.paths) {
+            if let Err(error) = queue.save(&state.config.paths.queue_file) {
+                state
+                    .record_event("error", format!("Nao consegui salvar fila: {error}"))
+                    .await;
+            }
         }
     }
 

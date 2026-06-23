@@ -861,6 +861,7 @@ pub async fn page() -> Html<&'static str> {
                 <input id="setup-limit-streamer" type="number" inputmode="numeric" min="0" max="100" step="1" value="0">
               </label>
             </div>
+            <label class="full"><span><input id="setup-queue-persistence-enabled" type="checkbox"> Continuar com a fila salva quando o app abrir de novo</span></label>
             <p class="field-note">As permissões usam as badges/tags oficiais que a Twitch envia em cada mensagem do chat: viewer, VIP, moderador e streamer. Limite 0 significa sem limite.</p>
           </section>
         </div>
@@ -1255,6 +1256,10 @@ pub async fn page() -> Html<&'static str> {
         $('queue-persistence').innerHTML = '<span>Persistência: não informada nesta resposta.</span>';
         return;
       }
+      if (!persistence.enabled) {
+        $('queue-persistence').innerHTML = '<span><strong>Persistência desativada</strong> - a fila atual não será restaurada ao reabrir o app.</span>';
+        return;
+      }
       const saved = `${persistence.saved_items} item(ns) salvo(s)`;
       const state = persistence.exists ? 'arquivo encontrado' : 'arquivo será criado no próximo pedido';
       $('queue-persistence').innerHTML = `
@@ -1399,6 +1404,7 @@ pub async fn page() -> Html<&'static str> {
           $('setup-pear-base-url').value = config.pear_base_url || 'http://127.0.0.1:26538/api/v1';
           $('setup-youtube-max-duration').value = config.youtube_max_duration_seconds || 360;
           $('setup-youtube-allow-non-music').checked = Boolean(config.youtube_allow_non_music);
+          $('setup-queue-persistence-enabled').checked = Boolean(config.queue_persistence_enabled);
           fillCommandSettings(config);
         }
 
@@ -1592,6 +1598,7 @@ pub async fn page() -> Html<&'static str> {
           pear_base_url: $('setup-pear-base-url').value,
           spotify_client_id: $('setup-spotify-client-id').value,
           spotify_fallback_enabled: $('setup-spotify-fallback-enabled').checked,
+          queue_persistence_enabled: $('setup-queue-persistence-enabled').checked,
           twitch_client_id: $('setup-twitch-client-id').value,
           twitch_bot_username: $('setup-twitch-bot-username').value,
           twitch_channel: $('setup-twitch-channel').value,
@@ -1635,6 +1642,16 @@ pub async fn page() -> Html<&'static str> {
       } catch (error) {
         setMessage('setup-message', error.message, true);
         setSpotifyFallbackControls($('setup-spotify-fallback-enabled').checked);
+      }
+    });
+
+    $('setup-queue-persistence-enabled').addEventListener('change', async () => {
+      try {
+        await saveSetup($('setup-queue-persistence-enabled').checked
+          ? 'Persistência da fila ativada.'
+          : 'Persistência da fila desativada. A próxima abertura começa com fila vazia.');
+      } catch (error) {
+        setMessage('setup-message', error.message, true);
       }
     });
 
