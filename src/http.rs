@@ -725,33 +725,50 @@ fn save_queue_state(
 
 async fn merge_spotify_and_app_queue(state: &AppState, mut spotify_view: QueueView) -> QueueView {
     let app_view = state.queue.read().await.view();
-    let mut app_youtube = youtube_requests(app_view);
+    let mut app_requests = app_pending_requests(app_view);
 
-    if spotify_view.current_song.is_none() && !app_youtube.is_empty() {
-        spotify_view.current_song = Some(app_youtube.remove(0));
+    if let Some(current) = &spotify_view.current_song {
+        let current_title = normalize_song_title(&current.title);
+        app_requests.retain(|song| normalize_song_title(&song.title) != current_title);
     }
 
-    spotify_view.queue = app_youtube;
+    if spotify_view.current_song.is_none() && !app_requests.is_empty() {
+        spotify_view.current_song = Some(app_requests.remove(0));
+    }
+
+    spotify_view.queue = app_requests;
     spotify_view.queue_length = spotify_view.queue.len();
     spotify_view
 }
 
-fn youtube_requests(view: QueueView) -> Vec<SongRequest> {
+fn app_pending_requests(view: QueueView) -> Vec<SongRequest> {
     let mut requests = Vec::new();
 
     if let Some(song) = view.current_song {
-        if matches!(song.source, RequestSource::Youtube { .. }) {
+        if matches!(
+            song.source,
+            RequestSource::Youtube { .. } | RequestSource::Spotify { .. }
+        ) {
             requests.push(song);
         }
     }
 
-    requests.extend(
-        view.queue
-            .into_iter()
-            .filter(|song| matches!(song.source, RequestSource::Youtube { .. })),
-    );
+    requests.extend(view.queue.into_iter().filter(|song| {
+        matches!(
+            song.source,
+            RequestSource::Youtube { .. } | RequestSource::Spotify { .. }
+        )
+    }));
 
     requests
+}
+
+fn normalize_song_title(title: &str) -> String {
+    title
+        .chars()
+        .flat_map(char::to_lowercase)
+        .filter(|ch| ch.is_alphanumeric())
+        .collect()
 }
 
 async fn spotify_queue_view(state: &AppState) -> Option<QueueView> {
@@ -1210,7 +1227,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn merged_queue_hides_spotify_upcoming_when_requests_exist() {
+    async fn merged_queue_prefers_app_requests_over_spotify_upcoming() {
         let config = AppConfig::from_env().expect("config");
         let state = AppState::new(config);
         state.queue.write().await.clear();
@@ -1223,6 +1240,16 @@ mod tests {
             },
             title: "Never Gonna Give You Up".to_string(),
             artist: "Rick Astley".to_string(),
+        });
+        state.queue.write().await.add_resolved(SongRequest {
+            id: 0,
+            requester: "viewer".to_string(),
+            query: "system of a down spiders".to_string(),
+            source: RequestSource::Spotify {
+                uri: "spotify:track:3njyXewwWLp3B0p6rSMeyw".to_string(),
+            },
+            title: "Spiders".to_string(),
+            artist: "System Of A Down".to_string(),
         });
         state.queue.write().await.add_resolved(SongRequest {
             id: 0,
@@ -1255,9 +1282,13 @@ mod tests {
         );
         assert_eq!(
             merged.queue.get(1).map(|song| song.title.as_str()),
+            Some("Spiders")
+        );
+        assert_eq!(
+            merged.queue.get(2).map(|song| song.title.as_str()),
             Some("Gangnam Style")
         );
-        assert_eq!(merged.queue.get(2).map(|song| song.title.as_str()), None);
-        assert_eq!(merged.queue_length, 2);
+        assert_eq!(merged.queue.get(3).map(|song| song.title.as_str()), None);
+        assert_eq!(merged.queue_length, 3);
     }
 }
