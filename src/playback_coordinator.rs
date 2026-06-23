@@ -332,10 +332,6 @@ async fn start_spotify_fallback_if_idle(state: &AppState) {
         return;
     }
 
-    if state.spotify_fallback_started.load(Ordering::SeqCst) {
-        return;
-    }
-
     let playlist = match spotify::load_fallback_playlist(&state.config) {
         Ok(Some(playlist)) => playlist,
         Ok(None) => return,
@@ -358,7 +354,24 @@ async fn start_spotify_fallback_if_idle(state: &AppState) {
     };
 
     match spotify::current_playback(&state.config, token).await {
-        Ok(Some(playback)) if playback.is_playing => return,
+        Ok(Some(playback))
+            if playback.is_playing
+                && playback.context_uri.as_deref() == Some(playlist.uri.as_str()) =>
+        {
+            state.spotify_fallback_started.store(true, Ordering::SeqCst);
+            return;
+        }
+        Ok(Some(playback)) if playback.is_playing => {
+            state
+                .record_event(
+                    "player",
+                    format!(
+                        "Spotify saiu da playlist fallback; voltando para {}",
+                        playlist.name
+                    ),
+                )
+                .await;
+        }
         Ok(_) => {}
         Err(error) => {
             if !state.spotify_fallback_started.swap(true, Ordering::SeqCst) {
@@ -373,16 +386,9 @@ async fn start_spotify_fallback_if_idle(state: &AppState) {
         }
     }
 
-    if state
-        .spotify_fallback_started
-        .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
-        .is_err()
-    {
-        return;
-    }
-
     match spotify::play_context(&state.config, token, &playlist.uri).await {
         Ok(()) => {
+            state.spotify_fallback_started.store(true, Ordering::SeqCst);
             state
                 .record_event(
                     "player",
@@ -391,6 +397,9 @@ async fn start_spotify_fallback_if_idle(state: &AppState) {
                 .await;
         }
         Err(error) => {
+            state
+                .spotify_fallback_started
+                .store(false, Ordering::SeqCst);
             state
                 .record_event(
                     "error",

@@ -107,6 +107,12 @@ struct SpotifyPlayable {
 struct SpotifyPlaybackResponse {
     is_playing: bool,
     item: Option<SpotifyPlayable>,
+    context: Option<SpotifyPlaybackContext>,
+}
+
+#[derive(Debug, Deserialize)]
+struct SpotifyPlaybackContext {
+    uri: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -119,6 +125,7 @@ pub struct SpotifyQueueSnapshot {
 pub struct SpotifyPlayback {
     pub title: String,
     pub is_playing: bool,
+    pub context_uri: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -457,6 +464,7 @@ pub async fn current_playback(
     Ok(Some(SpotifyPlayback {
         title,
         is_playing: playback.is_playing,
+        context_uri: playback.context.and_then(|context| context.uri),
     }))
 }
 
