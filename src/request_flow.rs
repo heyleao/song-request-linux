@@ -28,30 +28,53 @@ pub async fn add_request(state: &AppState, input: SongRequestInput) -> Result<So
         let token = token_guard
             .as_mut()
             .ok_or_else(|| anyhow!("Spotify is not connected"))?;
-        let mut request = spotify::search_and_queue(&state.config, token, &input.query).await?;
-        request.requester = input.requester.trim().to_string();
-        request.query = input.query.trim().to_string();
+        match spotify::search_and_queue(&state.config, token, &input.query).await {
+            Ok(mut request) => {
+                request.requester = input.requester.trim().to_string();
+                request.query = input.query.trim().to_string();
 
-        return Ok(state.queue.write().await.add_resolved(request));
+                return Ok(state.queue.write().await.add_resolved(request));
+            }
+            Err(error) if spotify_track_not_found(&error) => {
+                drop(token_guard);
+                return add_youtube_search_request(state, input).await;
+            }
+            Err(error) => return Err(error),
+        }
     }
 
     if should_use_youtube(state, &input) {
-        let metadata = youtube::search_and_validate(&state.config, &input.query).await?;
-        let request = SongRequest {
-            id: 0,
-            requester: input.requester.trim().to_string(),
-            query: input.query.trim().to_string(),
-            source: RequestSource::Youtube {
-                video_id: metadata.video_id,
-            },
-            title: metadata.title,
-            artist: metadata.channel_title,
-        };
-
-        return Ok(state.queue.write().await.add_resolved(request));
+        return add_youtube_search_request(state, input).await;
     }
 
     state.queue.write().await.add(input)
+}
+
+async fn add_youtube_search_request(
+    state: &AppState,
+    input: SongRequestInput,
+) -> Result<SongRequest> {
+    let metadata = youtube::search_and_validate(&state.config, &input.query).await?;
+    let request = SongRequest {
+        id: 0,
+        requester: input.requester.trim().to_string(),
+        query: input.query.trim().to_string(),
+        source: RequestSource::Youtube {
+            video_id: metadata.video_id,
+        },
+        title: metadata.title,
+        artist: metadata.channel_title,
+    };
+
+    Ok(state.queue.write().await.add_resolved(request))
+}
+
+fn spotify_track_not_found(error: &anyhow::Error) -> bool {
+    error.chain().any(|cause| {
+        cause
+            .to_string()
+            .contains("no Spotify track found for query")
+    })
 }
 
 fn should_use_spotify(state: &AppState, input: &SongRequestInput) -> bool {
