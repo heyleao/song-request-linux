@@ -265,6 +265,7 @@ pub async fn page() -> Html<&'static str> {
       display: grid;
       align-content: center;
       gap: 4px;
+      cursor: pointer;
     }
     .provider-option.active {
       border-color: rgba(34, 197, 94, .75);
@@ -651,6 +652,7 @@ pub async fn page() -> Html<&'static str> {
 
   <script>
     const $ = (id) => document.getElementById(id);
+    let setupDirty = false;
 
     async function api(path, options = {}) {
       const response = await fetch(path, {
@@ -765,7 +767,7 @@ pub async fn page() -> Html<&'static str> {
         $('playback-mode').textContent = config.youtube_playback === 'pear' ? 'Pear Desktop' : 'Browser Source';
         renderDiagnostics(diagnostics, connections, pear, config);
 
-        if (!$('setup-form').contains(document.activeElement)) {
+        if (!setupDirty && !$('setup-form').contains(document.activeElement)) {
           $('setup-provider').value = config.default_provider;
           $('setup-spotify-client-id').value = config.spotify_client_id || '';
           $('setup-twitch-client-id').value = config.twitch_client_id || '';
@@ -894,28 +896,70 @@ pub async fn page() -> Html<&'static str> {
       }
     });
 
+    async function saveSetup(message = 'Configuração salva.') {
+      const result = await api('/api/config', {
+        method: 'POST',
+        body: JSON.stringify({
+          default_provider: $('setup-provider').value,
+          youtube_playback: $('setup-youtube-playback').value,
+          pear_base_url: $('setup-pear-base-url').value,
+          spotify_client_id: $('setup-spotify-client-id').value,
+          twitch_client_id: $('setup-twitch-client-id').value,
+          twitch_bot_username: $('setup-twitch-bot-username').value,
+          twitch_channel: $('setup-twitch-channel').value,
+          twitch_bot_oauth_token: null,
+          youtube_api_key: $('setup-youtube-api-key').value,
+          youtube_max_duration_seconds: Number($('setup-youtube-max-duration').value || 360),
+          youtube_allow_non_music: $('setup-youtube-allow-non-music').checked
+        })
+      });
+      $('setup-youtube-api-key').value = '';
+      setupDirty = false;
+      setMessage('setup-message', message);
+      await refresh();
+      return result;
+    }
+
+    $('setup-form').addEventListener('input', () => {
+      setupDirty = true;
+    });
+
+    $('setup-form').addEventListener('change', () => {
+      setupDirty = true;
+    });
+
+    $('setup-provider').addEventListener('change', async () => {
+      try {
+        await saveSetup(`Provider salvo: ${$('setup-provider').value === 'spotify' ? 'Spotify' : 'YouTube'}.`);
+      } catch (error) {
+        setMessage('setup-message', error.message, true);
+      }
+    });
+
+    $('provider-spotify').addEventListener('click', async () => {
+      try {
+        $('setup-provider').value = 'spotify';
+        setupDirty = true;
+        await saveSetup('Provider salvo: Spotify.');
+      } catch (error) {
+        setMessage('request-message', error.message, true);
+      }
+    });
+
+    $('provider-youtube').addEventListener('click', async () => {
+      try {
+        $('setup-provider').value = 'youtube';
+        setupDirty = true;
+        await saveSetup('Provider salvo: YouTube.');
+      } catch (error) {
+        setMessage('request-message', error.message, true);
+      }
+    });
+
     $('setup-form').addEventListener('submit', async (event) => {
       event.preventDefault();
       try {
-        await api('/api/config', {
-          method: 'POST',
-          body: JSON.stringify({
-            default_provider: $('setup-provider').value,
-            youtube_playback: $('setup-youtube-playback').value,
-            pear_base_url: $('setup-pear-base-url').value,
-            spotify_client_id: $('setup-spotify-client-id').value,
-            twitch_client_id: $('setup-twitch-client-id').value,
-            twitch_bot_username: $('setup-twitch-bot-username').value,
-            twitch_channel: $('setup-twitch-channel').value,
-            twitch_bot_oauth_token: null,
-            youtube_api_key: $('setup-youtube-api-key').value,
-            youtube_max_duration_seconds: Number($('setup-youtube-max-duration').value || 360),
-            youtube_allow_non_music: $('setup-youtube-allow-non-music').checked
-          })
-        });
-        $('setup-youtube-api-key').value = '';
-        setMessage('setup-message', 'Configuração salva.');
-        await refresh();
+        await saveSetup();
       } catch (error) {
         setMessage('setup-message', error.message, true);
       }

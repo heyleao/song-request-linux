@@ -126,11 +126,15 @@ fn unix_now() -> u64 {
 }
 
 impl StatusResponse {
-    pub fn from_queue(state: &AppState, queue: QueueView) -> Self {
+    pub fn from_queue(
+        state: &AppState,
+        queue: QueueView,
+        provider: crate::song_requests::MusicProvider,
+    ) -> Self {
         Self {
             app: state.app_name,
             version: state.version,
-            provider: match state.config.default_provider {
+            provider: match provider {
                 crate::song_requests::MusicProvider::Spotify => "spotify",
                 crate::song_requests::MusicProvider::Youtube => "youtube",
             },

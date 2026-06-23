@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Result};
 
 use crate::{
+    config,
     song_requests::{MusicProvider, RequestSource, SongRequest, SongRequestInput},
     spotify,
     state::AppState,
@@ -8,8 +9,10 @@ use crate::{
 };
 
 pub async fn add_request(state: &AppState, input: SongRequestInput) -> Result<SongRequest> {
+    let default_provider = config::UiConfigView::load(&state.config.paths).default_provider;
+
     if let RequestSource::Youtube { video_id } =
-        RequestSource::from_query_public(&input.query, state.config.default_provider)
+        RequestSource::from_query_public(&input.query, default_provider)
     {
         let request = SongRequest {
             id: 0,
@@ -23,7 +26,7 @@ pub async fn add_request(state: &AppState, input: SongRequestInput) -> Result<So
         return Ok(state.queue.write().await.add_resolved(request));
     }
 
-    if should_use_spotify(state, &input) {
+    if should_use_spotify(default_provider, &input) {
         let mut token_guard = state.spotify_token.write().await;
         let token = token_guard
             .as_mut()
@@ -35,7 +38,7 @@ pub async fn add_request(state: &AppState, input: SongRequestInput) -> Result<So
         return Ok(state.queue.write().await.add_resolved(request));
     }
 
-    if should_use_youtube(state, &input) {
+    if should_use_youtube(default_provider, &input) {
         return add_youtube_search_request(state, input).await;
     }
 
@@ -61,16 +64,16 @@ async fn add_youtube_search_request(
     Ok(state.queue.write().await.add_resolved(request))
 }
 
-fn should_use_spotify(state: &AppState, input: &SongRequestInput) -> bool {
-    matches!(state.config.default_provider, MusicProvider::Spotify)
+fn should_use_spotify(default_provider: MusicProvider, input: &SongRequestInput) -> bool {
+    matches!(default_provider, MusicProvider::Spotify)
         && !matches!(
             RequestSource::from_query_public(&input.query, MusicProvider::Spotify),
             RequestSource::Youtube { .. }
         )
 }
 
-fn should_use_youtube(state: &AppState, input: &SongRequestInput) -> bool {
-    matches!(state.config.default_provider, MusicProvider::Youtube)
+fn should_use_youtube(default_provider: MusicProvider, input: &SongRequestInput) -> bool {
+    matches!(default_provider, MusicProvider::Youtube)
         && !matches!(
             RequestSource::from_query_public(&input.query, MusicProvider::Youtube),
             RequestSource::Youtube { .. }

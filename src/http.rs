@@ -92,8 +92,9 @@ async fn shutdown(
 
 async fn status(State(state): State<AppState>) -> Json<StatusResponse> {
     let queue = effective_queue_view(&state).await;
+    let provider = current_provider(&state);
 
-    Json(StatusResponse::from_queue(&state, queue))
+    Json(StatusResponse::from_queue(&state, queue, provider))
 }
 
 async fn diagnostics(State(state): State<AppState>) -> Json<DiagnosticsResponse> {
@@ -450,7 +451,7 @@ async fn chat_command(
 }
 
 async fn skip_message(state: &AppState, requester: String) -> String {
-    if matches!(state.config.default_provider, MusicProvider::Youtube)
+    if matches!(current_provider(state), MusicProvider::Youtube)
         && matches!(state.config.youtube.playback, YoutubePlayback::Pear)
     {
         let message = match pear::next(&state.config).await {
@@ -481,7 +482,7 @@ async fn skip_message(state: &AppState, requester: String) -> String {
 }
 
 async fn playback_message(state: &AppState, requester: String, action: PlaybackAction) -> String {
-    if matches!(state.config.default_provider, MusicProvider::Youtube)
+    if matches!(current_provider(state), MusicProvider::Youtube)
         && matches!(state.config.youtube.playback, YoutubePlayback::Pear)
     {
         let result = match action {
@@ -589,7 +590,7 @@ async fn set_spotify_volume(state: &AppState, level: u8) -> Option<anyhow::Resul
 
 async fn current_volume_message(state: &AppState) -> String {
     if matches!(
-        (state.config.default_provider, state.config.youtube.playback),
+        (current_provider(state), state.config.youtube.playback),
         (MusicProvider::Youtube, YoutubePlayback::Pear)
     ) {
         let message = match pear::current_volume(&state.config).await {
@@ -651,13 +652,17 @@ async fn add_request_to_queue(
 }
 
 async fn effective_queue_view(state: &AppState) -> QueueView {
-    if matches!(state.config.default_provider, MusicProvider::Spotify) {
+    if matches!(current_provider(state), MusicProvider::Spotify) {
         if let Some(view) = spotify_queue_view(state).await {
             return merge_spotify_and_app_queue(state, view).await;
         }
     }
 
     state.queue.read().await.view()
+}
+
+fn current_provider(state: &AppState) -> MusicProvider {
+    config::UiConfigView::load(&state.config.paths).default_provider
 }
 
 async fn save_current_queue_state(state: &AppState) -> Result<(), ApiError> {
