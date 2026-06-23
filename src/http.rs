@@ -728,8 +728,26 @@ async fn merge_spotify_and_app_queue(state: &AppState, mut spotify_view: QueueVi
     let mut app_requests = app_pending_requests(app_view);
 
     if let Some(current) = &spotify_view.current_song {
-        let current_title = normalize_song_title(&current.title);
-        app_requests.retain(|song| normalize_song_title(&song.title) != current_title);
+        let matched_ids = app_requests
+            .iter()
+            .filter(|song| spotify_current_matches_request(&current.title, song))
+            .map(|song| song.id)
+            .collect::<Vec<_>>();
+        if !matched_ids.is_empty() {
+            {
+                let mut queue = state.queue.write().await;
+                for id in &matched_ids {
+                    queue.remove_by_id(*id);
+                }
+                if let Err(error) = save_queue_state(state, &queue) {
+                    tracing::warn!(
+                        error = %error.message,
+                        "failed to save queue after Spotify request started"
+                    );
+                }
+            }
+            app_requests.retain(|song| !matched_ids.contains(&song.id));
+        }
     }
 
     if spotify_view.current_song.is_none() && !app_requests.is_empty() {
@@ -769,6 +787,17 @@ fn normalize_song_title(title: &str) -> String {
         .flat_map(char::to_lowercase)
         .filter(|ch| ch.is_alphanumeric())
         .collect()
+}
+
+fn spotify_current_matches_request(current_title: &str, request: &SongRequest) -> bool {
+    let current = normalize_song_title(current_title);
+    let title = normalize_song_title(&request.title);
+    if title.is_empty() || !current.contains(&title) {
+        return false;
+    }
+
+    let artist = normalize_song_title(&request.artist);
+    artist.is_empty() || request.artist.eq_ignore_ascii_case("spotify") || current.contains(&artist)
 }
 
 async fn spotify_queue_view(state: &AppState) -> Option<QueueView> {
@@ -1159,6 +1188,8 @@ impl IntoResponse for ApiError {
 
 #[cfg(test)]
 mod tests {
+    use std::time::{SystemTime, UNIX_EPOCH};
+
     use axum::{
         body::Body,
         http::{Request, StatusCode},
@@ -1290,5 +1321,71 @@ mod tests {
         );
         assert_eq!(merged.queue.get(3).map(|song| song.title.as_str()), None);
         assert_eq!(merged.queue_length, 3);
+    }
+
+    #[tokio::test]
+    async fn merged_queue_removes_spotify_request_when_it_starts_playing() {
+        let mut config = AppConfig::from_env().expect("config");
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("time")
+            .as_nanos();
+        config.paths.queue_file =
+            std::env::temp_dir().join(format!("song-request-linux-test-{unique}.json"));
+        let state = AppState::new(config);
+        state.queue.write().await.clear();
+        state.queue.write().await.add_resolved(SongRequest {
+            id: 0,
+            requester: "viewer".to_string(),
+            query: "system of a down spiders".to_string(),
+            source: RequestSource::Spotify {
+                uri: "spotify:track:3njyXewwWLp3B0p6rSMeyw".to_string(),
+            },
+            title: "Spiders".to_string(),
+            artist: "System Of A Down".to_string(),
+        });
+        state.queue.write().await.add_resolved(SongRequest {
+            id: 0,
+            requester: "viewer".to_string(),
+            query: "scatman".to_string(),
+            source: RequestSource::Spotify {
+                uri: "spotify:track:0eCcFGeTHv3LquL6pvBFFZ".to_string(),
+            },
+            title: "Scatman".to_string(),
+            artist: "Gummy Bear".to_string(),
+        });
+
+        let spotify_view = QueueView {
+            current_song: Some(spotify_song_request(
+                0,
+                "Spiders - System Of A Down".to_string(),
+            )),
+            queue: Vec::new(),
+            queue_length: 0,
+        };
+
+        let merged = merge_spotify_and_app_queue(&state, spotify_view).await;
+
+        assert_eq!(
+            merged.current_song.map(|song| song.title),
+            Some("Spiders - System Of A Down".to_string())
+        );
+        assert_eq!(
+            merged.queue.first().map(|song| song.title.as_str()),
+            Some("Scatman")
+        );
+        assert_eq!(merged.queue_length, 1);
+        assert_eq!(
+            state
+                .queue
+                .read()
+                .await
+                .view()
+                .current_song
+                .map(|song| song.title),
+            Some("Scatman".to_string())
+        );
+
+        let _ = std::fs::remove_file(&state.config.paths.queue_file);
     }
 }
