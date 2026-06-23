@@ -74,7 +74,7 @@ pub async fn page() -> Html<&'static str> {
     main { padding: 18px; }
     .app-shell {
       display: grid;
-      grid-template-columns: 248px minmax(0, 1fr);
+      grid-template-columns: 284px minmax(0, 1fr);
       min-height: 100dvh;
       width: 100%;
       overflow-x: hidden;
@@ -82,12 +82,12 @@ pub async fn page() -> Html<&'static str> {
     .brand {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 12px;
       min-width: 0;
     }
     .brand-mark {
-      width: 44px;
-      height: 44px;
+      width: 64px;
+      height: 64px;
       border-radius: 8px;
       border: 1px solid rgba(90, 169, 255, .35);
       background: #07111a;
@@ -101,7 +101,7 @@ pub async fn page() -> Html<&'static str> {
       top: 0;
       align-self: start;
       height: 100dvh;
-      padding: 18px 14px;
+      padding: 18px 16px;
       border-right: 1px solid var(--line);
       background: #0e141c;
       display: grid;
@@ -201,8 +201,8 @@ pub async fn page() -> Html<&'static str> {
     }
     .grid-config {
       display: grid;
-      grid-template-columns: repeat(3, minmax(280px, 1fr));
-      gap: 14px;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+      gap: 16px;
       align-items: start;
     }
     .grid-logs {
@@ -217,6 +217,7 @@ pub async fn page() -> Html<&'static str> {
       border-radius: 8px;
       padding: 14px;
       box-shadow: var(--shadow);
+      min-width: 0;
     }
     .stack { display: grid; gap: 14px; }
     .substack { display: grid; gap: 10px; }
@@ -274,13 +275,14 @@ pub async fn page() -> Html<&'static str> {
     }
     .provider-option strong { font-size: 15px; }
     .provider-option span { color: var(--muted); font-size: 12px; line-height: 1.35; }
-    form { display: grid; gap: 10px; }
+    form { display: grid; gap: 14px; }
     label {
       display: grid;
       gap: 6px;
       color: var(--muted);
       font-size: 13px;
       font-weight: 700;
+      min-width: 0;
     }
     input, select {
       width: 100%;
@@ -331,6 +333,41 @@ pub async fn page() -> Html<&'static str> {
     button:disabled {
       opacity: .55;
       cursor: not-allowed;
+    }
+    .setup-callout {
+      display: grid;
+      grid-template-columns: minmax(260px, .8fr) minmax(320px, 1.2fr);
+      gap: 14px;
+      align-items: start;
+      background: linear-gradient(180deg, #182130 0%, #111922 100%);
+    }
+    .setup-callout h2 span { color: var(--action-2); }
+    .setup-callout p { color: var(--muted); line-height: 1.45; margin-top: 6px; }
+    .requirement-list { display: grid; gap: 8px; }
+    .requirement-row {
+      display: grid;
+      grid-template-columns: 92px minmax(0, 1fr);
+      gap: 10px;
+      align-items: start;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface-2);
+      padding: 10px;
+    }
+    .requirement-row strong { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+    .requirement-row span { color: var(--muted); line-height: 1.4; overflow-wrap: anywhere; }
+    .requirement-row.ok strong { color: var(--ok); }
+    .requirement-row.warn strong { color: var(--warn); }
+    .requirement-row.bad strong { color: var(--bad); }
+    .field-note {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+      margin-top: -2px;
+    }
+    .setup-actions {
+      padding-top: 4px;
+      align-items: stretch;
     }
     .queue, .events, .diagnostics, .endpoints { display: grid; gap: 8px; }
     .queue-item, .event-row { display: grid; gap: 4px; overflow-wrap: anywhere; }
@@ -387,7 +424,7 @@ pub async fn page() -> Html<&'static str> {
       .status-board { grid-template-columns: 1fr 1fr; }
     }
     @media (max-width: 880px) {
-      header, .grid-main, .grid-config, .grid-logs { grid-template-columns: 1fr; }
+      header, .grid-main, .grid-config, .grid-logs, .setup-callout { grid-template-columns: 1fr; }
       header { align-items: flex-start; }
       .page-title, .top-status { width: 100%; min-width: 0; }
       .top-status { justify-content: flex-start; }
@@ -540,6 +577,14 @@ pub async fn page() -> Html<&'static str> {
 
     <div class="tab" id="setup-tab">
       <form id="setup-form">
+        <section class="setup-callout">
+          <div>
+            <h2>Provider selecionado: <span id="setup-active-provider">...</span></h2>
+            <p id="setup-provider-help">Escolha Spotify ou YouTube e veja aqui o que precisa estar configurado para o pedido tocar sem erro.</p>
+          </div>
+          <div class="requirement-list" id="setup-provider-requirements"></div>
+        </section>
+
         <div class="grid-config">
           <section>
             <h2>Twitch</h2>
@@ -552,7 +597,8 @@ pub async fn page() -> Html<&'static str> {
             <label>Canal
               <input id="setup-twitch-channel" autocomplete="off" placeholder="canal_do_streamer">
             </label>
-            <div class="actions">
+            <p class="field-note">Necessário para o bot ler comandos como !sr, !skip e !vol no chat.</p>
+            <div class="actions setup-actions">
               <button class="secondary" id="setup-twitch-login" type="button">Conectar bot</button>
             </div>
           </section>
@@ -565,10 +611,12 @@ pub async fn page() -> Html<&'static str> {
                 <option value="youtube">YouTube</option>
               </select>
             </label>
+            <p class="field-note">Texto do !sr usa este provider. Links do YouTube continuam indo direto para o YouTube.</p>
             <label>Client ID
               <input id="setup-spotify-client-id" autocomplete="off" placeholder="Client ID do app Spotify">
             </label>
-            <div class="actions">
+            <p class="field-note">Spotify precisa de Client ID, login OAuth, conta Premium e um device ativo.</p>
+            <div class="actions setup-actions">
               <button class="secondary" id="setup-spotify-login" type="button">Login Spotify</button>
             </div>
           </section>
@@ -587,6 +635,7 @@ pub async fn page() -> Html<&'static str> {
             <label>API Key
               <input id="setup-youtube-api-key" autocomplete="off" placeholder="deixe vazio para manter a chave atual">
             </label>
+            <p class="field-note">YouTube precisa de API Key para busca por texto. Links diretos não dependem da busca.</p>
             <label>Máximo em segundos
               <input id="setup-youtube-max-duration" type="number" inputmode="numeric" min="30" max="86400" step="30" value="360">
             </label>
@@ -703,6 +752,66 @@ pub async fn page() -> Html<&'static str> {
       return pending ? 'dot' : 'dot bad';
     }
 
+    function requirementRow(state, label, detail) {
+      return `
+        <div class="requirement-row ${state}">
+          <strong>${state === 'ok' ? 'OK' : state === 'warn' ? 'Atenção' : 'Falta'}</strong>
+          <span><b>${escapeHtml(label)}</b><br>${escapeHtml(detail)}</span>
+        </div>
+      `;
+    }
+
+    function renderProviderRequirements(config, connections, pear) {
+      const provider = config.default_provider === 'spotify' ? 'Spotify' : 'YouTube';
+      $('setup-active-provider').textContent = provider;
+
+      if (config.default_provider === 'spotify') {
+        $('setup-provider-help').textContent = 'Pedidos por texto entram no Spotify. Para tocar de primeira, mantenha Client ID, login e um device ativo.';
+        $('setup-provider-requirements').innerHTML = [
+          requirementRow(
+            connections.spotify.client_id_configured ? 'ok' : 'bad',
+            'Spotify Client ID',
+            connections.spotify.client_id_configured ? 'Client ID salvo.' : 'Preencha o Client ID no card Spotify.'
+          ),
+          requirementRow(
+            connections.spotify.token_configured ? 'ok' : 'bad',
+            'Login Spotify',
+            connections.spotify.token_configured ? 'OAuth conectado.' : 'Clique em Login Spotify depois de salvar o Client ID.'
+          ),
+          requirementRow(
+            connections.spotify.token_configured ? 'warn' : 'bad',
+            'Premium e device ativo',
+            'Abra o Spotify e deixe uma música pronta para o app conseguir controlar fila, pause e volume.'
+          )
+        ].join('');
+        return;
+      }
+
+      const pearMode = config.youtube_playback === 'pear';
+      $('setup-provider-help').textContent = pearMode
+        ? 'Pedidos por texto entram no YouTube e tocam pelo Pear Desktop. Links do YouTube entram direto.'
+        : 'Pedidos por texto entram no YouTube e tocam pela fonte Browser Source do OBS.';
+      $('setup-provider-requirements').innerHTML = [
+        requirementRow(
+          config.youtube_api_key_configured ? 'ok' : 'bad',
+          'YouTube API Key',
+          config.youtube_api_key_configured ? 'API Key salva para busca por texto.' : 'Preencha a API Key no card YouTube para buscar música por nome.'
+        ),
+        requirementRow(
+          pearMode ? pear.reachable ? 'ok' : 'bad' : 'ok',
+          pearMode ? 'Pear Desktop' : 'Player OBS',
+          pearMode
+            ? pear.reachable ? 'Pear respondeu na API local.' : 'Abra o Pear Desktop e confira a URL da API.'
+            : 'Adicione http://127.0.0.1:7384/player como fonte de navegador no OBS.'
+        ),
+        requirementRow(
+          'warn',
+          'Filtro de duração',
+          `Limite atual: ${config.youtube_max_duration_seconds || 360}s. Ajuste para evitar videos longos na fila.`
+        )
+      ].join('');
+    }
+
     function setMessage(id, text, isError = false) {
       const element = $(id);
       element.textContent = text;
@@ -750,6 +859,7 @@ pub async fn page() -> Html<&'static str> {
       $('provider-detail').textContent = config.default_provider === 'spotify'
         ? 'Texto do !sr busca no Spotify. Links do YouTube continuam entrando direto no YouTube/Pear.'
         : 'Texto do !sr busca no YouTube. Use Spotify apenas quando trocar o provider para Spotify.';
+      renderProviderRequirements(config, connections, pear);
 
       const rows = [
         ['Bot Twitch', twitchReady ? 'configurado' : 'não configurado'],
