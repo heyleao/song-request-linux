@@ -5,6 +5,7 @@ mod dashboard;
 mod diagnostics;
 mod http;
 mod overlay;
+mod pear;
 mod playback_coordinator;
 mod player;
 mod request_flow;

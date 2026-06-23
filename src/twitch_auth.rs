@@ -56,6 +56,8 @@ pub async fn save_bot_token(config: &AppConfig, input: TwitchTokenInput) -> Resu
     let current = UiConfigView::load(&config.paths);
     let user_config = UiConfigInput {
         default_provider: current.default_provider,
+        youtube_playback: current.youtube_playback,
+        pear_base_url: Some(current.pear_base_url),
         spotify_client_id: current.spotify_client_id,
         twitch_client_id: current.twitch_client_id,
         twitch_bot_username: Some(login),

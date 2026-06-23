@@ -328,6 +328,15 @@ pub async fn page() -> Html<&'static str> {
           <label>YouTube API Key
             <input id="setup-youtube-api-key" autocomplete="off" placeholder="deixe vazio para manter a chave atual">
           </label>
+          <label>Player YouTube
+            <select id="setup-youtube-playback">
+              <option value="browser">Browser Source OBS</option>
+              <option value="pear">Pear Desktop</option>
+            </select>
+          </label>
+          <label>Pear API
+            <input id="setup-pear-base-url" autocomplete="off" placeholder="http://127.0.0.1:26538/api/v1">
+          </label>
           <label>Maximo YouTube (segundos)
             <input id="setup-youtube-max-duration" type="number" min="30" max="86400" step="30" value="360">
           </label>
@@ -415,11 +424,12 @@ pub async fn page() -> Html<&'static str> {
 
     async function refresh() {
       try {
-        const [status, queue, diagnostics, connections, events, config] = await Promise.all([
+        const [status, queue, diagnostics, connections, pear, events, config] = await Promise.all([
           api('/api/status'),
           api('/api/queue'),
           api('/api/diagnostics'),
           api('/api/connections/status'),
+          api('/api/pear/status'),
           api('/api/events'),
           api('/api/config')
         ]);
@@ -435,7 +445,8 @@ pub async fn page() -> Html<&'static str> {
         $('setup-diagnostics').innerHTML = [
           ['Bot Twitch', twitchReady ? 'configurado' : 'nao configurado'],
           ['Spotify', connections.spotify.token_configured ? 'conectado' : connections.spotify.client_id_configured ? 'login pendente' : 'client id pendente'],
-          ['YouTube', config.youtube_api_key_configured ? 'api key configurada' : 'api key pendente'],
+          ['YouTube', `${config.youtube_playback === 'pear' ? 'Pear Desktop' : 'Browser Source'} - ${config.youtube_api_key_configured ? 'api key configurada' : 'api key pendente'}`],
+          ['Pear Desktop', pear.configured ? pear.reachable ? 'conectado' : 'nao encontrado' : 'desativado'],
           ['Logs', diagnostics.storage.log_dir.exists ? 'ok' : 'pendente']
         ].map(([label, value]) => `
           <div class="diagnostic-row"><span>${escapeHtml(label)}</span><code>${escapeHtml(value)}</code></div>
@@ -447,6 +458,8 @@ pub async fn page() -> Html<&'static str> {
           $('setup-twitch-client-id').value = config.twitch_client_id || '';
           $('setup-twitch-bot-username').value = config.twitch_bot_username || '';
           $('setup-twitch-channel').value = config.twitch_channel || '';
+          $('setup-youtube-playback').value = config.youtube_playback || 'browser';
+          $('setup-pear-base-url').value = config.pear_base_url || 'http://127.0.0.1:26538/api/v1';
           $('setup-youtube-max-duration').value = config.youtube_max_duration_seconds || 360;
           $('setup-youtube-allow-non-music').checked = Boolean(config.youtube_allow_non_music);
         }
@@ -578,6 +591,8 @@ pub async fn page() -> Html<&'static str> {
           method: 'POST',
           body: JSON.stringify({
             default_provider: $('setup-provider').value,
+            youtube_playback: $('setup-youtube-playback').value,
+            pear_base_url: $('setup-pear-base-url').value,
             spotify_client_id: $('setup-spotify-client-id').value,
             twitch_client_id: $('setup-twitch-client-id').value,
             twitch_bot_username: $('setup-twitch-bot-username').value,

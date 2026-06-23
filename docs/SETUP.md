@@ -65,11 +65,26 @@ No Google Cloud:
 No Song Request Linux, preencha:
 
 - `YouTube API Key`
+- `Player YouTube`: use `Pear Desktop` para o fluxo mais estavel, ou `Browser Source OBS` para o player interno
+- `Pear API`: padrao `http://127.0.0.1:26538/api/v1`
 - `Maximo YouTube`, padrao `360` segundos
 - `Aceitar YouTube nao marcado como musica`, se quiser liberar excecoes
 
 O app usa metadados do YouTube para bloquear videos longos e, por padrao,
 bloquear videos que nao estejam na categoria Musica.
+
+### Pear Desktop
+
+Para usar o modo `Pear Desktop`:
+
+1. Instale e abra o Pear Desktop / YouTube Music Desktop.
+2. Ative o plugin `API Server`.
+3. Use host `0.0.0.0` ou `127.0.0.1`, porta `26538`.
+4. Deixe a estrategia de autorizacao como `No Authorization`.
+5. Reinicie o Pear depois de ativar o plugin.
+
+Nesse modo, o app envia pedidos YouTube para a fila do Pear. A fonte
+`/player` do OBS fica como fallback para o modo `Browser Source OBS`.
 
 ## 4. Comandos
 

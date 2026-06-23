@@ -13,9 +13,10 @@ use tower_http::trace::TraceLayer;
 
 use crate::{
     commands::{parse_chat_command, ChatCommand, ChatCommandInput, PlaybackAction},
-    config, connections, dashboard,
+    config::{self, YoutubePlayback},
+    connections, dashboard,
     diagnostics::DiagnosticsResponse,
-    overlay, player, request_flow,
+    overlay, pear, player, request_flow,
     song_requests::{MusicProvider, QueueView, RequestSource, SongRequest, SongRequestInput},
     spotify,
     state::{AppState, HealthResponse, StatusResponse},
@@ -39,6 +40,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/connections/twitch/start", post(twitch_start))
         .route("/api/connections/twitch/token", post(twitch_token))
         .route("/api/spotify/devices", get(spotify_devices))
+        .route("/api/pear/status", get(pear_status))
         .route("/api/spotify/playlists", get(spotify_playlists))
         .route(
             "/api/spotify/fallback-playlist",
@@ -149,6 +151,10 @@ async fn spotify_devices(
         .map_err(ApiError::bad_request)?;
 
     Ok(Json(devices))
+}
+
+async fn pear_status(State(state): State<AppState>) -> Json<pear::PearStatus> {
+    Json(pear::status(&state.config).await)
 }
 
 async fn spotify_fallback_playlist(
@@ -444,6 +450,17 @@ async fn chat_command(
 }
 
 async fn skip_message(state: &AppState, requester: String) -> String {
+    if matches!(state.config.default_provider, MusicProvider::Youtube)
+        && matches!(state.config.youtube.playback, YoutubePlayback::Pear)
+    {
+        let message = match pear::next(&state.config).await {
+            Ok(()) => format!("@{requester} pulei no Pear."),
+            Err(error) => format!("@{requester} nao consegui pular no Pear: {error}"),
+        };
+        state.record_event("player", message.clone()).await;
+        return message;
+    }
+
     if let Some(message) =
         spotify_playback_message(state, requester.clone(), PlaybackAction::Next).await
     {
@@ -464,6 +481,26 @@ async fn skip_message(state: &AppState, requester: String) -> String {
 }
 
 async fn playback_message(state: &AppState, requester: String, action: PlaybackAction) -> String {
+    if matches!(state.config.default_provider, MusicProvider::Youtube)
+        && matches!(state.config.youtube.playback, YoutubePlayback::Pear)
+    {
+        let result = match action {
+            PlaybackAction::Play => pear::play(&state.config).await,
+            PlaybackAction::Pause => pear::pause(&state.config).await,
+            PlaybackAction::Next => pear::next(&state.config).await,
+        };
+        let message = match result {
+            Ok(()) => match action {
+                PlaybackAction::Play => format!("@{requester} Pear retomado."),
+                PlaybackAction::Pause => format!("@{requester} Pear pausado."),
+                PlaybackAction::Next => format!("@{requester} pulei no Pear."),
+            },
+            Err(error) => format!("@{requester} nao consegui controlar o Pear: {error}"),
+        };
+        state.record_event("player", message.clone()).await;
+        return message;
+    }
+
     let message = spotify_playback_message(state, requester, action)
         .await
         .unwrap_or_else(|| "Spotify nao conectado.".to_string());
@@ -554,7 +591,9 @@ async fn add_request_to_queue(
     match request_flow::add_request(state, input).await {
         Ok(request) => {
             save_current_queue_state(state).await?;
-            if matches!(request.source, RequestSource::Youtube { .. }) {
+            if matches!(request.source, RequestSource::Youtube { .. })
+                && matches!(state.config.youtube.playback, YoutubePlayback::Browser)
+            {
                 arm_youtube_after_current_spotify(state).await;
             }
             Ok(request)
@@ -664,6 +703,13 @@ async fn skip(State(state): State<AppState>) -> Json<SkipResponse> {
 }
 
 async fn youtube_player_response(state: &AppState) -> YoutubePlayerResponse {
+    if matches!(state.config.youtube.playback, YoutubePlayback::Pear) {
+        return YoutubePlayerResponse {
+            current_song: None,
+            waiting_for_spotify: None,
+        };
+    }
+
     let current_song = current_youtube_song(state).await;
     if current_song.is_none() {
         *state.youtube_waiting_spotify_title.lock().await = None;

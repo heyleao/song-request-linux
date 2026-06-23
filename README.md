@@ -12,7 +12,8 @@ Songify.Rocks.
 - Twitch bot commands for song requests and player control.
 - Spotify OAuth, search, queue control, playback control and fallback playlist selection.
 - Hybrid request routing: Spotify search by default, YouTube links as YouTube requests.
-- YouTube link validation with duration/category policy through YouTube Data API v3.
+- YouTube text search validation with duration/category policy through YouTube Data API v3.
+- YouTube playback through Pear Desktop API or the local OBS browser source.
 - Local OBS overlay at `http://127.0.0.1:7384/overlay`.
 - Local YouTube player source at `http://127.0.0.1:7384/player`.
 - Local web dashboard with tabs for overview, queue, commands, player, logs, setup and guide.
@@ -97,19 +98,16 @@ Moderator/broadcaster:
 ## Request Routing
 
 - Plain song names use the default provider, usually Spotify.
-- YouTube links are detected as YouTube requests.
-- YouTube links are checked against the configured duration limit.
-- By default, YouTube videos must be marked as Music by YouTube metadata.
-- Non-music YouTube videos can be allowed from the setup tab when needed.
+- YouTube links are detected as exact YouTube requests and do not need search filtering.
+- YouTube text searches are checked against the configured duration limit.
+- By default, searched YouTube videos must be marked as Music by YouTube metadata.
+- Non-music YouTube search results can be allowed from the setup tab when needed.
 
-Spotify plays through your active Spotify device. YouTube requests play as audio
-through the local browser player at `http://127.0.0.1:7384/player`; add it to
-OBS as a Browser Source and enable browser-source audio control in OBS when
-available. Set OBS audio monitoring for that source when the streamer also needs
-to hear it, and route it to a separate audio channel when needed. YouTube audio
-playback requires `yt-dlp` on the system.
-When a YouTube request starts, the app pauses Spotify. When the YouTube queue is
-empty again, Spotify is resumed only if the app was the one that paused it.
+Spotify plays through your active Spotify device. For YouTube, the recommended
+mode is Pear Desktop with its API Server enabled at
+`http://127.0.0.1:26538/api/v1`; the app sends YouTube requests to Pear's queue.
+The local browser player at `http://127.0.0.1:7384/player` remains available as
+the OBS Browser Source fallback and requires `yt-dlp` on the system.
 
 ## Local Data
 

@@ -28,7 +28,7 @@ cargo build --release >>"$LOG_FILE" 2>&1
 TARGET_DIR="$(cargo metadata --no-deps --format-version=1 | sed -n 's/.*"target_directory":"\([^"]*\)".*/\1/p')"
 BIN="$TARGET_DIR/release/song-request-linux"
 
-nohup "$BIN" >>"$LOG_FILE" 2>&1 &
+setsid "$BIN" >>"$LOG_FILE" 2>&1 < /dev/null &
 echo "$!" >"$PID_FILE"
 
 for _ in {1..50}; do

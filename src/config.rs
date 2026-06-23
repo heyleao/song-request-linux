@@ -29,6 +29,8 @@ pub struct UserConfig {
     pub default_provider: MusicProvider,
     pub spotify_client_id: Option<String>,
     pub spotify_redirect_uri: Option<String>,
+    pub youtube_playback: YoutubePlayback,
+    pub pear_base_url: Option<String>,
     pub youtube_max_duration_seconds: u64,
     pub youtube_allow_non_music: bool,
     pub twitch_client_id: Option<String>,
@@ -46,6 +48,8 @@ pub struct UserSecrets {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct UiConfigInput {
     pub default_provider: MusicProvider,
+    pub youtube_playback: YoutubePlayback,
+    pub pear_base_url: Option<String>,
     pub spotify_client_id: Option<String>,
     pub twitch_client_id: Option<String>,
     pub twitch_bot_username: Option<String>,
@@ -59,6 +63,8 @@ pub struct UiConfigInput {
 #[derive(Clone, Debug, Serialize)]
 pub struct UiConfigView {
     pub default_provider: MusicProvider,
+    pub youtube_playback: YoutubePlayback,
+    pub pear_base_url: String,
     pub spotify_client_id: Option<String>,
     pub twitch_client_id: Option<String>,
     pub twitch_bot_username: Option<String>,
@@ -78,8 +84,18 @@ pub struct SpotifyConfig {
 #[derive(Clone, Debug, Serialize)]
 pub struct YoutubeConfig {
     pub api_key: Option<String>,
+    pub playback: YoutubePlayback,
+    pub pear_base_url: String,
     pub max_duration_seconds: u64,
     pub allow_non_music: bool,
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum YoutubePlayback {
+    #[default]
+    Browser,
+    Pear,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -142,6 +158,8 @@ impl Default for UserConfig {
             default_provider: MusicProvider::Youtube,
             spotify_client_id: None,
             spotify_redirect_uri: None,
+            youtube_playback: YoutubePlayback::Browser,
+            pear_base_url: None,
             youtube_max_duration_seconds: 360,
             youtube_allow_non_music: false,
             twitch_client_id: None,
@@ -172,12 +190,30 @@ impl YoutubeConfig {
         let allow_non_music = clean_optional_env("YOUTUBE_ALLOW_NON_MUSIC")
             .map(|value| matches!(value.as_str(), "1" | "true" | "yes" | "on"))
             .unwrap_or(user_config.youtube_allow_non_music);
+        let playback = clean_optional_env("YOUTUBE_PLAYBACK")
+            .and_then(|value| YoutubePlayback::parse(&value))
+            .unwrap_or(user_config.youtube_playback);
+        let pear_base_url = clean_optional_env("PEAR_BASE_URL")
+            .or_else(|| user_config.pear_base_url.clone())
+            .unwrap_or_else(default_pear_base_url);
 
         Self {
             api_key: clean_optional_env("YOUTUBE_API_KEY")
                 .or_else(|| user_secrets.youtube_api_key.clone()),
+            playback,
+            pear_base_url,
             max_duration_seconds,
             allow_non_music,
+        }
+    }
+}
+
+impl YoutubePlayback {
+    fn parse(value: &str) -> Option<Self> {
+        match value.trim().to_ascii_lowercase().as_str() {
+            "browser" | "obs" | "browser_source" => Some(Self::Browser),
+            "pear" | "pear_desktop" | "youtube_music" => Some(Self::Pear),
+            _ => None,
         }
     }
 }
@@ -222,6 +258,10 @@ impl UiConfigView {
 
         Self {
             default_provider: user_config.default_provider,
+            youtube_playback: user_config.youtube_playback,
+            pear_base_url: user_config
+                .pear_base_url
+                .unwrap_or_else(default_pear_base_url),
             spotify_client_id: user_config.spotify_client_id,
             twitch_client_id: user_config.twitch_client_id,
             twitch_bot_username: user_config.twitch_bot_username,
@@ -241,6 +281,8 @@ pub fn save_ui_config(paths: &AppPaths, input: UiConfigInput) -> Result<UiConfig
     let existing_secrets = load_user_secrets_from_paths(paths).unwrap_or_default();
     let user_config = UserConfig {
         default_provider: input.default_provider,
+        youtube_playback: input.youtube_playback,
+        pear_base_url: clean_optional_value(input.pear_base_url),
         spotify_client_id: clean_optional_value(input.spotify_client_id),
         spotify_redirect_uri: None,
         youtube_max_duration_seconds: input
@@ -326,6 +368,10 @@ fn clean_optional_value(value: Option<String>) -> Option<String> {
     value
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty())
+}
+
+fn default_pear_base_url() -> String {
+    "http://127.0.0.1:26538/api/v1".to_string()
 }
 
 fn load_user_config_from_paths(paths: &AppPaths) -> Result<UserConfig> {
