@@ -335,7 +335,7 @@ async fn clear_queue(State(state): State<AppState>) -> Result<Json<QueueView>, A
         queue.clear();
         save_queue_state(&state, &queue)?;
     }
-    *state.youtube_waiting_spotify_title.lock().await = None;
+    clear_youtube_state_if_no_pending(&state).await;
     state.record_event("queue", "fila de pedidos zerada").await;
 
     let mut view = effective_queue_view(&state).await;
@@ -353,6 +353,8 @@ async fn remove_queue_item(
         save_queue_state(&state, &queue)?;
         removed
     };
+
+    clear_youtube_state_if_no_pending(&state).await;
 
     match removed {
         Some(song) => {
@@ -989,6 +991,7 @@ async fn skip(State(state): State<AppState>) -> Json<SkipResponse> {
     if let Err(error) = save_current_queue_state(&state).await {
         state.record_event("error", error.message).await;
     }
+    clear_youtube_state_if_no_pending(&state).await;
 
     Json(SkipResponse { current_song })
 }
@@ -1049,6 +1052,26 @@ async fn current_youtube_song(state: &AppState) -> Option<YoutubePlayerSong> {
         .await
         .first_youtube()
         .and_then(|song| YoutubePlayerSong::from_request(&song))
+}
+
+async fn has_pending_youtube_request(state: &AppState) -> bool {
+    state
+        .queue
+        .read()
+        .await
+        .first_youtube()
+        .is_some_and(|song| matches!(song.source, RequestSource::Youtube { .. }))
+}
+
+async fn clear_youtube_state_if_no_pending(state: &AppState) {
+    if has_pending_youtube_request(state).await {
+        return;
+    }
+
+    *state.youtube_waiting_spotify_title.lock().await = None;
+    *state.youtube_active_pear_video_id.lock().await = None;
+    *state.youtube_failed_pear_video_id.lock().await = None;
+    resume_spotify_after_youtube(state).await;
 }
 
 async fn pause_spotify_for_youtube(state: &AppState) {

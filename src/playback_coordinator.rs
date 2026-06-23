@@ -269,7 +269,12 @@ async fn arm_against_current_spotify(state: &AppState) {
 
     if playback.is_playing {
         let title = playback.title;
-        *state.youtube_waiting_spotify_title.lock().await = Some(title.clone());
+        let mut waiting = state.youtube_waiting_spotify_title.lock().await;
+        if waiting.as_deref() == Some(title.as_str()) {
+            return;
+        }
+        *waiting = Some(title.clone());
+        drop(waiting);
         pause_pear_while_waiting_for_spotify(state).await;
         state
             .record_event(
