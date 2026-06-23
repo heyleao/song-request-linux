@@ -4,7 +4,7 @@ use tokio::time::{interval, sleep};
 
 use crate::{
     config::{self, YoutubePlayback},
-    pear,
+    display, pear,
     song_requests::{RequestSource, SongRequest},
     spotify,
     state::AppState,
@@ -143,9 +143,10 @@ async fn coordinate_active_pear_request(state: &AppState, pending: SongRequest) 
 }
 
 async fn start_pear_request(state: &AppState, pending: SongRequest) {
-    let RequestSource::Youtube { video_id } = pending.source else {
+    let RequestSource::Youtube { video_id } = &pending.source else {
         return;
     };
+    let video_id = video_id.clone();
 
     if state.youtube_failed_pear_video_id.lock().await.as_deref() == Some(video_id.as_str()) {
         return;
@@ -228,6 +229,7 @@ async fn start_pear_request(state: &AppState, pending: SongRequest) {
         .and_then(|song| song.video_id)
         .is_some_and(|current_video_id| current_video_id == video_id);
     if !confirmed {
+        let display_title = display::chat_song_title(&pending);
         if let Err(error) = pear::pause(&state.config).await {
             state
                 .record_event(
@@ -240,8 +242,7 @@ async fn start_pear_request(state: &AppState, pending: SongRequest) {
             .record_event(
                 "error",
                 format!(
-                    "Pear nao abriu o video solicitado: {}. Playback pausado para evitar musica errada.",
-                    pending.title
+                    "Pear nao abriu o video solicitado: {display_title}. Playback pausado para evitar musica errada."
                 ),
             )
             .await;
@@ -252,8 +253,9 @@ async fn start_pear_request(state: &AppState, pending: SongRequest) {
     *state.youtube_failed_pear_video_id.lock().await = None;
     *state.youtube_waiting_pear_video_id.lock().await = None;
     *state.youtube_active_pear_video_id.lock().await = Some(video_id);
+    let display_title = display::chat_song_title(&pending);
     state
-        .record_event("player", format!("Pear tocando pedido: {}", pending.title))
+        .record_event("player", format!("Pear tocando pedido: {display_title}"))
         .await;
 }
 
@@ -286,26 +288,22 @@ async fn wait_for_current_pear_if_needed(state: &AppState, pending: &SongRequest
 
     if current_is_paused {
         *state.youtube_waiting_pear_video_id.lock().await = None;
+        let display_title = display::chat_song_title(pending);
         state
             .record_event(
                 "player",
-                format!(
-                    "Pear estava pausado; iniciando pedido agora: {}",
-                    pending.title
-                ),
+                format!("Pear estava pausado; iniciando pedido agora: {display_title}"),
             )
             .await;
         return false;
     }
 
     *state.youtube_waiting_pear_video_id.lock().await = Some(current_video_id);
+    let display_title = display::chat_song_title(pending);
     state
         .record_event(
             "player",
-            format!(
-                "Pear aguardando fim da musica atual para tocar: {}",
-                pending.title
-            ),
+            format!("Pear aguardando fim da musica atual para tocar: {display_title}"),
         )
         .await;
     true

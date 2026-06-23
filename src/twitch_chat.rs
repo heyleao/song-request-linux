@@ -11,7 +11,7 @@ use tracing::{error, info, warn};
 use crate::{
     commands::{parse_chat_command, ChatCommand, ChatCommandInput, ChatUserRole, PlaybackAction},
     config::{self, TwitchBotSecrets, YoutubePlayback},
-    request_flow,
+    display, request_flow,
     song_requests::MusicProvider,
     state::AppState,
 };
@@ -133,16 +133,14 @@ async fn handle_privmsg(
             let requester = input.requester.clone();
             match request_flow::add_request_for_role(state, input, role).await {
                 Ok(request) => {
+                    let display_title = display::chat_song_title(&request);
                     state
                         .record_event(
                             "request",
-                            format!(
-                                "{} pediu {} - {}",
-                                request.requester, request.title, request.artist
-                            ),
+                            format!("{} pediu {}", request.requester, display_title),
                         )
                         .await;
-                    Some(format!("@{requester} pedido adicionado: {}", request.title))
+                    Some(format!("@{requester} pedido adicionado: {display_title}"))
                 }
                 Err(error) => {
                     let message = format!("@{requester} nao consegui adicionar: {error}");
@@ -292,10 +290,8 @@ async fn remove_last_request_reply(state: &AppState, requester: String) -> Strin
             } else {
                 ""
             };
-            format!(
-                "@{requester} removi seu ultimo pedido: {}.{suffix}",
-                song.title
-            )
+            let title = display::chat_song_title(&song);
+            format!("@{requester} removi seu ultimo pedido: {title}.{suffix}")
         }
         None => format!("@{requester} nao encontrei pedido seu pendente para remover."),
     };
@@ -313,7 +309,10 @@ async fn skip_reply(state: &AppState, requester: String) -> String {
 
     let current_song = state.queue.write().await.skip();
     let message = match current_song {
-        Some(song) => format!("@{requester} skip feito. Agora: {}", song.title),
+        Some(song) => format!(
+            "@{requester} skip feito. Agora: {}",
+            display::chat_song_title(&song)
+        ),
         None => format!("@{requester} skip feito. Fila vazia."),
     };
     state.record_event("player", message.clone()).await;
@@ -378,7 +377,8 @@ async fn current_song_reply(state: &AppState) -> String {
     match queue.current_song {
         Some(song) => format!(
             "Tocando agora: {} - pedido por {}",
-            song.title, song.requester
+            display::chat_song_title(&song),
+            song.requester
         ),
         None => "Nenhuma musica tocando agora.".to_string(),
     }
@@ -405,7 +405,7 @@ async fn queue_reply(state: &AppState) -> String {
         .queue
         .into_iter()
         .take(5)
-        .map(|song| format!("{} por {}", song.title, song.requester))
+        .map(|song| format!("{} por {}", display::chat_song_title(&song), song.requester))
         .collect::<Vec<_>>();
     format!("Proximas: {}", upcoming.join(" | "))
 }

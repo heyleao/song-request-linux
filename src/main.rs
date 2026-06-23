@@ -3,6 +3,7 @@ mod config;
 mod connections;
 mod dashboard;
 mod diagnostics;
+mod display;
 mod http;
 mod overlay;
 mod pear;

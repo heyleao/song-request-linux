@@ -16,7 +16,7 @@ use crate::{
     config::{self, YoutubePlayback},
     connections, dashboard,
     diagnostics::DiagnosticsResponse,
-    overlay, pear, player, request_flow,
+    display, overlay, pear, player, request_flow,
     song_requests::{
         MusicProvider, QueuePersistence, QueueView, RequestSource, SongRequest, SongRequestInput,
     },
@@ -559,13 +559,11 @@ async fn chat_command(
     let response = match command {
         ChatCommand::SongRequest { input, role } => {
             let request = add_request_to_queue_for_role(&state, input, role).await?;
+            let display_title = display::chat_song_title(&request);
             state
                 .record_event(
                     "request",
-                    format!(
-                        "{} pediu {} - {}",
-                        request.requester, request.title, request.artist
-                    ),
+                    format!("{} pediu {}", request.requester, display_title),
                 )
                 .await;
             ChatCommandResponse::SongRequest { request }
@@ -628,10 +626,8 @@ async fn remove_last_request_message(state: &AppState, requester: String) -> Str
             } else {
                 ""
             };
-            format!(
-                "@{requester} removi seu ultimo pedido: {}.{suffix}",
-                song.title
-            )
+            let title = display::chat_song_title(&song);
+            format!("@{requester} removi seu ultimo pedido: {title}.{suffix}")
         }
         None => format!("@{requester} nao encontrei pedido seu pendente para remover."),
     };
@@ -663,7 +659,10 @@ async fn skip_message(state: &AppState, requester: String) -> String {
         state.record_event("error", error.message).await;
     }
     let message = match current_song {
-        Some(song) => format!("@{requester} skip feito. Agora: {}", song.title),
+        Some(song) => format!(
+            "@{requester} skip feito. Agora: {}",
+            display::chat_song_title(&song)
+        ),
         None => format!("@{requester} skip feito. Fila vazia."),
     };
     state.record_event("player", message.clone()).await;
