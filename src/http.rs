@@ -431,7 +431,8 @@ async fn chat_command(
     State(state): State<AppState>,
     Json(input): Json<ChatCommandInput>,
 ) -> Result<Json<ChatCommandResponse>, ApiError> {
-    let command = parse_chat_command(input);
+    let settings = config::command_settings(&state.config.paths);
+    let command = parse_chat_command(input, &settings);
     let response = match command {
         ChatCommand::SongRequest(input) => {
             let request = add_request_to_queue(&state, input).await?;
@@ -456,6 +457,9 @@ async fn chat_command(
             let queue = effective_queue_view(&state).await;
             ChatCommandResponse::Queue { queue }
         }
+        ChatCommand::RemoveLast { requester } => ChatCommandResponse::Playback {
+            message: remove_last_request_message(&state, requester).await,
+        },
         ChatCommand::Skip { requester } => ChatCommandResponse::Playback {
             message: skip_message(&state, requester).await,
         },
@@ -466,16 +470,7 @@ async fn chat_command(
             message: volume_message(&state, requester, level).await,
         },
         ChatCommand::Help => ChatCommandResponse::Help {
-            commands: vec![
-                "!sr nome/link".to_string(),
-                "!song".to_string(),
-                "!fila".to_string(),
-                "!vol".to_string(),
-                "!vol 30".to_string(),
-                "!play".to_string(),
-                "!pause".to_string(),
-                "!skip".to_string(),
-            ],
+            commands: help_commands(&settings),
         },
         ChatCommand::AccessDenied {
             requester,
@@ -492,6 +487,33 @@ async fn chat_command(
     };
 
     Ok(Json(response))
+}
+
+async fn remove_last_request_message(state: &AppState, requester: String) -> String {
+    let removed = {
+        let mut queue = state.queue.write().await;
+        queue.remove_last_by_requester(&requester)
+    };
+    if let Err(error) = save_current_queue_state(state).await {
+        state.record_event("error", error.message).await;
+    }
+
+    let message = match removed {
+        Some(song) => {
+            let suffix = if matches!(song.source, RequestSource::Spotify { .. }) {
+                " Se ela ja entrou na fila interna do Spotify, use skip para pular quando chegar."
+            } else {
+                ""
+            };
+            format!(
+                "@{requester} removi seu ultimo pedido: {}.{suffix}",
+                song.title
+            )
+        }
+        None => format!("@{requester} nao encontrei pedido seu pendente para remover."),
+    };
+    state.record_event("request", message.clone()).await;
+    message
 }
 
 async fn skip_message(state: &AppState, requester: String) -> String {
@@ -523,6 +545,21 @@ async fn skip_message(state: &AppState, requester: String) -> String {
     };
     state.record_event("player", message.clone()).await;
     message
+}
+
+fn help_commands(settings: &crate::commands::CommandSettings) -> Vec<String> {
+    let aliases = &settings.aliases;
+    vec![
+        format!("{} nome/link", aliases.song_request[0]),
+        aliases.current_song[0].clone(),
+        aliases.queue[0].clone(),
+        aliases.remove[0].clone(),
+        aliases.volume[0].clone(),
+        format!("{} 30", aliases.volume[0]),
+        aliases.play[0].clone(),
+        aliases.pause[0].clone(),
+        aliases.skip[0].clone(),
+    ]
 }
 
 async fn playback_message(state: &AppState, requester: String, action: PlaybackAction) -> String {
@@ -668,6 +705,9 @@ fn access_denied_message(
     required: crate::commands::CommandAccess,
 ) -> String {
     match required {
+        crate::commands::CommandAccess::Everyone => {
+            format!("@{requester} {command} esta liberado para todos.")
+        }
         crate::commands::CommandAccess::Moderator => {
             format!("@{requester} {command} precisa de moderador/broadcaster.")
         }

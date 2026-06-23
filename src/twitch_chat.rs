@@ -6,7 +6,7 @@ use tracing::{error, info, warn};
 
 use crate::{
     commands::{parse_chat_command, ChatCommand, ChatCommandInput, PlaybackAction},
-    config::{TwitchBotSecrets, YoutubePlayback},
+    config::{self, TwitchBotSecrets, YoutubePlayback},
     request_flow,
     song_requests::MusicProvider,
     state::AppState,
@@ -101,11 +101,15 @@ async fn run_bot_inner(state: &AppState, secrets: TwitchBotSecrets) -> Result<()
 }
 
 async fn handle_privmsg(state: &AppState, privmsg: Privmsg) -> Option<String> {
-    let command = parse_chat_command(ChatCommandInput {
-        requester: privmsg.sender,
-        message: privmsg.message,
-        is_moderator: privmsg.is_moderator,
-    });
+    let settings = config::command_settings(&state.config.paths);
+    let command = parse_chat_command(
+        ChatCommandInput {
+            requester: privmsg.sender,
+            message: privmsg.message,
+            is_moderator: privmsg.is_moderator,
+        },
+        &settings,
+    );
 
     match command {
         ChatCommand::SongRequest(input) => {
@@ -132,18 +136,20 @@ async fn handle_privmsg(state: &AppState, privmsg: Privmsg) -> Option<String> {
         }
         ChatCommand::CurrentSong => Some(current_song_reply(state).await),
         ChatCommand::Queue => Some(queue_reply(state).await),
-        ChatCommand::Skip { requester } => {
-            Some(skip_reply(state, requester).await)
+        ChatCommand::RemoveLast { requester } => {
+            Some(remove_last_request_reply(state, requester).await)
         }
+        ChatCommand::Skip { requester } => Some(skip_reply(state, requester).await),
         ChatCommand::Playback { requester, action } => {
             Some(playback_reply(state, requester, action).await)
         }
         ChatCommand::Volume { requester, level } => {
             Some(volume_reply(state, requester, level).await)
         }
-        ChatCommand::Help => {
-            Some("Comandos: !sr nome/link, !song, !fila, !vol, !vol 30 mod, !play mod, !pause mod, !skip mod.".to_string())
-        }
+        ChatCommand::Help => Some(format!(
+            "Comandos: {}.",
+            help_commands(&settings).join(", ")
+        )),
         ChatCommand::AccessDenied {
             requester,
             command,
@@ -155,6 +161,41 @@ async fn handle_privmsg(state: &AppState, privmsg: Privmsg) -> Option<String> {
         }
         ChatCommand::Ignored => None,
     }
+}
+
+async fn remove_last_request_reply(state: &AppState, requester: String) -> String {
+    let removed = {
+        let mut queue = state.queue.write().await;
+        queue.remove_last_by_requester(&requester)
+    };
+    if let Err(error) = state
+        .queue
+        .read()
+        .await
+        .save(&state.config.paths.queue_file)
+    {
+        state.record_event("error", error.to_string()).await;
+    }
+
+    let message = match removed {
+        Some(song) => {
+            let suffix = if matches!(
+                song.source,
+                crate::song_requests::RequestSource::Spotify { .. }
+            ) {
+                " Se ela ja entrou na fila interna do Spotify, use skip quando chegar."
+            } else {
+                ""
+            };
+            format!(
+                "@{requester} removi seu ultimo pedido: {}.{suffix}",
+                song.title
+            )
+        }
+        None => format!("@{requester} nao encontrei pedido seu pendente para remover."),
+    };
+    state.record_event("request", message.clone()).await;
+    message
 }
 
 async fn skip_reply(state: &AppState, requester: String) -> String {
@@ -172,6 +213,21 @@ async fn skip_reply(state: &AppState, requester: String) -> String {
     };
     state.record_event("player", message.clone()).await;
     message
+}
+
+fn help_commands(settings: &crate::commands::CommandSettings) -> Vec<String> {
+    let aliases = &settings.aliases;
+    vec![
+        format!("{} nome/link", aliases.song_request[0]),
+        aliases.current_song[0].clone(),
+        aliases.queue[0].clone(),
+        aliases.remove[0].clone(),
+        aliases.volume[0].clone(),
+        format!("{} 30 mod", aliases.volume[0]),
+        format!("{} mod", aliases.play[0]),
+        format!("{} mod", aliases.pause[0]),
+        format!("{} mod", aliases.skip[0]),
+    ]
 }
 
 async fn playback_reply(state: &AppState, requester: String, action: PlaybackAction) -> String {
@@ -336,6 +392,9 @@ fn access_denied_reply(
     required: crate::commands::CommandAccess,
 ) -> String {
     match required {
+        crate::commands::CommandAccess::Everyone => {
+            format!("@{requester} {command} esta liberado para todos.")
+        }
         crate::commands::CommandAccess::Moderator => {
             format!("@{requester} {command} precisa de moderador/broadcaster.")
         }

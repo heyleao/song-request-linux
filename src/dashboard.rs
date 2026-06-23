@@ -365,6 +365,11 @@ pub async fn page() -> Html<&'static str> {
       line-height: 1.4;
       margin-top: -2px;
     }
+    .command-access-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 10px;
+    }
     .setup-actions {
       padding-top: 4px;
       align-items: stretch;
@@ -641,6 +646,49 @@ pub async fn page() -> Html<&'static str> {
             </label>
             <label><span><input id="setup-youtube-allow-non-music" type="checkbox"> Aceitar resultados fora da categoria Música</span></label>
           </section>
+
+          <section>
+            <h2>Comandos do chat</h2>
+            <label>Pedido
+              <input id="setup-cmd-song-request" autocomplete="off" placeholder="!sr, !ssr">
+            </label>
+            <label>Atual / fila / remover
+              <input id="setup-cmd-basic" autocomplete="off" placeholder="!song | !fila, !queue | !rm, !remove">
+            </label>
+            <label>Volume
+              <input id="setup-cmd-volume" autocomplete="off" placeholder="!vol, !volume">
+            </label>
+            <label>Player
+              <input id="setup-cmd-player" autocomplete="off" placeholder="!play | !pause | !next">
+            </label>
+            <div class="command-access-grid">
+              <label>Quem pode pedir música
+                <select id="setup-access-song-request">
+                  <option value="everyone">Todos</option>
+                  <option value="moderator">Moderador</option>
+                </select>
+              </label>
+              <label>Quem pode remover
+                <select id="setup-access-remove">
+                  <option value="everyone">Todos</option>
+                  <option value="moderator">Moderador</option>
+                </select>
+              </label>
+              <label>Quem pode controlar player
+                <select id="setup-access-playback">
+                  <option value="moderator">Moderador</option>
+                  <option value="everyone">Todos</option>
+                </select>
+              </label>
+              <label>Quem pode mudar volume
+                <select id="setup-access-volume-set">
+                  <option value="moderator">Moderador</option>
+                  <option value="everyone">Todos</option>
+                </select>
+              </label>
+            </div>
+            <p class="field-note">Use vírgula para aliases e barra vertical para grupos: atual | fila | remover. Exemplo: !song | !fila, !queue | !rm, !remove.</p>
+          </section>
         </div>
 
         <section>
@@ -718,6 +766,7 @@ pub async fn page() -> Html<&'static str> {
   <script>
     const $ = (id) => document.getElementById(id);
     let setupDirty = false;
+    let lastConfig = null;
 
     async function api(path, options = {}) {
       const response = await fetch(path, {
@@ -737,6 +786,90 @@ pub async fn page() -> Html<&'static str> {
         .replaceAll('>', '&gt;')
         .replaceAll('"', '&quot;')
         .replaceAll("'", '&#039;');
+    }
+
+    function aliasesToText(values) {
+      return (values || []).join(', ');
+    }
+
+    function textToAliases(value, fallback) {
+      const aliases = String(value || '')
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .map((item) => item.startsWith('!') ? item : `!${item}`);
+      return aliases.length ? aliases : fallback;
+    }
+
+    function groupedAliases(value, fallbackGroups) {
+      const groups = String(value || '')
+        .split('|')
+        .map((group, index) => textToAliases(group, fallbackGroups[index] || []));
+      return fallbackGroups.map((fallback, index) => groups[index]?.length ? groups[index] : fallback);
+    }
+
+    function commandSettingsFromForm() {
+      const current = lastConfig?.command_settings || {};
+      const aliases = current.aliases || {};
+      const access = current.access || {};
+      const basic = groupedAliases($('setup-cmd-basic').value, [
+        aliases.current_song || ['!song'],
+        aliases.queue || ['!queue', '!fila', '!q'],
+        aliases.remove || ['!rm', '!remove']
+      ]);
+      const player = groupedAliases($('setup-cmd-player').value, [
+        aliases.play || ['!play', '!resume'],
+        aliases.pause || ['!pause', '!stop'],
+        aliases.next || ['!next', '!pular']
+      ]);
+
+      return {
+        aliases: {
+          song_request: textToAliases($('setup-cmd-song-request').value, aliases.song_request || ['!sr']),
+          current_song: basic[0],
+          queue: basic[1],
+          remove: basic[2],
+          skip: aliases.skip || ['!skip'],
+          play: player[0],
+          pause: player[1],
+          next: player[2],
+          volume: textToAliases($('setup-cmd-volume').value, aliases.volume || ['!vol', '!volume']),
+          help: aliases.help || ['!commands', '!comandos', '!help']
+        },
+        access: {
+          song_request: $('setup-access-song-request').value,
+          current_song: access.current_song || 'everyone',
+          queue: access.queue || 'everyone',
+          remove: $('setup-access-remove').value,
+          skip: access.skip || 'moderator',
+          playback: $('setup-access-playback').value,
+          volume_read: access.volume_read || 'everyone',
+          volume_set: $('setup-access-volume-set').value,
+          help: access.help || 'everyone'
+        }
+      };
+    }
+
+    function fillCommandSettings(config) {
+      const settings = config.command_settings || {};
+      const aliases = settings.aliases || {};
+      const access = settings.access || {};
+      $('setup-cmd-song-request').value = aliasesToText(aliases.song_request || ['!sr']);
+      $('setup-cmd-basic').value = [
+        aliasesToText(aliases.current_song || ['!song']),
+        aliasesToText(aliases.queue || ['!queue', '!fila', '!q']),
+        aliasesToText(aliases.remove || ['!rm', '!remove'])
+      ].join(' | ');
+      $('setup-cmd-volume').value = aliasesToText(aliases.volume || ['!vol', '!volume']);
+      $('setup-cmd-player').value = [
+        aliasesToText(aliases.play || ['!play', '!resume']),
+        aliasesToText(aliases.pause || ['!pause', '!stop']),
+        aliasesToText(aliases.next || ['!next', '!pular'])
+      ].join(' | ');
+      $('setup-access-song-request').value = access.song_request || 'everyone';
+      $('setup-access-remove').value = access.remove || 'everyone';
+      $('setup-access-playback').value = access.playback || 'moderator';
+      $('setup-access-volume-set').value = access.volume_set || 'moderator';
     }
 
     function sourceLabel(source) {
@@ -872,8 +1005,14 @@ pub async fn page() -> Html<&'static str> {
       const html = rows.map(([label, value]) => `
         <div class="diagnostic-row"><span>${escapeHtml(label)}</span><code>${escapeHtml(value)}</code></div>
       `).join('');
+      const commandHtml = (config.commands_summary || []).map((command) => `
+        <div class="diagnostic-row">
+          <span>${escapeHtml(command.name)} · ${escapeHtml(command.access === 'moderator' ? 'moderador' : 'todos')}</span>
+          <code>${escapeHtml((command.aliases || []).join(', '))}</code>
+        </div>
+      `).join('');
       $('setup-diagnostics').innerHTML = html;
-      $('setup-summary').innerHTML = html;
+      $('setup-summary').innerHTML = `${html}<div class="divider"></div>${commandHtml}`;
     }
 
     async function refresh() {
@@ -887,6 +1026,7 @@ pub async fn page() -> Html<&'static str> {
           api('/api/events'),
           api('/api/config')
         ]);
+        lastConfig = config;
 
         $('queue-count').textContent = `${queue.queue_length} pedido(s)`;
         $('refresh-state').textContent = 'OK';
@@ -903,6 +1043,7 @@ pub async fn page() -> Html<&'static str> {
           $('setup-pear-base-url').value = config.pear_base_url || 'http://127.0.0.1:26538/api/v1';
           $('setup-youtube-max-duration').value = config.youtube_max_duration_seconds || 360;
           $('setup-youtube-allow-non-music').checked = Boolean(config.youtube_allow_non_music);
+          fillCommandSettings(config);
         }
 
         const current = queue.current_song;
@@ -1036,7 +1177,8 @@ pub async fn page() -> Html<&'static str> {
           twitch_bot_oauth_token: null,
           youtube_api_key: $('setup-youtube-api-key').value,
           youtube_max_duration_seconds: Number($('setup-youtube-max-duration').value || 360),
-          youtube_allow_non_music: $('setup-youtube-allow-non-music').checked
+          youtube_allow_non_music: $('setup-youtube-allow-non-music').checked,
+          command_settings: commandSettingsFromForm()
         })
       });
       $('setup-youtube-api-key').value = '';

@@ -7,7 +7,7 @@ use std::{
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
-use crate::song_requests::MusicProvider;
+use crate::{commands::CommandSettings, song_requests::MusicProvider};
 
 pub const APP_ID: &str = "song-request-linux";
 pub const APP_NAME: &str = "Song Request Linux";
@@ -36,6 +36,7 @@ pub struct UserConfig {
     pub twitch_client_id: Option<String>,
     pub twitch_bot_username: Option<String>,
     pub twitch_channel: Option<String>,
+    pub command_settings: CommandSettings,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -58,6 +59,7 @@ pub struct UiConfigInput {
     pub youtube_api_key: Option<String>,
     pub youtube_max_duration_seconds: Option<u64>,
     pub youtube_allow_non_music: bool,
+    pub command_settings: Option<CommandSettings>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -73,6 +75,15 @@ pub struct UiConfigView {
     pub youtube_api_key_configured: bool,
     pub youtube_max_duration_seconds: u64,
     pub youtube_allow_non_music: bool,
+    pub command_settings: CommandSettings,
+    pub commands_summary: Vec<CommandSummary>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct CommandSummary {
+    pub name: &'static str,
+    pub aliases: Vec<String>,
+    pub access: crate::commands::CommandAccess,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -165,6 +176,7 @@ impl Default for UserConfig {
             twitch_client_id: None,
             twitch_bot_username: None,
             twitch_channel: None,
+            command_settings: CommandSettings::default(),
         }
     }
 }
@@ -270,6 +282,8 @@ impl UiConfigView {
             youtube_api_key_configured: user_secrets.youtube_api_key.is_some(),
             youtube_max_duration_seconds: user_config.youtube_max_duration_seconds,
             youtube_allow_non_music: user_config.youtube_allow_non_music,
+            command_settings: user_config.command_settings.clone(),
+            commands_summary: command_summary(&user_config.command_settings),
         }
     }
 }
@@ -293,6 +307,7 @@ pub fn save_ui_config(paths: &AppPaths, input: UiConfigInput) -> Result<UiConfig
         twitch_client_id: clean_optional_value(input.twitch_client_id),
         twitch_bot_username: clean_optional_value(input.twitch_bot_username),
         twitch_channel: clean_optional_value(input.twitch_channel),
+        command_settings: normalize_command_settings(input.command_settings.unwrap_or_default()),
     };
     let user_secrets = UserSecrets {
         twitch_bot_oauth_token: clean_optional_value(input.twitch_bot_oauth_token)
@@ -310,6 +325,109 @@ pub fn save_ui_config(paths: &AppPaths, input: UiConfigInput) -> Result<UiConfig
     restrict_file_permissions(&secrets_path);
 
     Ok(UiConfigView::load(paths))
+}
+
+pub fn command_settings(paths: &AppPaths) -> CommandSettings {
+    load_user_config_from_paths(paths)
+        .map(|config| normalize_command_settings(config.command_settings))
+        .unwrap_or_default()
+}
+
+fn normalize_command_settings(mut settings: CommandSettings) -> CommandSettings {
+    settings.aliases.song_request = normalize_aliases(settings.aliases.song_request, &["!sr"]);
+    settings.aliases.current_song = normalize_aliases(settings.aliases.current_song, &["!song"]);
+    settings.aliases.queue = normalize_aliases(settings.aliases.queue, &["!queue", "!fila", "!q"]);
+    settings.aliases.remove = normalize_aliases(settings.aliases.remove, &["!rm", "!remove"]);
+    settings.aliases.skip = normalize_aliases(settings.aliases.skip, &["!skip"]);
+    settings.aliases.play = normalize_aliases(settings.aliases.play, &["!play", "!resume"]);
+    settings.aliases.pause = normalize_aliases(settings.aliases.pause, &["!pause", "!stop"]);
+    settings.aliases.next = normalize_aliases(settings.aliases.next, &["!next", "!pular"]);
+    settings.aliases.volume = normalize_aliases(settings.aliases.volume, &["!vol", "!volume"]);
+    settings.aliases.help =
+        normalize_aliases(settings.aliases.help, &["!commands", "!comandos", "!help"]);
+    settings
+}
+
+fn normalize_aliases(values: Vec<String>, fallback: &[&str]) -> Vec<String> {
+    let mut aliases = Vec::new();
+    for value in values {
+        let value = value.trim();
+        if value.is_empty() {
+            continue;
+        }
+        let alias = if value.starts_with('!') {
+            value.to_string()
+        } else {
+            format!("!{value}")
+        };
+        if !aliases
+            .iter()
+            .any(|item: &String| item.eq_ignore_ascii_case(&alias))
+        {
+            aliases.push(alias);
+        }
+    }
+    if aliases.is_empty() {
+        return fallback.iter().map(|value| value.to_string()).collect();
+    }
+    aliases
+}
+
+fn command_summary(settings: &CommandSettings) -> Vec<CommandSummary> {
+    vec![
+        CommandSummary {
+            name: "Pedido",
+            aliases: settings.aliases.song_request.clone(),
+            access: settings.access.song_request,
+        },
+        CommandSummary {
+            name: "Atual",
+            aliases: settings.aliases.current_song.clone(),
+            access: settings.access.current_song,
+        },
+        CommandSummary {
+            name: "Fila",
+            aliases: settings.aliases.queue.clone(),
+            access: settings.access.queue,
+        },
+        CommandSummary {
+            name: "Remover ultimo pedido",
+            aliases: settings.aliases.remove.clone(),
+            access: settings.access.remove,
+        },
+        CommandSummary {
+            name: "Skip",
+            aliases: settings.aliases.skip.clone(),
+            access: settings.access.skip,
+        },
+        CommandSummary {
+            name: "Play/Pause/Next",
+            aliases: settings
+                .aliases
+                .play
+                .iter()
+                .chain(settings.aliases.pause.iter())
+                .chain(settings.aliases.next.iter())
+                .cloned()
+                .collect(),
+            access: settings.access.playback,
+        },
+        CommandSummary {
+            name: "Volume atual",
+            aliases: settings.aliases.volume.clone(),
+            access: settings.access.volume_read,
+        },
+        CommandSummary {
+            name: "Mudar volume",
+            aliases: settings.aliases.volume.clone(),
+            access: settings.access.volume_set,
+        },
+        CommandSummary {
+            name: "Ajuda",
+            aliases: settings.aliases.help.clone(),
+            access: settings.access.help,
+        },
+    ]
 }
 
 impl AppPaths {

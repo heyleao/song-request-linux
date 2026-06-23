@@ -177,6 +177,29 @@ impl SongQueue {
         self.queue.remove(index)
     }
 
+    pub fn remove_last_by_requester(&mut self, requester: &str) -> Option<SongRequest> {
+        let requester = requester.trim();
+        let index = self
+            .queue
+            .iter()
+            .rposition(|song| song.requester.eq_ignore_ascii_case(requester));
+        if let Some(index) = index {
+            return self.queue.remove(index);
+        }
+
+        if self
+            .current_song
+            .as_ref()
+            .is_some_and(|song| song.requester.eq_ignore_ascii_case(requester))
+        {
+            let removed = self.current_song.take();
+            self.current_song = self.queue.pop_front();
+            return removed;
+        }
+
+        None
+    }
+
     pub fn clear(&mut self) {
         self.current_song = None;
         self.queue.clear();

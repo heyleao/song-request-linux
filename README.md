@@ -133,6 +133,8 @@ Everyone:
 !fila
 !queue
 !q
+!rm
+!remove
 !vol
 !comandos
 ```
@@ -146,6 +148,10 @@ Moderator/broadcaster:
 !pause
 !next
 ```
+
+Command aliases and access levels are configurable in the dashboard setup tab.
+For example, `!sr` can be changed to `!ssr`, and moderator-only commands can be
+opened to everyone if the streamer wants that.
 
 ## Request Routing
 

@@ -101,6 +101,8 @@ Todos podem usar:
 !fila
 !queue
 !q
+!rm
+!remove
 !vol
 !comandos
 ```
@@ -114,6 +116,9 @@ Moderador/broadcaster:
 !pause
 !next
 ```
+
+Aliases e permissoes dos comandos ficam na aba Configuracao do dashboard.
+Exemplo: o comando de pedido pode ser `!sr`, `!ssr` ou outro alias escolhido.
 
 ## 5. Abrir E Fechar
 
