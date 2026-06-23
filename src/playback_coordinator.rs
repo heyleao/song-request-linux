@@ -47,6 +47,7 @@ async fn coordinate_once(state: &AppState) {
 
     let mut token_guard = state.spotify_token.write().await;
     let Some(token) = token_guard.as_mut() else {
+        mark_spotify_released(state, "Spotify nao conectado; liberando pedido YouTube").await;
         return;
     };
 
@@ -324,24 +325,41 @@ async fn pause_spotify_for_youtube(state: &AppState, message: &'static str) {
             state.record_event("player", message).await;
         }
         Err(error) => {
-            if error.to_string().contains("Restriction violated") {
-                state
-                    .youtube_player_paused_spotify
-                    .store(true, Ordering::SeqCst);
-                state
-                    .record_event(
-                        "player",
-                        "Spotify recusou pausa por restricao; liberando pedido YouTube",
-                    )
-                    .await;
+            let error = error.to_string();
+            if error.contains("Restriction violated") {
+                mark_spotify_released(
+                    state,
+                    "Spotify recusou pausa por restricao; liberando pedido YouTube",
+                )
+                .await;
+                return;
+            }
+
+            if error.contains("Nenhum device Spotify disponivel") {
+                mark_spotify_released(
+                    state,
+                    "Nenhum device Spotify ativo; liberando pedido YouTube",
+                )
+                .await;
                 return;
             }
 
             state
-                .record_event("error", format!("Nao consegui pausar Spotify: {error}"))
+                .record_event("error", format!("Nao consegui pausar Spotify: {}", error))
                 .await;
         }
     }
+}
+
+async fn mark_spotify_released(state: &AppState, message: &'static str) {
+    if state
+        .youtube_player_paused_spotify
+        .swap(true, Ordering::SeqCst)
+    {
+        return;
+    }
+
+    state.record_event("player", message).await;
 }
 
 async fn finish_pear_request(state: &AppState, id: u64) {
