@@ -16,34 +16,27 @@ Songify.Rocks.
 - YouTube playback through Pear Desktop API or the local OBS browser source.
 - Local OBS overlay at `http://127.0.0.1:7384/overlay`.
 - Local YouTube player source at `http://127.0.0.1:7384/player`.
-- Local web dashboard with tabs for overview, queue, commands, player, logs, setup and guide.
+- Local web dashboard with operation, setup, logs and guide tabs.
 - Desktop-style launcher with single-instance behavior and clean shutdown.
 
 ## Setup
 
-Use the dashboard setup tab first:
-
-```text
-http://127.0.0.1:7384/
-```
-
-Public setup guide:
+Start here:
 
 [docs/SETUP.md](docs/SETUP.md)
 
-UI direction:
+Short version:
 
-[docs/UI_REFERENCES.md](docs/UI_REFERENCES.md)
+1. Install with `./scripts/install-user-friendly --with-pear`.
+2. Open with `./scripts/song-request-linux-open`.
+3. Go to `http://127.0.0.1:7384/`.
+4. Fill the `Configuracao` tab.
+5. Add the overlay URL to OBS.
 
-Packaging and security-minded install plan:
+Extra docs:
 
-[docs/PACKAGING.md](docs/PACKAGING.md)
-
-The dashboard guide links directly to:
-
-- Spotify Developer Dashboard
-- Twitch Developer Console
-- Google Cloud Credentials
+- UI direction: [docs/UI_REFERENCES.md](docs/UI_REFERENCES.md)
+- Packaging plan: [docs/PACKAGING.md](docs/PACKAGING.md)
 
 ## Run
 

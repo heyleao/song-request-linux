@@ -898,40 +898,43 @@ pub async fn page() -> Html<&'static str> {
     <div class="tab" id="guide-tab">
       <div class="grid-main">
         <section>
-          <h2>Links de configuração</h2>
+          <h2>Passo a passo</h2>
           <div class="endpoints">
-            <div class="endpoint-row"><span>Spotify Developer Dashboard</span><a href="https://developer.spotify.com/dashboard" target="_blank" rel="noreferrer">Abrir</a></div>
-            <div class="endpoint-row"><span>Spotify Redirect URI</span><code>http://127.0.0.1:7384/auth/spotify/callback</code></div>
-            <div class="endpoint-row"><span>Twitch Developer Console</span><a href="https://dev.twitch.tv/console/apps" target="_blank" rel="noreferrer">Abrir</a></div>
-            <div class="endpoint-row"><span>Twitch Redirect URI</span><code>https://localhost:7443/auth/twitch/callback</code></div>
-            <div class="endpoint-row"><span>Google Cloud Credentials</span><a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noreferrer">Abrir</a></div>
-            <div class="endpoint-row"><span>Guia completo</span><a href="https://github.com/heyleao/song-request-linux/blob/main/docs/SETUP.md" target="_blank" rel="noreferrer">docs/SETUP.md</a></div>
+            <div class="endpoint-row"><span>1. Configure Twitch</span><a href="https://dev.twitch.tv/console/apps" target="_blank" rel="noreferrer">Abrir Twitch</a></div>
+            <p class="endpoint-description">Crie um app Public, use o redirect abaixo, cole o Client ID no Setup e clique em Conectar bot.</p>
+            <div class="endpoint-row"><span>Redirect Twitch</span><code>https://localhost:7443/auth/twitch/callback</code></div>
+            <div class="endpoint-row"><span>2. Configure Spotify</span><a href="https://developer.spotify.com/dashboard" target="_blank" rel="noreferrer">Abrir Spotify</a></div>
+            <p class="endpoint-description">Crie um app, use o redirect abaixo, cole o Client ID no Setup e clique em Login Spotify.</p>
+            <div class="endpoint-row"><span>Redirect Spotify</span><code>http://127.0.0.1:7384/auth/spotify/callback</code></div>
+            <div class="endpoint-row"><span>3. Configure YouTube</span><a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noreferrer">Abrir Google</a></div>
+            <p class="endpoint-description">Ative YouTube Data API v3, crie uma API Key e cole no Setup.</p>
+            <div class="endpoint-row"><span>Guia completo</span><a href="https://github.com/heyleao/song-request-linux/blob/main/docs/SETUP.md" target="_blank" rel="noreferrer">Abrir guia</a></div>
           </div>
         </section>
         <section>
-          <h2>OBS e URLs locais</h2>
+          <h2>OBS</h2>
           <div class="endpoints">
             <div class="endpoint-row with-action"><span>Dashboard</span><code>http://127.0.0.1:7384/</code><a class="secondary" href="/" target="_blank" rel="noreferrer">Abrir</a></div>
-            <div class="endpoint-row with-action"><span>Overlay da música</span><code>http://127.0.0.1:7384/overlay</code><a class="secondary" href="/overlay" target="_blank" rel="noreferrer">Abrir</a></div>
-            <p class="endpoint-description">Use como Browser Source no OBS para mostrar a música atual. Ajuste tamanho pela URL: /overlay?max=48&width=520&size=24&lines=1.</p>
-            <div class="endpoint-row with-action"><span>Player YouTube OBS</span><code>http://127.0.0.1:7384/player</code><a class="secondary" href="/player" target="_blank" rel="noreferrer">Abrir</a></div>
-            <p class="endpoint-description">Use apenas se o player do YouTube estiver em modo Browser Source OBS. No modo Pear Desktop, essa fonte não é necessária.</p>
+            <div class="endpoint-row with-action"><span>Overlay pronto</span><code>http://127.0.0.1:7384/overlay?max=48&width=520&size=24&lines=1</code><a class="secondary" href="/overlay?max=48&width=520&size=24&lines=1" target="_blank" rel="noreferrer">Abrir</a></div>
+            <p class="endpoint-description">No OBS, adicione como Browser Source para mostrar a musica atual.</p>
+            <div class="endpoint-row with-action"><span>Player YouTube</span><code>http://127.0.0.1:7384/player</code><a class="secondary" href="/player" target="_blank" rel="noreferrer">Abrir</a></div>
+            <p class="endpoint-description">Use so se o YouTube estiver em Browser Source OBS. Se usar Pear Desktop, nao precisa.</p>
             <div class="endpoint-row"><span>Pear API</span><code>http://127.0.0.1:26538/api/v1</code></div>
           </div>
         </section>
         <section>
           <div class="toolbar">
-            <h2>Instalação e atualização</h2>
+            <h2>Instalar e atualizar</h2>
             <button class="secondary" id="update-app" type="button">Atualizar pelo GitHub</button>
           </div>
           <div class="endpoints">
-            <div class="endpoint-row"><span>Instalar/reinstalar</span><code>./scripts/install-user-friendly --with-pear</code></div>
-            <div class="endpoint-row"><span>Atualizar manualmente</span><code>./scripts/update-from-github --restart</code></div>
-            <div class="endpoint-row"><span>Remover atalho e icone</span><code>./scripts/uninstall-user</code></div>
-            <div class="endpoint-row"><span>Remover tambem dados locais</span><code>./scripts/uninstall-user --remove-data</code></div>
-            <div class="endpoint-row"><span>Log de atualização</span><code>~/.local/state/song-request-linux/logs/update.log</code></div>
+            <div class="endpoint-row"><span>Instalar</span><code>./scripts/install-user-friendly --with-pear</code></div>
+            <div class="endpoint-row"><span>Abrir</span><code>./scripts/song-request-linux-open</code></div>
+            <div class="endpoint-row"><span>Fechar</span><code>./scripts/song-request-linux-stop</code></div>
+            <div class="endpoint-row"><span>Atualizar manual</span><code>./scripts/update-from-github --restart</code></div>
+            <div class="endpoint-row"><span>Remover app</span><code>./scripts/uninstall-user</code></div>
           </div>
-          <p class="hint">A atualização preserva configuração, tokens, logs e fila. Ela exige um clone Git limpo, sem mudanças locais em arquivos rastreados.</p>
+          <p class="hint">Atualizar preserva configuracao, tokens e logs. A fila so volta se a persistencia da fila estiver ligada.</p>
           <div class="message" id="update-message"></div>
         </section>
       </div>
