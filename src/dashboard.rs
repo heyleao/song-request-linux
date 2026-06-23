@@ -35,7 +35,7 @@ pub async fn page() -> Html<&'static str> {
     html { scroll-behavior: smooth; }
     body {
       margin: 0;
-      background: var(--bg);
+      background: linear-gradient(180deg, #0f151d 0%, var(--bg) 34%, #070b10 100%);
       color: var(--text);
       font-size: 14px;
       letter-spacing: 0;
@@ -63,9 +63,10 @@ pub async fn page() -> Html<&'static str> {
       gap: 14px;
       min-height: 68px;
       padding: 12px 18px;
-      border-bottom: 1px solid var(--line);
-      background: rgba(16, 23, 32, .96);
-      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(90, 169, 255, .16);
+      background: rgba(13, 20, 29, .94);
+      backdrop-filter: blur(14px);
+      box-shadow: 0 12px 28px rgba(0, 0, 0, .18);
     }
     h1, h2, h3, p { margin: 0; }
     h1 { font-size: 20px; line-height: 1.2; font-weight: 900; }
@@ -86,14 +87,14 @@ pub async fn page() -> Html<&'static str> {
       min-width: 0;
     }
     .brand-mark {
-      width: 64px;
-      height: 64px;
+      width: 68px;
+      height: 68px;
       border-radius: 8px;
-      border: 1px solid rgba(90, 169, 255, .35);
+      border: 1px solid rgba(125, 211, 252, .34);
       background: #07111a;
       object-fit: cover;
       flex: 0 0 auto;
-      box-shadow: 0 10px 24px rgba(0, 0, 0, .22);
+      box-shadow: 0 14px 28px rgba(0, 0, 0, .28);
     }
     .brand span { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
     .sidebar {
@@ -102,8 +103,8 @@ pub async fn page() -> Html<&'static str> {
       align-self: start;
       height: 100dvh;
       padding: 18px 16px;
-      border-right: 1px solid var(--line);
-      background: #0e141c;
+      border-right: 1px solid rgba(90, 169, 255, .14);
+      background: linear-gradient(180deg, #111a24 0%, #0b1118 100%);
       display: grid;
       grid-template-rows: auto 1fr auto;
       gap: 18px;
@@ -133,7 +134,7 @@ pub async fn page() -> Html<&'static str> {
       padding: 5px 9px;
       border: 1px solid var(--line);
       border-radius: 999px;
-      background: var(--surface-2);
+      background: rgba(29, 37, 48, .9);
       color: var(--muted);
       font-size: 13px;
       white-space: nowrap;
@@ -167,8 +168,8 @@ pub async fn page() -> Html<&'static str> {
       transition: border-color .18s ease, background .18s ease, color .18s ease;
     }
     .tab-button:hover, .tab-button.active {
-      border-color: var(--line);
-      background: var(--surface-2);
+      border-color: rgba(90, 169, 255, .38);
+      background: rgba(29, 37, 48, .95);
       color: var(--text);
     }
     .nav-icon {
@@ -357,11 +358,11 @@ pub async fn page() -> Html<&'static str> {
       align-items: start;
     }
     section {
-      background: var(--surface);
-      border: 1px solid var(--line);
+      background: rgba(21, 27, 36, .94);
+      border: 1px solid rgba(90, 169, 255, .16);
       border-radius: 8px;
       padding: 14px;
-      box-shadow: var(--shadow);
+      box-shadow: 0 16px 34px rgba(0, 0, 0, .2);
       min-width: 0;
     }
     .stack { display: grid; gap: 14px; }
@@ -377,9 +378,9 @@ pub async fn page() -> Html<&'static str> {
       gap: 8px;
     }
     .status-card, .current, .queue-item, .event-row, .diagnostic-row, .endpoint-row {
-      border: 1px solid var(--line);
+      border: 1px solid rgba(154, 166, 181, .18);
       border-radius: 8px;
-      background: var(--surface-2);
+      background: rgba(29, 37, 48, .82);
       padding: 10px;
     }
     .status-card { display: grid; gap: 6px; min-height: 76px; }
@@ -389,14 +390,16 @@ pub async fn page() -> Html<&'static str> {
       display: grid;
       gap: 6px;
       min-height: 112px;
-      background: linear-gradient(180deg, #202a38 0%, #151d28 100%);
+      border-color: rgba(90, 169, 255, .26);
+      background: linear-gradient(180deg, #233044 0%, #151d28 100%);
     }
     .song-title { font-size: 20px; font-weight: 900; overflow-wrap: anywhere; line-height: 1.25; }
     .song-meta { color: var(--muted); overflow-wrap: anywhere; }
     .provider-card {
       display: grid;
       gap: 12px;
-      background: #111922;
+      border-color: rgba(125, 211, 252, .18);
+      background: linear-gradient(180deg, #121d29 0%, #101820 100%);
     }
     .provider-options {
       align-items: stretch;

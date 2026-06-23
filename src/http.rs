@@ -260,16 +260,61 @@ async fn twitch_callback() -> Html<&'static str> {
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Twitch Bot conectado</title>
+  <link rel="icon" type="image/png" href="/favicon.png">
   <style>
-    body { font-family: system-ui; background:#101114; color:#f4f6f8; }
-    a { color:#62a8ff; }
+    :root { color-scheme: dark; font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    * { box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      margin: 0;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background: linear-gradient(180deg, #101720 0%, #080d13 100%);
+      color: #f4f7fb;
+    }
+    main {
+      width: min(520px, 100%);
+      display: grid;
+      justify-items: center;
+      gap: 16px;
+      text-align: center;
+      border: 1px solid #2c3442;
+      border-radius: 8px;
+      background: #151b24;
+      padding: 28px;
+      box-shadow: 0 22px 48px rgba(0, 0, 0, .32);
+    }
+    img { width: 92px; height: 92px; border-radius: 8px; }
+    h1 { margin: 0; font-size: 26px; line-height: 1.15; }
+    p { margin: 0; color: #aab5c4; line-height: 1.5; }
+    .actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 4px; }
+    a, button {
+      min-height: 40px;
+      border: 1px solid #2c3442;
+      border-radius: 6px;
+      padding: 9px 13px;
+      background: #1d2530;
+      color: #f4f7fb;
+      font-weight: 800;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    a.primary { border-color: #4b92d8; background: #5aa9ff; color: #07111f; }
   </style>
 </head>
 <body>
-  <h1 id="title">Conectando Twitch Bot...</h1>
-  <p id="message">Aguarde.</p>
-  <p><a href="/connections">Voltar</a></p>
+  <main>
+    <img src="/assets/logo-srl.png" alt="Song Request Linux">
+    <h1 id="title">Conectando Twitch Bot...</h1>
+    <p id="message">Aguarde enquanto salvamos o login do bot.</p>
+    <div class="actions">
+      <a class="primary" href="/">Voltar ao dashboard</a>
+      <button type="button" onclick="window.close()">Fechar aba</button>
+    </div>
+  </main>
   <script>
     const params = new URLSearchParams(location.hash.slice(1));
     const token = params.get('access_token');
@@ -291,7 +336,7 @@ async fn twitch_callback() -> Html<&'static str> {
         if (!response.ok) throw new Error(data.error || 'Falha ao salvar token');
         history.replaceState(null, '', '/auth/twitch/callback');
         title.textContent = 'Twitch Bot conectado';
-        message.textContent = `Bot conectado como ${data.twitch_bot_username}. Voce ja pode testar no chat.`;
+        message.textContent = `Bot conectado como ${data.twitch_bot_username}. Voce ja pode voltar ao dashboard e testar no chat.`;
       } catch (error) {
         title.textContent = 'Falha ao conectar Twitch Bot';
         message.textContent = error.message;
@@ -326,7 +371,38 @@ async fn spotify_callback(
     *state.spotify_token.write().await = Some(token);
 
     Ok(Html(
-        r#"<!doctype html><html lang="pt-BR"><meta charset="utf-8"><title>Spotify conectado</title><body style="font-family: system-ui; background:#101114; color:#f4f6f8;"><h1>Spotify conectado</h1><p>Voce pode fechar esta aba e voltar ao dashboard.</p><p><a style="color:#62a8ff" href="/connections">Voltar</a></p></body></html>"#,
+        r#"<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Spotify conectado</title>
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <style>
+    :root { color-scheme: dark; font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    * { box-sizing: border-box; }
+    body { min-height: 100vh; margin: 0; display: grid; place-items: center; padding: 24px; background: linear-gradient(180deg, #101720 0%, #080d13 100%); color: #f4f7fb; }
+    main { width: min(520px, 100%); display: grid; justify-items: center; gap: 16px; text-align: center; border: 1px solid #2c3442; border-radius: 8px; background: #151b24; padding: 28px; box-shadow: 0 22px 48px rgba(0, 0, 0, .32); }
+    img { width: 92px; height: 92px; border-radius: 8px; }
+    h1 { margin: 0; font-size: 26px; line-height: 1.15; }
+    p { margin: 0; color: #aab5c4; line-height: 1.5; }
+    .actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 4px; }
+    a, button { min-height: 40px; border: 1px solid #2c3442; border-radius: 6px; padding: 9px 13px; background: #1d2530; color: #f4f7fb; font-weight: 800; text-decoration: none; cursor: pointer; }
+    a.primary { border-color: #4b92d8; background: #5aa9ff; color: #07111f; }
+  </style>
+</head>
+<body>
+  <main>
+    <img src="/assets/logo-srl.png" alt="Song Request Linux">
+    <h1>Spotify conectado</h1>
+    <p>Login salvo com sucesso. Volte ao dashboard para carregar playlists, ativar fallback ou testar um pedido.</p>
+    <div class="actions">
+      <a class="primary" href="/">Voltar ao dashboard</a>
+      <button type="button" onclick="window.close()">Fechar aba</button>
+    </div>
+  </main>
+</body>
+</html>"#,
     ))
 }
 
