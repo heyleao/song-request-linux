@@ -53,6 +53,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/song-requests", post(add_song_request))
         .route("/api/chat-command", post(chat_command))
         .route("/api/skip", post(skip))
+        .route("/api/volume", get(volume_status).post(set_volume))
         .route("/overlay", get(overlay::page))
         .route("/player", get(player::page))
         .route("/api/player/youtube", get(youtube_player_current))
@@ -671,33 +672,65 @@ async fn set_spotify_volume(state: &AppState, level: u8) -> Option<anyhow::Resul
 }
 
 async fn current_volume_message(state: &AppState) -> String {
+    let response = read_volume(state).await;
+    state.record_event("volume", response.message.clone()).await;
+    response.message
+}
+
+async fn read_volume(state: &AppState) -> VolumeResponse {
     if matches!(
         (current_provider(state), state.config.youtube.playback),
         (MusicProvider::Youtube, YoutubePlayback::Pear)
     ) {
-        let message = match pear::current_volume(&state.config).await {
+        return match pear::current_volume(&state.config).await {
             Ok(volume) => {
                 let suffix = if volume.is_muted { " (mutado)" } else { "" };
-                format!("Volume atual Pear/YouTube: {}%{suffix}.", volume.state)
+                VolumeResponse {
+                    target: "pear",
+                    level: Some(volume.state),
+                    muted: volume.is_muted,
+                    message: format!("Volume atual Pear/YouTube: {}%{suffix}.", volume.state),
+                }
             }
-            Err(error) => format!("Nao consegui ler o volume Pear/YouTube: {error}"),
+            Err(error) => VolumeResponse {
+                target: "pear",
+                level: None,
+                muted: false,
+                message: format!("Nao consegui ler o volume Pear/YouTube: {error}"),
+            },
         };
-        state.record_event("volume", message.clone()).await;
-        return message;
     }
 
     let mut token_guard = state.spotify_token.write().await;
     let Some(token) = token_guard.as_mut() else {
-        return "Spotify nao conectado.".to_string();
+        return VolumeResponse {
+            target: "spotify",
+            level: None,
+            muted: false,
+            message: "Spotify nao conectado.".to_string(),
+        };
     };
 
-    let message = match spotify::current_volume(&state.config, token).await {
-        Ok(Some(level)) => format!("Volume atual Spotify: {level}%."),
-        Ok(None) => "Nao encontrei um device Spotify ativo para ler o volume.".to_string(),
-        Err(error) => format!("Nao consegui ler o volume Spotify: {error}"),
-    };
-    state.record_event("volume", message.clone()).await;
-    message
+    match spotify::current_volume(&state.config, token).await {
+        Ok(Some(level)) => VolumeResponse {
+            target: "spotify",
+            level: Some(level),
+            muted: false,
+            message: format!("Volume atual Spotify: {level}%."),
+        },
+        Ok(None) => VolumeResponse {
+            target: "spotify",
+            level: None,
+            muted: false,
+            message: "Nao encontrei um device Spotify ativo para ler o volume.".to_string(),
+        },
+        Err(error) => VolumeResponse {
+            target: "spotify",
+            level: None,
+            muted: false,
+            message: format!("Nao consegui ler o volume Spotify: {error}"),
+        },
+    }
 }
 
 fn access_denied_message(
@@ -883,6 +916,27 @@ async fn skip(State(state): State<AppState>) -> Json<SkipResponse> {
     }
 
     Json(SkipResponse { current_song })
+}
+
+async fn volume_status(State(state): State<AppState>) -> Json<VolumeResponse> {
+    Json(read_volume(&state).await)
+}
+
+async fn set_volume(
+    State(state): State<AppState>,
+    Json(input): Json<VolumeInput>,
+) -> Result<Json<VolumeResponse>, ApiError> {
+    let current = read_volume(&state).await;
+    let delta = input.delta.unwrap_or(0);
+    let target = input
+        .level
+        .unwrap_or_else(|| current.level.unwrap_or(50).saturating_add_signed(delta))
+        .min(100);
+
+    let message = volume_message(&state, "dashboard".to_string(), Some(target)).await;
+    let mut response = read_volume(&state).await;
+    response.message = message;
+    Ok(Json(response))
 }
 
 async fn youtube_player_response(state: &AppState) -> YoutubePlayerResponse {
@@ -1127,6 +1181,20 @@ enum ChatCommandResponse {
 #[derive(Debug, Serialize)]
 struct SkipResponse {
     current_song: Option<SongRequest>,
+}
+
+#[derive(Debug, Deserialize)]
+struct VolumeInput {
+    level: Option<u8>,
+    delta: Option<i8>,
+}
+
+#[derive(Debug, Serialize)]
+struct VolumeResponse {
+    target: &'static str,
+    level: Option<u8>,
+    muted: bool,
+    message: String,
 }
 
 #[derive(Debug, Serialize)]

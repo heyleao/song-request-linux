@@ -334,6 +334,30 @@ pub async fn page() -> Html<&'static str> {
       opacity: .55;
       cursor: not-allowed;
     }
+    .volume-control {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 38px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--surface-2);
+      padding: 4px;
+    }
+    .volume-readout {
+      min-width: 108px;
+      text-align: center;
+      color: var(--text);
+      font-weight: 900;
+      white-space: nowrap;
+    }
+    .icon-button {
+      width: 34px;
+      min-width: 34px;
+      padding: 0;
+      font-size: 18px;
+      line-height: 1;
+    }
     .setup-callout {
       display: grid;
       grid-template-columns: minmax(260px, .8fr) minmax(320px, 1.2fr);
@@ -552,7 +576,11 @@ pub async fn page() -> Html<&'static str> {
               <button class="secondary" id="play-command" type="button">Play</button>
               <button class="secondary" id="pause-command" type="button">Pause</button>
               <button class="danger" id="skip" type="button">Skip</button>
-              <button class="secondary" id="volume-command" type="button">Volume</button>
+              <div class="volume-control" aria-label="Volume">
+                <button class="secondary icon-button" id="volume-down" type="button" aria-label="Diminuir volume">-</button>
+                <span class="volume-readout" id="volume-level">Volume --</span>
+                <button class="secondary icon-button" id="volume-up" type="button" aria-label="Aumentar volume">+</button>
+              </div>
             </div>
             <div class="message" id="player-message"></div>
           </section>
@@ -767,6 +795,7 @@ pub async fn page() -> Html<&'static str> {
     const $ = (id) => document.getElementById(id);
     let setupDirty = false;
     let lastConfig = null;
+    let volumeBusy = false;
 
     async function api(path, options = {}) {
       const response = await fetch(path, {
@@ -981,6 +1010,24 @@ pub async fn page() -> Html<&'static str> {
         : '<div class="event-row muted">Nenhum evento ainda</div>';
     }
 
+    function renderVolume(volume) {
+      const label = volume.level === null || volume.level === undefined
+        ? 'Volume --'
+        : `Volume ${volume.level}%`;
+      $('volume-level').textContent = label;
+      $('volume-level').title = volume.message || '';
+    }
+
+    async function refreshVolume() {
+      if (volumeBusy) return;
+      try {
+        renderVolume(await api('/api/volume'));
+      } catch (error) {
+        $('volume-level').textContent = 'Volume --';
+        $('volume-level').title = error.message;
+      }
+    }
+
     function renderDiagnostics(diagnostics, connections, pear, config) {
       const twitchReady = diagnostics.integrations.twitch.configured;
       const spotifyReady = connections.spotify.token_configured;
@@ -1040,6 +1087,7 @@ pub async fn page() -> Html<&'static str> {
         $('queue-count').textContent = `${queue.queue_length} pedido(s)`;
         $('refresh-state').textContent = 'OK';
         $('playback-mode').textContent = config.youtube_playback === 'pear' ? 'Pear Desktop' : 'Browser Source';
+        await refreshVolume();
         renderDiagnostics(diagnostics, connections, pear, config);
 
         if (!setupDirty && !$('setup-form').contains(document.activeElement)) {
@@ -1149,15 +1197,35 @@ pub async fn page() -> Html<&'static str> {
     $('play-command').addEventListener('click', () => playerCommand('!play'));
     $('pause-command').addEventListener('click', () => playerCommand('!pause'));
     $('skip').addEventListener('click', () => playerCommand('!skip'));
-    $('volume-command').addEventListener('click', async () => {
+
+    async function adjustVolume(delta) {
+      if (volumeBusy) return;
+      const currentLevel = Number(($('volume-level').textContent.match(/\d+/) || [50])[0]);
+      const optimisticLevel = Math.max(0, Math.min(100, currentLevel + delta));
       try {
-        const result = await sendCommand('!vol');
-        setMessage('player-message', result.message || 'Volume consultado');
-        await refresh();
+        volumeBusy = true;
+        $('volume-down').disabled = true;
+        $('volume-up').disabled = true;
+        renderVolume({ level: optimisticLevel, message: 'Ajustando volume...' });
+        const result = await api('/api/volume', {
+          method: 'POST',
+          body: JSON.stringify({ delta })
+        });
+        renderVolume(result);
+        setMessage('player-message', result.message || 'Volume ajustado.');
       } catch (error) {
         setMessage('player-message', error.message, true);
+        volumeBusy = false;
+        await refreshVolume();
+      } finally {
+        volumeBusy = false;
+        $('volume-down').disabled = false;
+        $('volume-up').disabled = false;
       }
-    });
+    }
+
+    $('volume-down').addEventListener('click', () => adjustVolume(-5));
+    $('volume-up').addEventListener('click', () => adjustVolume(5));
 
     $('refresh-queue').addEventListener('click', refresh);
     $('refresh-events').addEventListener('click', refresh);
