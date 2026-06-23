@@ -22,6 +22,8 @@ pub struct PearNowPlaying {
     pub title: Option<String>,
     #[serde(default)]
     pub artist: Option<String>,
+    #[serde(default, rename = "isPaused")]
+    pub is_paused: bool,
 }
 
 #[derive(Debug, Serialize)]

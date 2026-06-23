@@ -1,8 +1,6 @@
 use anyhow::{anyhow, Result};
 
 use crate::{
-    config::YoutubePlayback,
-    pear,
     song_requests::{MusicProvider, RequestSource, SongRequest, SongRequestInput},
     spotify,
     state::AppState,
@@ -13,9 +11,6 @@ pub async fn add_request(state: &AppState, input: SongRequestInput) -> Result<So
     if let RequestSource::Youtube { video_id } =
         RequestSource::from_query_public(&input.query, state.config.default_provider)
     {
-        if matches!(state.config.youtube.playback, YoutubePlayback::Pear) {
-            pear::enqueue_after_current(&state.config, &video_id).await?;
-        }
         let request = SongRequest {
             id: 0,
             requester: input.requester.trim().to_string(),
@@ -42,9 +37,6 @@ pub async fn add_request(state: &AppState, input: SongRequestInput) -> Result<So
 
     if should_use_youtube(state, &input) {
         let metadata = youtube::search_and_validate(&state.config, &input.query).await?;
-        if matches!(state.config.youtube.playback, YoutubePlayback::Pear) {
-            pear::enqueue_after_current(&state.config, &metadata.video_id).await?;
-        }
         let request = SongRequest {
             id: 0,
             requester: input.requester.trim().to_string(),

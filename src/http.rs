@@ -1158,6 +1158,7 @@ mod tests {
     async fn merged_queue_hides_spotify_upcoming_when_requests_exist() {
         let config = AppConfig::from_env().expect("config");
         let state = AppState::new(config);
+        state.queue.write().await.clear();
         state.queue.write().await.add_resolved(SongRequest {
             id: 0,
             requester: "viewer".to_string(),
