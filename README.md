@@ -31,6 +31,10 @@ Public setup guide:
 
 [docs/SETUP.md](docs/SETUP.md)
 
+UI direction:
+
+[docs/UI_REFERENCES.md](docs/UI_REFERENCES.md)
+
 The dashboard guide links directly to:
 
 - Spotify Developer Dashboard
