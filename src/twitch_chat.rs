@@ -1,6 +1,10 @@
 use anyhow::{Context, Result};
 use futures_util::{SinkExt, StreamExt};
-use std::sync::atomic::Ordering;
+use std::{
+    collections::HashMap,
+    sync::atomic::Ordering,
+    time::{Duration, Instant},
+};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 use tracing::{error, info, warn};
 
@@ -68,6 +72,7 @@ async fn run_bot_inner(state: &AppState, secrets: TwitchBotSecrets) -> Result<()
         .await?;
 
     info!(channel = %secrets.channel, "twitch bot connected");
+    let mut rate_limiter = ChatRateLimiter::default();
 
     while let Some(message) = reader.next().await {
         let message = message.context("failed to read Twitch message")?;
@@ -87,11 +92,15 @@ async fn run_bot_inner(state: &AppState, secrets: TwitchBotSecrets) -> Result<()
                 continue;
             };
 
-            let Some(reply) = handle_privmsg(state, privmsg).await else {
+            let Some(reply) = handle_privmsg(state, privmsg, &mut rate_limiter).await else {
                 continue;
             };
 
-            let reply = format!("PRIVMSG #{} :{}", secrets.channel, reply);
+            let reply = format!(
+                "PRIVMSG #{} :{}",
+                secrets.channel,
+                sanitize_irc_reply(&reply)
+            );
             writer.send(Message::Text(reply.into())).await?;
         }
     }
@@ -100,16 +109,23 @@ async fn run_bot_inner(state: &AppState, secrets: TwitchBotSecrets) -> Result<()
     Ok(())
 }
 
-async fn handle_privmsg(state: &AppState, privmsg: Privmsg) -> Option<String> {
+async fn handle_privmsg(
+    state: &AppState,
+    privmsg: Privmsg,
+    rate_limiter: &mut ChatRateLimiter,
+) -> Option<String> {
     let settings = config::command_settings(&state.config.paths);
     let command = parse_chat_command(
         ChatCommandInput {
-            requester: privmsg.sender,
-            message: privmsg.message,
+            requester: privmsg.sender.clone(),
+            message: privmsg.message.clone(),
             is_moderator: privmsg.is_moderator,
         },
         &settings,
     );
+    if let Some(reply) = rate_limiter.check(&privmsg, &command) {
+        return Some(reply);
+    }
 
     match command {
         ChatCommand::SongRequest(input) => {
@@ -161,6 +177,92 @@ async fn handle_privmsg(state: &AppState, privmsg: Privmsg) -> Option<String> {
         }
         ChatCommand::Ignored => None,
     }
+}
+
+#[derive(Default)]
+struct ChatRateLimiter {
+    last_command: HashMap<String, Instant>,
+    last_song_request: HashMap<String, Instant>,
+    last_remove: HashMap<String, Instant>,
+}
+
+impl ChatRateLimiter {
+    fn check(&mut self, privmsg: &Privmsg, command: &ChatCommand) -> Option<String> {
+        if privmsg.is_moderator
+            || matches!(
+                command,
+                ChatCommand::Ignored | ChatCommand::AccessDenied { .. }
+            )
+        {
+            return None;
+        }
+
+        let now = Instant::now();
+        let user = privmsg.sender.to_ascii_lowercase();
+        if Self::is_limited(&mut self.last_command, &user, now, Duration::from_secs(2)) {
+            return Some(format!(
+                "@{} aguarde alguns segundos antes de usar outro comando.",
+                privmsg.sender
+            ));
+        }
+
+        match command {
+            ChatCommand::SongRequest(_) => {
+                if Self::is_limited(
+                    &mut self.last_song_request,
+                    &user,
+                    now,
+                    Duration::from_secs(10),
+                ) {
+                    return Some(format!(
+                        "@{} aguarde alguns segundos antes de pedir outra musica.",
+                        privmsg.sender
+                    ));
+                }
+            }
+            ChatCommand::RemoveLast { .. }
+                if Self::is_limited(&mut self.last_remove, &user, now, Duration::from_secs(5)) =>
+            {
+                return Some(format!(
+                    "@{} aguarde alguns segundos antes de remover de novo.",
+                    privmsg.sender
+                ));
+            }
+            _ => {}
+        }
+
+        None
+    }
+
+    fn is_limited(
+        store: &mut HashMap<String, Instant>,
+        user: &str,
+        now: Instant,
+        cooldown: Duration,
+    ) -> bool {
+        if store
+            .get(user)
+            .is_some_and(|last| now.duration_since(*last) < cooldown)
+        {
+            return true;
+        }
+
+        store.insert(user.to_string(), now);
+        false
+    }
+}
+
+fn sanitize_irc_reply(reply: &str) -> String {
+    reply
+        .chars()
+        .map(|ch| if ch.is_control() { ' ' } else { ch })
+        .collect::<String>()
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .chars()
+        .take(430)
+        .collect()
 }
 
 async fn remove_last_request_reply(state: &AppState, requester: String) -> String {
@@ -478,5 +580,15 @@ mod tests {
     #[test]
     fn ignores_non_privmsg() {
         assert!(Privmsg::parse(":tmi.twitch.tv 001 bot :Welcome").is_none());
+    }
+
+    #[test]
+    fn sanitizes_irc_reply_controls_and_length() {
+        let reply = sanitize_irc_reply("@viewer ok\r\nPRIVMSG #x :owned\u{0007}");
+
+        assert!(!reply.contains('\r'));
+        assert!(!reply.contains('\n'));
+        assert!(!reply.contains('\u{0007}'));
+        assert!(reply.len() <= 430);
     }
 }

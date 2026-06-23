@@ -1,6 +1,6 @@
 use anyhow::anyhow;
 use axum::{
-    extract::{Query, State},
+    extract::{DefaultBodyLimit, Query, State},
     http::{header::CONTENT_TYPE, HeaderMap, StatusCode},
     response::{Html, IntoResponse},
     routing::{get, post},
@@ -61,6 +61,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/player/youtube/finish", post(youtube_player_finish))
         .route("/api/player/youtube/event", post(youtube_player_event))
         .fallback(not_found)
+        .layer(DefaultBodyLimit::max(16 * 1024))
         .layer(TraceLayer::new_for_http())
         .with_state(state)
 }

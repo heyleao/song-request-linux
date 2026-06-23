@@ -351,14 +351,8 @@ fn normalize_command_settings(mut settings: CommandSettings) -> CommandSettings 
 fn normalize_aliases(values: Vec<String>, fallback: &[&str]) -> Vec<String> {
     let mut aliases = Vec::new();
     for value in values {
-        let value = value.trim();
-        if value.is_empty() {
+        let Some(alias) = sanitize_command_alias(&value) else {
             continue;
-        }
-        let alias = if value.starts_with('!') {
-            value.to_string()
-        } else {
-            format!("!{value}")
         };
         if !aliases
             .iter()
@@ -371,6 +365,30 @@ fn normalize_aliases(values: Vec<String>, fallback: &[&str]) -> Vec<String> {
         return fallback.iter().map(|value| value.to_string()).collect();
     }
     aliases
+}
+
+fn sanitize_command_alias(value: &str) -> Option<String> {
+    let value = value.trim();
+    if value.is_empty() || value.len() > 32 || value.chars().any(char::is_whitespace) {
+        return None;
+    }
+
+    let alias = if value.starts_with('!') {
+        value.to_string()
+    } else {
+        format!("!{value}")
+    };
+
+    let rest = alias.strip_prefix('!')?;
+    if rest.is_empty()
+        || !rest
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '_' | '-'))
+    {
+        return None;
+    }
+
+    Some(alias)
 }
 
 fn command_summary(settings: &CommandSettings) -> Vec<CommandSummary> {
@@ -541,5 +559,30 @@ mod tests {
         assert!(paths.state_dir.ends_with(APP_ID));
         assert!(paths.log_dir.ends_with(format!("{APP_ID}/logs")));
         assert!(paths.tls_dir.ends_with(format!("{APP_ID}/tls")));
+    }
+
+    #[test]
+    fn command_aliases_reject_control_whitespace_and_shell_chars() {
+        let mut settings = CommandSettings::default();
+        settings.aliases.song_request = vec![
+            "!ssr".to_string(),
+            "!bad\r\nPRIVMSG".to_string(),
+            "!with space".to_string(),
+            "!semi;colon".to_string(),
+        ];
+
+        let settings = normalize_command_settings(settings);
+
+        assert_eq!(settings.aliases.song_request, vec!["!ssr"]);
+    }
+
+    #[test]
+    fn command_aliases_fallback_when_all_values_are_rejected() {
+        let mut settings = CommandSettings::default();
+        settings.aliases.song_request = vec!["!bad\r\nPRIVMSG".to_string()];
+
+        let settings = normalize_command_settings(settings);
+
+        assert_eq!(settings.aliases.song_request, vec!["!sr"]);
     }
 }
