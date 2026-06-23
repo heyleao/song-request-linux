@@ -99,6 +99,7 @@ struct SpotifyQueueResponse {
 struct SpotifyPlayable {
     name: Option<String>,
     artists: Option<Vec<SpotifyArtist>>,
+    duration_ms: Option<u64>,
     #[serde(rename = "type")]
     item_type: Option<String>,
 }
@@ -108,6 +109,7 @@ struct SpotifyPlaybackResponse {
     is_playing: bool,
     item: Option<SpotifyPlayable>,
     context: Option<SpotifyPlaybackContext>,
+    progress_ms: Option<u64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -126,6 +128,8 @@ pub struct SpotifyPlayback {
     pub title: String,
     pub is_playing: bool,
     pub context_uri: Option<String>,
+    pub progress_ms: Option<u64>,
+    pub duration_ms: Option<u64>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -460,6 +464,7 @@ pub async fn current_playback(
     let Some(item) = playback.item else {
         return Ok(None);
     };
+    let duration_ms = item.duration_ms;
     let Some(title) = format_playable(item) else {
         return Ok(None);
     };
@@ -468,6 +473,8 @@ pub async fn current_playback(
         title,
         is_playing: playback.is_playing,
         context_uri: playback.context.and_then(|context| context.uri),
+        progress_ms: playback.progress_ms,
+        duration_ms,
     }))
 }
 

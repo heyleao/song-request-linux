@@ -358,21 +358,24 @@ async fn start_spotify_fallback_if_idle(state: &AppState) {
             if playback.is_playing
                 && playback.context_uri.as_deref() == Some(playlist.uri.as_str()) =>
         {
+            *state.spotify_manual_playback_title.lock().await = None;
             state.spotify_fallback_started.store(true, Ordering::SeqCst);
             return;
         }
-        Ok(Some(playback)) if playback.is_playing => {
-            state
-                .record_event(
-                    "player",
-                    format!(
-                        "Spotify saiu da playlist fallback; voltando para {}",
-                        playlist.name
-                    ),
-                )
-                .await;
+        Ok(Some(playback)) if playback.context_uri.as_deref() == Some(playlist.uri.as_str()) => {
+            *state.spotify_manual_playback_title.lock().await = None;
         }
-        Ok(_) => {}
+        Ok(Some(playback)) => {
+            if spotify_playback_finished(&playback) {
+                *state.spotify_manual_playback_title.lock().await = None;
+            } else {
+                remember_manual_spotify_playback(state, &playback.title).await;
+                return;
+            }
+        }
+        Ok(None) => {
+            *state.spotify_manual_playback_title.lock().await = None;
+        }
         Err(error) => {
             if !state.spotify_fallback_started.swap(true, Ordering::SeqCst) {
                 state
@@ -408,6 +411,19 @@ async fn start_spotify_fallback_if_idle(state: &AppState) {
                 .await;
         }
     }
+}
+
+fn spotify_playback_finished(playback: &spotify::SpotifyPlayback) -> bool {
+    if playback.is_playing {
+        return false;
+    }
+
+    let (Some(progress_ms), Some(duration_ms)) = (playback.progress_ms, playback.duration_ms)
+    else {
+        return false;
+    };
+
+    duration_ms > 0 && progress_ms.saturating_add(1_500) >= duration_ms
 }
 
 async fn pause_spotify_for_youtube(state: &AppState, message: &'static str) {
@@ -452,6 +468,23 @@ async fn pause_spotify_for_youtube(state: &AppState, message: &'static str) {
                 .await;
         }
     }
+}
+
+async fn remember_manual_spotify_playback(state: &AppState, title: &str) {
+    let mut manual_title = state.spotify_manual_playback_title.lock().await;
+    if manual_title.as_deref() == Some(title) {
+        return;
+    }
+
+    *manual_title = Some(title.to_string());
+    drop(manual_title);
+
+    state
+        .record_event(
+            "player",
+            format!("Spotify manual detectado; fallback aguardando fim: {title}"),
+        )
+        .await;
 }
 
 async fn mark_spotify_released(state: &AppState, message: &'static str) {
@@ -513,5 +546,42 @@ async fn resume_spotify_after_youtube(state: &AppState) {
                 .record_event("error", format!("Nao consegui retomar Spotify: {error}"))
                 .await;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn playback(
+        is_playing: bool,
+        progress_ms: Option<u64>,
+        duration_ms: Option<u64>,
+    ) -> spotify::SpotifyPlayback {
+        spotify::SpotifyPlayback {
+            title: "Manual Song - Artist".to_string(),
+            is_playing,
+            context_uri: None,
+            progress_ms,
+            duration_ms,
+        }
+    }
+
+    #[test]
+    fn manual_spotify_playback_paused_mid_song_is_not_finished() {
+        assert!(!spotify_playback_finished(&playback(
+            false,
+            Some(30_000),
+            Some(180_000)
+        )));
+    }
+
+    #[test]
+    fn manual_spotify_playback_at_end_is_finished() {
+        assert!(spotify_playback_finished(&playback(
+            false,
+            Some(179_000),
+            Some(180_000)
+        )));
     }
 }
