@@ -12,7 +12,7 @@ use tokio::{process::Command, time::timeout};
 use tower_http::trace::TraceLayer;
 
 use crate::{
-    commands::{parse_chat_command, ChatCommand, ChatCommandInput, PlaybackAction},
+    commands::{parse_chat_command, ChatCommand, ChatCommandInput, ChatUserRole, PlaybackAction},
     config::{self, YoutubePlayback},
     connections, dashboard,
     diagnostics::DiagnosticsResponse,
@@ -472,8 +472,8 @@ async fn chat_command(
     let settings = config::command_settings(&state.config.paths);
     let command = parse_chat_command(input, &settings);
     let response = match command {
-        ChatCommand::SongRequest(input) => {
-            let request = add_request_to_queue(&state, input).await?;
+        ChatCommand::SongRequest { input, role } => {
+            let request = add_request_to_queue_for_role(&state, input, role).await?;
             state
                 .record_event(
                     "request",
@@ -795,6 +795,28 @@ async fn add_request_to_queue(
     input: SongRequestInput,
 ) -> Result<SongRequest, ApiError> {
     match request_flow::add_request(state, input).await {
+        Ok(request) => {
+            save_current_queue_state(state).await?;
+            if matches!(request.source, RequestSource::Youtube { .. })
+                && matches!(state.config.youtube.playback, YoutubePlayback::Browser)
+            {
+                arm_youtube_after_current_spotify(state).await;
+            }
+            Ok(request)
+        }
+        Err(error) => {
+            state.record_event("error", error.to_string()).await;
+            Err(ApiError::bad_request(error))
+        }
+    }
+}
+
+async fn add_request_to_queue_for_role(
+    state: &AppState,
+    input: SongRequestInput,
+    role: ChatUserRole,
+) -> Result<SongRequest, ApiError> {
+    match request_flow::add_request_for_role(state, input, role).await {
         Ok(request) => {
             save_current_queue_state(state).await?;
             if matches!(request.source, RequestSource::Youtube { .. })

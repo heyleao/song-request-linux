@@ -7,7 +7,10 @@ use std::{
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
-use crate::{commands::CommandSettings, song_requests::MusicProvider};
+use crate::{
+    commands::{ChatUserRole, CommandSettings},
+    song_requests::MusicProvider,
+};
 
 pub const APP_ID: &str = "song-request-linux";
 pub const APP_NAME: &str = "Song Request Linux";
@@ -38,6 +41,7 @@ pub struct UserConfig {
     pub twitch_bot_username: Option<String>,
     pub twitch_channel: Option<String>,
     pub command_settings: CommandSettings,
+    pub queue_limits: QueueLimitConfig,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -62,6 +66,7 @@ pub struct UiConfigInput {
     pub youtube_max_duration_seconds: Option<u64>,
     pub youtube_allow_non_music: bool,
     pub command_settings: Option<CommandSettings>,
+    pub queue_limits: Option<QueueLimitConfig>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -79,7 +84,39 @@ pub struct UiConfigView {
     pub youtube_max_duration_seconds: u64,
     pub youtube_allow_non_music: bool,
     pub command_settings: CommandSettings,
+    pub queue_limits: QueueLimitConfig,
     pub commands_summary: Vec<CommandSummary>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(default)]
+pub struct QueueLimitConfig {
+    pub viewer: u16,
+    pub vip: u16,
+    pub moderator: u16,
+    pub streamer: u16,
+}
+
+impl Default for QueueLimitConfig {
+    fn default() -> Self {
+        Self {
+            viewer: 1,
+            vip: 3,
+            moderator: 10,
+            streamer: 0,
+        }
+    }
+}
+
+impl QueueLimitConfig {
+    pub fn limit_for(&self, role: ChatUserRole) -> u16 {
+        match role {
+            ChatUserRole::Viewer => self.viewer,
+            ChatUserRole::Vip => self.vip,
+            ChatUserRole::Moderator => self.moderator,
+            ChatUserRole::Streamer => self.streamer,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -182,6 +219,7 @@ impl Default for UserConfig {
             twitch_bot_username: None,
             twitch_channel: None,
             command_settings: CommandSettings::default(),
+            queue_limits: QueueLimitConfig::default(),
         }
     }
 }
@@ -292,6 +330,7 @@ impl UiConfigView {
             youtube_max_duration_seconds: user_config.youtube_max_duration_seconds,
             youtube_allow_non_music: user_config.youtube_allow_non_music,
             command_settings: user_config.command_settings.clone(),
+            queue_limits: user_config.queue_limits.clone(),
             commands_summary: command_summary(&user_config.command_settings),
         }
     }
@@ -318,6 +357,7 @@ pub fn save_ui_config(paths: &AppPaths, input: UiConfigInput) -> Result<UiConfig
         twitch_bot_username: clean_optional_value(input.twitch_bot_username),
         twitch_channel: clean_optional_value(input.twitch_channel),
         command_settings: normalize_command_settings(input.command_settings.unwrap_or_default()),
+        queue_limits: normalize_queue_limits(input.queue_limits.unwrap_or_default()),
     };
     let user_secrets = UserSecrets {
         twitch_bot_oauth_token: clean_optional_value(input.twitch_bot_oauth_token)
@@ -341,6 +381,14 @@ pub fn command_settings(paths: &AppPaths) -> CommandSettings {
     load_user_config_from_paths(paths)
         .map(|config| normalize_command_settings(config.command_settings))
         .unwrap_or_default()
+}
+
+fn normalize_queue_limits(mut limits: QueueLimitConfig) -> QueueLimitConfig {
+    limits.viewer = limits.viewer.min(100);
+    limits.vip = limits.vip.min(100);
+    limits.moderator = limits.moderator.min(100);
+    limits.streamer = limits.streamer.min(100);
+    limits
 }
 
 fn normalize_command_settings(mut settings: CommandSettings) -> CommandSettings {

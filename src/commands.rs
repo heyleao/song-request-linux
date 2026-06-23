@@ -15,7 +15,10 @@ pub struct ChatCommandInput {
 #[derive(Clone, Debug, Serialize, PartialEq, Eq)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ChatCommand {
-    SongRequest(SongRequestInput),
+    SongRequest {
+        input: SongRequestInput,
+        role: ChatUserRole,
+    },
     CurrentSong,
     Queue,
     RemoveLast {
@@ -156,10 +159,13 @@ pub fn parse_chat_command(input: ChatCommandInput, settings: &CommandSettings) -
             return denied;
         }
 
-        return ChatCommand::SongRequest(SongRequestInput {
-            requester,
-            query: clean_field(query),
-        });
+        return ChatCommand::SongRequest {
+            input: SongRequestInput {
+                requester,
+                query: clean_field(query),
+            },
+            role,
+        };
     }
 
     if matches_command(message, &settings.aliases.current_song) {
@@ -415,10 +421,13 @@ mod tests {
 
         assert_eq!(
             command,
-            ChatCommand::SongRequest(SongRequestInput {
-                requester: "bruno".to_string(),
-                query: "daft punk one more time".to_string()
-            })
+            ChatCommand::SongRequest {
+                input: SongRequestInput {
+                    requester: "bruno".to_string(),
+                    query: "daft punk one more time".to_string()
+                },
+                role: ChatUserRole::Viewer
+            }
         );
     }
 
@@ -581,7 +590,7 @@ mod tests {
             &settings,
         );
 
-        assert!(matches!(vip, ChatCommand::SongRequest(_)));
+        assert!(matches!(vip, ChatCommand::SongRequest { .. }));
         assert_eq!(
             viewer,
             ChatCommand::AccessDenied {
@@ -648,10 +657,13 @@ mod tests {
 
         assert_eq!(
             command,
-            ChatCommand::SongRequest(SongRequestInput {
-                requester: "viewer".to_string(),
-                query: "scatman".to_string()
-            })
+            ChatCommand::SongRequest {
+                input: SongRequestInput {
+                    requester: "viewer".to_string(),
+                    query: "scatman".to_string()
+                },
+                role: ChatUserRole::Viewer
+            }
         );
     }
 }

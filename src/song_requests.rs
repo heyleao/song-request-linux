@@ -210,6 +210,15 @@ impl SongQueue {
         None
     }
 
+    pub fn pending_count_by_requester(&self, requester: &str) -> usize {
+        let requester = requester.trim();
+        self.current_song
+            .iter()
+            .chain(self.queue.iter())
+            .filter(|song| song.requester.eq_ignore_ascii_case(requester))
+            .count()
+    }
+
     pub fn clear(&mut self) {
         self.current_song = None;
         self.queue.clear();

@@ -129,9 +129,9 @@ async fn handle_privmsg(
     }
 
     match command {
-        ChatCommand::SongRequest(input) => {
+        ChatCommand::SongRequest { input, role } => {
             let requester = input.requester.clone();
-            match request_flow::add_request(state, input).await {
+            match request_flow::add_request_for_role(state, input, role).await {
                 Ok(request) => {
                     state
                         .record_event(
@@ -208,7 +208,7 @@ impl ChatRateLimiter {
         }
 
         match command {
-            ChatCommand::SongRequest(_) => {
+            ChatCommand::SongRequest { .. } => {
                 if Self::is_limited(
                     &mut self.last_song_request,
                     &user,

@@ -758,7 +758,21 @@ pub async fn page() -> Html<&'static str> {
                 </select>
               </label>
             </div>
-            <p class="field-note">Use vírgula para aliases e barra vertical para grupos: atual | fila | remover. Exemplo: !song | !fila, !queue | !rm, !remove.</p>
+            <div class="command-access-grid">
+              <label>Limite viewer
+                <input id="setup-limit-viewer" type="number" inputmode="numeric" min="0" max="100" step="1" value="1">
+              </label>
+              <label>Limite VIP
+                <input id="setup-limit-vip" type="number" inputmode="numeric" min="0" max="100" step="1" value="3">
+              </label>
+              <label>Limite moderador
+                <input id="setup-limit-moderator" type="number" inputmode="numeric" min="0" max="100" step="1" value="10">
+              </label>
+              <label>Limite streamer
+                <input id="setup-limit-streamer" type="number" inputmode="numeric" min="0" max="100" step="1" value="0">
+              </label>
+            </div>
+            <p class="field-note">Use vírgula para aliases e barra vertical para grupos: atual | fila | remover. Exemplo: !song | !fila, !queue | !rm, !remove. Limite 0 significa sem limite.</p>
           </section>
         </div>
 
@@ -883,6 +897,21 @@ pub async fn page() -> Html<&'static str> {
       return fallbackGroups.map((fallback, index) => groups[index]?.length ? groups[index] : fallback);
     }
 
+    function numberFromInput(id, fallback) {
+      const value = Number($(id).value);
+      if (!Number.isFinite(value)) return fallback;
+      return Math.max(0, Math.min(100, Math.floor(value)));
+    }
+
+    function queueLimitsFromForm() {
+      return {
+        viewer: numberFromInput('setup-limit-viewer', 1),
+        vip: numberFromInput('setup-limit-vip', 3),
+        moderator: numberFromInput('setup-limit-moderator', 10),
+        streamer: numberFromInput('setup-limit-streamer', 0)
+      };
+    }
+
     function commandSettingsFromForm() {
       const current = lastConfig?.command_settings || {};
       const aliases = current.aliases || {};
@@ -945,6 +974,11 @@ pub async fn page() -> Html<&'static str> {
       $('setup-access-remove').value = access.remove || 'everyone';
       $('setup-access-playback').value = access.playback || 'moderator';
       $('setup-access-volume-set').value = access.volume_set || 'moderator';
+      const limits = config.queue_limits || {};
+      $('setup-limit-viewer').value = limits.viewer ?? 1;
+      $('setup-limit-vip').value = limits.vip ?? 3;
+      $('setup-limit-moderator').value = limits.moderator ?? 10;
+      $('setup-limit-streamer').value = limits.streamer ?? 0;
     }
 
     function sourceLabel(source) {
@@ -1154,8 +1188,12 @@ pub async fn page() -> Html<&'static str> {
           <code>${escapeHtml((command.aliases || []).join(', '))}</code>
         </div>
       `).join('');
+      const limits = config.queue_limits || {};
+      const limitHtml = `
+        <div class="diagnostic-row"><span>Limites da fila</span><code>viewer ${limits.viewer ?? 1} · VIP ${limits.vip ?? 3} · mod ${limits.moderator ?? 10} · streamer ${limits.streamer ?? 0}</code></div>
+      `;
       $('setup-diagnostics').innerHTML = html;
-      $('setup-summary').innerHTML = `${html}<div class="divider"></div>${commandHtml}`;
+      $('setup-summary').innerHTML = `${html}<div class="divider"></div>${limitHtml}${commandHtml}`;
     }
 
     async function refresh() {
@@ -1390,7 +1428,8 @@ pub async fn page() -> Html<&'static str> {
           youtube_api_key: $('setup-youtube-api-key').value,
           youtube_max_duration_seconds: Number($('setup-youtube-max-duration').value || 360),
           youtube_allow_non_music: $('setup-youtube-allow-non-music').checked,
-          command_settings: commandSettingsFromForm()
+          command_settings: commandSettingsFromForm(),
+          queue_limits: queueLimitsFromForm()
         })
       });
       $('setup-youtube-api-key').value = '';
