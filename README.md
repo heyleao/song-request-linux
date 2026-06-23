@@ -150,6 +150,8 @@ Moderator/broadcaster:
 ```
 
 Command aliases and access levels are configurable in the dashboard setup tab.
+Roles come from the official Twitch IRC tags/badges sent with each chat message
+(`broadcaster`, `moderator`, `vip` and regular viewer), not from a local bot list.
 For example, `!sr` can be changed to `!ssr`, and moderator-only commands can be
 opened to everyone if the streamer wants that.
 

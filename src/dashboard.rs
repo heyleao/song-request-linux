@@ -818,7 +818,7 @@ pub async fn page() -> Html<&'static str> {
                 <input id="setup-limit-streamer" type="number" inputmode="numeric" min="0" max="100" step="1" value="0">
               </label>
             </div>
-            <p class="field-note">As permissões seguem os cargos reais da Twitch: viewer, VIP, moderador e streamer. Limite 0 significa sem limite.</p>
+            <p class="field-note">As permissões usam as badges/tags oficiais que a Twitch envia em cada mensagem do chat: viewer, VIP, moderador e streamer. Limite 0 significa sem limite.</p>
           </section>
         </div>
 

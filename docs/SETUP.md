@@ -118,6 +118,8 @@ Moderador/broadcaster:
 ```
 
 Aliases e permissoes dos comandos ficam na aba Configuracao do dashboard.
+Os cargos vêm das tags/badges oficiais que a Twitch envia em cada mensagem do chat
+(`broadcaster`, `moderator`, `vip` e viewer comum), nao de uma lista local do bot.
 Exemplo: o comando de pedido pode ser `!sr`, `!ssr` ou outro alias escolhido.
 
 ## 5. Abrir E Fechar
