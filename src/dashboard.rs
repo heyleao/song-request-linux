@@ -899,6 +899,15 @@ pub async fn page() -> Html<&'static str> {
       $('setup-active-provider').textContent = provider;
 
       if (config.default_provider === 'spotify') {
+        const spotifyProduct = connections.spotify.product;
+        const premiumState = connections.spotify.premium === true ? 'ok' : connections.spotify.premium === false ? 'bad' : 'warn';
+        const premiumDetail = connections.spotify.premium === true
+          ? 'Conta Premium confirmada pelo Spotify. Mantenha o app Spotify aberto com um device ativo.'
+          : connections.spotify.premium === false
+            ? `Conta logada reportou plano ${spotifyProduct || 'nao premium'}. Controle de fila/playback exige Premium.`
+            : connections.spotify.product_check_error
+              ? 'Nao consegui validar o plano. Clique em Login Spotify para conceder o escopo user-read-private.'
+              : 'Plano ainda nao validado. Clique em Login Spotify se esta mensagem continuar aparecendo.';
         $('setup-provider-help').textContent = 'Pedidos por texto entram no Spotify. Para tocar de primeira, mantenha Client ID, login e um device ativo.';
         $('setup-provider-requirements').innerHTML = [
           requirementRow(
@@ -912,9 +921,9 @@ pub async fn page() -> Html<&'static str> {
             connections.spotify.token_configured ? 'OAuth conectado.' : 'Clique em Login Spotify depois de salvar o Client ID.'
           ),
           requirementRow(
-            connections.spotify.token_configured ? 'warn' : 'bad',
+            premiumState,
             'Premium e device ativo',
-            'Abra o Spotify e deixe uma música pronta para o app conseguir controlar fila, pause e volume.'
+            premiumDetail
           )
         ].join('');
         return;

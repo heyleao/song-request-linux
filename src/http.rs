@@ -164,10 +164,10 @@ async fn save_config(
 }
 
 async fn connections_status(State(state): State<AppState>) -> Json<ConnectionsStatus> {
-    let spotify_token = state.spotify_token.read().await;
+    let mut spotify_token = state.spotify_token.write().await;
 
     Json(ConnectionsStatus {
-        spotify: spotify::connection_status(&state.config, spotify_token.as_ref()),
+        spotify: spotify::connection_status(&state.config, spotify_token.as_mut()).await,
     })
 }
 

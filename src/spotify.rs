@@ -25,7 +25,7 @@ const AUTH_URL: &str = "https://accounts.spotify.com/authorize";
 const TOKEN_URL: &str = "https://accounts.spotify.com/api/token";
 const API_URL: &str = "https://api.spotify.com/v1";
 const SCOPES: &str =
-    "user-read-playback-state user-modify-playback-state user-read-currently-playing playlist-read-private playlist-read-collaborative";
+    "user-read-private user-read-playback-state user-modify-playback-state user-read-currently-playing playlist-read-private playlist-read-collaborative";
 
 #[derive(Clone, Debug)]
 pub struct SpotifyAuthSession {
@@ -50,6 +50,9 @@ pub struct SpotifyAuthStart {
 pub struct SpotifyConnectionStatus {
     pub client_id_configured: bool,
     pub token_configured: bool,
+    pub product: Option<String>,
+    pub premium: Option<bool>,
+    pub product_check_error: Option<String>,
     pub redirect_uri: String,
     pub scopes: &'static str,
     pub fallback_playlist: Option<SpotifyFallbackPlaylist>,
@@ -159,17 +162,67 @@ struct SpotifyArtist {
     name: String,
 }
 
-pub fn connection_status(
+#[derive(Debug, Deserialize)]
+struct SpotifyCurrentUserProfile {
+    product: Option<String>,
+}
+
+pub async fn connection_status(
     config: &AppConfig,
-    token: Option<&SpotifyToken>,
+    token: Option<&mut SpotifyToken>,
 ) -> SpotifyConnectionStatus {
+    let token_configured = token.is_some();
+    let mut product = None;
+    let mut product_check_error = None;
+    if let Some(token) = token {
+        match current_user_product(config, token).await {
+            Ok(Some(value)) => product = Some(value),
+            Ok(None) => {
+                product_check_error =
+                    Some("Spotify profile did not include product; reconnect with user-read-private scope".to_string());
+            }
+            Err(error) => product_check_error = Some(error.to_string()),
+        }
+    }
+    let premium = product.as_ref().map(|value| value == "premium");
+
     SpotifyConnectionStatus {
         client_id_configured: config.spotify.client_id.is_some(),
-        token_configured: token.is_some(),
+        token_configured,
+        product,
+        premium,
+        product_check_error,
         redirect_uri: config.spotify.redirect_uri.clone(),
         scopes: SCOPES,
         fallback_playlist: load_fallback_playlist(config).ok().flatten(),
     }
+}
+
+pub async fn current_user_product(
+    config: &AppConfig,
+    token: &mut SpotifyToken,
+) -> Result<Option<String>> {
+    refresh_if_needed(config, token).await?;
+
+    let response = Client::new()
+        .get(format!("{API_URL}/me"))
+        .bearer_auth(&token.access_token)
+        .send()
+        .await
+        .context("failed to read Spotify profile")?;
+
+    let status = response.status();
+    if !status.is_success() {
+        let body = response.text().await.unwrap_or_default();
+        warn!(
+            status = %status,
+            response = %body,
+            "spotify profile request failed"
+        );
+        bail!("spotify profile failed with {status}: {body}");
+    }
+
+    Ok(response.json::<SpotifyCurrentUserProfile>().await?.product)
 }
 
 pub fn start_auth(config: &AppConfig) -> Result<(SpotifyAuthStart, SpotifyAuthSession)> {
