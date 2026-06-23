@@ -1,21 +1,39 @@
-# Song Request Linux
+<p align="center">
+  <img src="assets/logo-srl.png" alt="Song Request Linux" width="160">
+</p>
 
-Linux-first Twitch song request app for Spotify and YouTube.
+<h1 align="center">Song Request Linux</h1>
 
-The app runs as a local web dashboard, works well on Linux/Wayland, and avoids
-Wine/WebView2/Windows-only dependencies. It is inspired by the streamer workflow
-of Songify, but it is not a fork and is not affiliated with Songify or
-Songify.Rocks.
+<p align="center">
+  Song requests for Twitch lives on Linux, with Spotify, YouTube, OBS overlay and a local dashboard.
+</p>
+
+<p align="center">
+  <a href="docs/SETUP.md">Setup Guide</a> ·
+  <a href="#run">Install</a> ·
+  <a href="#commands">Commands</a> ·
+  <a href="#urls">OBS URLs</a>
+</p>
+
+---
+
+Song Request Linux is a Linux-first Twitch song request app for streamers. It
+runs as a local web dashboard, works well on Linux/Wayland, and avoids
+Wine/WebView2/Windows-only dependencies.
+
+It is inspired by the streamer workflow of Songify, but it is not a fork and is
+not affiliated with Songify or Songify.Rocks.
 
 ## What Works
 
 - Twitch bot commands for song requests and player control.
+- Guided setup screen for Twitch, Spotify, YouTube, OBS and live behavior.
 - Spotify OAuth, search, queue control, playback control and fallback playlist selection.
+- Spotify fallback stays on the selected playlist when the request queue is empty.
 - Hybrid request routing: Spotify search by default, YouTube links as YouTube requests.
 - YouTube text search validation with duration/category policy through YouTube Data API v3.
 - YouTube playback through Pear Desktop API or the local OBS browser source.
 - Local OBS overlay at `http://127.0.0.1:7384/overlay`.
-- Local YouTube player source at `http://127.0.0.1:7384/player`.
 - Local web dashboard with operation, setup, logs and guide tabs.
 - Desktop-style launcher with single-instance behavior and clean shutdown.
 
@@ -160,7 +178,8 @@ opened to everyone if the streamer wants that.
 Spotify playback is limited to a stream-safe Spotify `Computer` device so the
 app does not transfer requested songs or fallback playback to a phone. The setup
 tab can store a Spotify fallback playlist and enable it when the local request
-queue is empty.
+queue is empty. If Spotify moves away from that selected fallback playlist while
+there are no requests, the app starts the selected playlist again.
 
 For YouTube, the recommended mode is Pear Desktop with its API Server enabled at
 `http://127.0.0.1:26538/api/v1`; the app sends YouTube requests to Pear's queue.
