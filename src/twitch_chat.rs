@@ -411,7 +411,7 @@ async fn queue_reply(state: &AppState) -> String {
 async fn volume_reply(state: &AppState, requester: String, level: Option<u8>) -> String {
     match level {
         Some(level) => {
-            let level = level.min(100);
+            let level = level.clamp(1, 100);
             let mut changed = Vec::new();
             let mut errors = Vec::new();
 

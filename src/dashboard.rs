@@ -838,7 +838,9 @@ pub async fn page() -> Html<&'static str> {
     const $ = (id) => document.getElementById(id);
     let setupDirty = false;
     let lastConfig = null;
-    let volumeBusy = false;
+    let desiredVolume = null;
+    let volumeTimer = null;
+    let volumeInFlight = false;
     let spotifyPlaylists = [];
 
     async function api(path, options = {}) {
@@ -1077,7 +1079,7 @@ pub async fn page() -> Html<&'static str> {
     }
 
     async function refreshVolume() {
-      if (volumeBusy) return;
+      if (volumeInFlight || desiredVolume !== null) return;
       try {
         renderVolume(await api('/api/volume'));
       } catch (error) {
@@ -1290,29 +1292,48 @@ pub async fn page() -> Html<&'static str> {
     $('pause-command').addEventListener('click', () => playerCommand('!pause'));
     $('skip').addEventListener('click', () => playerCommand('!skip'));
 
-    async function adjustVolume(delta) {
-      if (volumeBusy) return;
-      const currentLevel = Number(($('volume-level').textContent.match(/\d+/) || [50])[0]);
-      const optimisticLevel = Math.max(0, Math.min(100, currentLevel + delta));
+    function currentVolumeLevel() {
+      return Number(($('volume-level').textContent.match(/\d+/) || [50])[0]);
+    }
+
+    function clampVolume(level) {
+      return Math.max(1, Math.min(100, level));
+    }
+
+    function scheduleVolumeApply() {
+      clearTimeout(volumeTimer);
+      volumeTimer = setTimeout(applyDesiredVolume, 180);
+    }
+
+    function adjustVolume(delta) {
+      const base = desiredVolume ?? currentVolumeLevel();
+      desiredVolume = clampVolume(base + delta);
+      renderVolume({ level: desiredVolume, message: 'Volume desejado; aplicando em segundo plano...' });
+      setMessage('player-message', `Volume desejado: ${desiredVolume}%`);
+      scheduleVolumeApply();
+    }
+
+    async function applyDesiredVolume() {
+      if (volumeInFlight || desiredVolume === null) return;
+      const target = desiredVolume;
+      volumeInFlight = true;
       try {
-        volumeBusy = true;
-        $('volume-down').disabled = true;
-        $('volume-up').disabled = true;
-        renderVolume({ level: optimisticLevel, message: 'Ajustando volume...' });
         const result = await api('/api/volume', {
           method: 'POST',
-          body: JSON.stringify({ delta })
+          body: JSON.stringify({ level: target })
         });
-        renderVolume(result);
-        setMessage('player-message', result.message || 'Volume ajustado.');
+        if (desiredVolume === target) {
+          desiredVolume = null;
+          renderVolume(result.level === target ? result : { ...result, level: target });
+          setMessage('player-message', result.message || `Volume ajustado para ${target}%.`);
+        }
       } catch (error) {
-        setMessage('player-message', error.message, true);
-        volumeBusy = false;
-        await refreshVolume();
+        setMessage('player-message', `Volume ${target}% pendente: ${error.message}`, true);
       } finally {
-        volumeBusy = false;
-        $('volume-down').disabled = false;
-        $('volume-up').disabled = false;
+        volumeInFlight = false;
+        if (desiredVolume !== null && desiredVolume !== target) {
+          scheduleVolumeApply();
+        }
       }
     }
 

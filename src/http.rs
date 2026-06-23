@@ -655,7 +655,7 @@ async fn spotify_playback_message(
 async fn volume_message(state: &AppState, requester: String, level: Option<u8>) -> String {
     match level {
         Some(level) => {
-            let level = level.min(100);
+            let level = level.clamp(1, 100);
             let mut changed = Vec::new();
             let mut errors = Vec::new();
 
@@ -984,7 +984,7 @@ async fn set_volume(
     let target = input
         .level
         .unwrap_or_else(|| current.level.unwrap_or(50).saturating_add_signed(delta))
-        .min(100);
+        .clamp(1, 100);
 
     let message = volume_message(&state, "dashboard".to_string(), Some(target)).await;
     let mut response = read_volume(&state).await;
