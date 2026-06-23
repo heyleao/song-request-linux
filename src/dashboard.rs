@@ -1299,9 +1299,21 @@ pub async fn page() -> Html<&'static str> {
       $('setup-spotify-fallback-playlist').value = selectedId || '';
     }
 
-    function renderSpotifyFallback(connections) {
+    function setSpotifyFallbackControls(enabled) {
+      $('setup-spotify-fallback-playlist').disabled = !enabled;
+      $('setup-spotify-load-playlists').disabled = !enabled;
+      $('setup-spotify-save-playlist').disabled = !enabled;
+      $('setup-spotify-fallback-playlist').title = enabled
+        ? ''
+        : 'Ative a playlist fallback para escolher uma playlist.';
+    }
+
+    function renderSpotifyFallback(connections, config) {
       const selected = connections.spotify.fallback_playlist;
       const selectedId = selected?.id || '';
+      const enabled = Boolean(config.spotify_fallback_enabled);
+      $('setup-spotify-fallback-enabled').checked = enabled;
+      setSpotifyFallbackControls(enabled);
       const hasSelected = selected && !spotifyPlaylists.some((playlist) => playlist.id === selected.id);
       const playlists = hasSelected ? [selected, ...spotifyPlaylists] : spotifyPlaylists;
       fillSpotifyPlaylistOptions(playlists, selectedId);
@@ -1328,7 +1340,7 @@ pub async fn page() -> Html<&'static str> {
         ? 'Texto do !sr busca no Spotify. Links do YouTube continuam entrando direto no YouTube/Pear.'
         : 'Texto do !sr busca no YouTube. Use Spotify apenas quando trocar o provider para Spotify.';
       renderProviderRequirements(config, connections, pear);
-      renderSpotifyFallback(connections);
+      renderSpotifyFallback(connections, config);
 
       const rows = [
         ['Bot Twitch', twitchReady ? 'configurado' : 'não configurado'],
@@ -1379,7 +1391,8 @@ pub async fn page() -> Html<&'static str> {
           $('setup-provider').value = config.default_provider;
           $('setup-spotify-client-id').value = config.spotify_client_id || '';
           $('setup-twitch-client-id').value = config.twitch_client_id || '';
-          $('setup-spotify-fallback-enabled').checked = Boolean(config.spotify_fallback_enabled);
+          $('setup-spotify-fallback-enabled').checked = Boolean(config.spotify_fallback_enabled || connections.spotify.fallback_playlist);
+          setSpotifyFallbackControls($('setup-spotify-fallback-enabled').checked);
           $('setup-twitch-bot-username').value = config.twitch_bot_username || '';
           $('setup-twitch-channel').value = config.twitch_channel || '';
           $('setup-youtube-playback').value = config.youtube_playback || 'pear';
@@ -1613,6 +1626,18 @@ pub async fn page() -> Html<&'static str> {
       }
     });
 
+    $('setup-spotify-fallback-enabled').addEventListener('change', async () => {
+      try {
+        setSpotifyFallbackControls($('setup-spotify-fallback-enabled').checked);
+        await saveSetup($('setup-spotify-fallback-enabled').checked
+          ? 'Playlist fallback ativada.'
+          : 'Playlist fallback desativada.');
+      } catch (error) {
+        setMessage('setup-message', error.message, true);
+        setSpotifyFallbackControls($('setup-spotify-fallback-enabled').checked);
+      }
+    });
+
     $('provider-spotify').addEventListener('click', async () => {
       try {
         $('setup-provider').value = 'spotify';
@@ -1666,14 +1691,16 @@ pub async fn page() -> Html<&'static str> {
     $('setup-spotify-save-playlist').addEventListener('click', async () => {
       try {
         const id = $('setup-spotify-fallback-playlist').value;
-        const playlist = spotifyPlaylists.find((item) => item.id === id);
+        const playlist = spotifyPlaylists.find((item) => item.id === id)
+          || (await api('/api/connections/status')).spotify.fallback_playlist;
         if (!playlist) throw new Error('Carregue e selecione uma playlist primeiro.');
         await api('/api/spotify/fallback-playlist', {
           method: 'POST',
           body: JSON.stringify({ id: playlist.id, name: playlist.name, uri: playlist.uri })
         });
-        setMessage('setup-message', `Playlist fallback salva: ${playlist.name}.`);
-        await refresh();
+        $('setup-spotify-fallback-enabled').checked = true;
+        setSpotifyFallbackControls(true);
+        await saveSetup(`Playlist fallback salva e ativada: ${playlist.name}.`);
       } catch (error) {
         setMessage('setup-message', error.message, true);
       }
