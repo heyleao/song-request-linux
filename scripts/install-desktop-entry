@@ -6,7 +6,7 @@ DESKTOP_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
 DESKTOP_FILE="$DESKTOP_DIR/song-request-linux.desktop"
 
 mkdir -p "$DESKTOP_DIR"
-chmod +x "$APP_DIR/scripts/song-request-linux-open" "$APP_DIR/scripts/song-request-linux-stop"
+chmod +x "$APP_DIR/scripts/install-cachyos-deps" "$APP_DIR/scripts/song-request-linux-open" "$APP_DIR/scripts/song-request-linux-stop"
 
 cat >"$DESKTOP_FILE" <<EOF
 [Desktop Entry]

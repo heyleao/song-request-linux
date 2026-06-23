@@ -42,8 +42,11 @@ The dashboard guide links directly to:
 Install dependencies on CachyOS/Arch:
 
 ```bash
-sudo pacman -S --needed rust cargo git pkgconf openssl
+./scripts/install-cachyos-deps --with-pear
 ```
+
+Use `--all` instead if you also want the OBS Browser Source fallback through
+`yt-dlp`.
 
 Install the desktop entry and open the app:
 
@@ -59,6 +62,23 @@ Stop the app:
 ```
 
 You can also stop it from the dashboard with `Encerrar`.
+
+## Distribution
+
+The simplest supported distribution path for now is CachyOS/Arch:
+
+```bash
+git clone https://github.com/heyleao/song-request-linux.git
+cd song-request-linux
+./scripts/install-cachyos-deps --with-pear
+./scripts/install-desktop-entry
+./scripts/song-request-linux-open
+```
+
+This keeps Pear Desktop as an external player dependency instead of bundling it
+inside this app. That makes updates, audio capture, and Linux desktop
+integration simpler. A packaged release can later wrap these same steps in an
+Arch package or AppImage.
 
 ## URLs
 

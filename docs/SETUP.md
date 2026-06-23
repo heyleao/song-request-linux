@@ -77,11 +77,15 @@ bloquear videos que nao estejam na categoria Musica.
 
 Para usar o modo `Pear Desktop`:
 
-1. Instale e abra o Pear Desktop / YouTube Music Desktop.
-2. Ative o plugin `API Server`.
-3. Use host `0.0.0.0` ou `127.0.0.1`, porta `26538`.
-4. Deixe a estrategia de autorizacao como `No Authorization`.
-5. Reinicie o Pear depois de ativar o plugin.
+1. Instale o Pear Desktop:
+   ```bash
+   ./scripts/install-cachyos-deps --with-pear
+   ```
+2. Abra o Pear Desktop / YouTube Music Desktop.
+3. Ative o plugin `API Server`.
+4. Use host `0.0.0.0` ou `127.0.0.1`, porta `26538`.
+5. Deixe a estrategia de autorizacao como `No Authorization`.
+6. Reinicie o Pear depois de ativar o plugin.
 
 Nesse modo, o app envia pedidos YouTube para a fila do Pear. A fonte
 `/player` do OBS fica como fallback para o modo `Browser Source OBS`.

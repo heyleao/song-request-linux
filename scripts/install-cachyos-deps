@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+WITH_PEAR=0
+WITH_BROWSER_PLAYER=0
+
+for arg in "$@"; do
+  case "$arg" in
+    --with-pear)
+      WITH_PEAR=1
+      ;;
+    --with-browser-player)
+      WITH_BROWSER_PLAYER=1
+      ;;
+    --all)
+      WITH_PEAR=1
+      WITH_BROWSER_PLAYER=1
+      ;;
+    -h|--help)
+      cat <<'EOF'
+Usage: ./scripts/install-cachyos-deps [--with-pear] [--with-browser-player] [--all]
+
+Installs runtime/build dependencies on CachyOS/Arch.
+
+Options:
+  --with-pear            Install Pear Desktop for stable YouTube playback
+  --with-browser-player  Install yt-dlp for the OBS Browser Source fallback
+  --all                  Install both optional YouTube playback backends
+EOF
+      exit 0
+      ;;
+    *)
+      echo "Unknown option: $arg" >&2
+      exit 2
+      ;;
+  esac
+done
+
+PACKAGES=(rust cargo git pkgconf openssl)
+
+if (( WITH_PEAR )); then
+  PACKAGES+=(pear-desktop)
+fi
+
+if (( WITH_BROWSER_PLAYER )); then
+  PACKAGES+=(yt-dlp)
+fi
+
+sudo pacman -S --needed "${PACKAGES[@]}"
