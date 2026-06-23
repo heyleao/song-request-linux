@@ -36,6 +36,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/status", get(status))
         .route("/api/events", get(events))
         .route("/api/diagnostics", get(diagnostics))
+        .route("/api/update", post(update_from_github))
         .route("/api/config", get(get_config).post(save_config))
         .route("/api/connections/status", get(connections_status))
         .route("/api/connections/spotify/start", post(spotify_start))
@@ -106,6 +107,42 @@ async fn status(State(state): State<AppState>) -> Json<StatusResponse> {
 
 async fn diagnostics(State(state): State<AppState>) -> Json<DiagnosticsResponse> {
     Json(DiagnosticsResponse::collect(&state.config))
+}
+
+async fn update_from_github(headers: HeaderMap) -> Result<Json<UpdateResponse>, ApiError> {
+    let allowed = headers
+        .get("x-song-request-action")
+        .and_then(|value| value.to_str().ok())
+        .is_some_and(|value| value == "update");
+    if !allowed {
+        return Err(ApiError::bad_request(anyhow!(
+            "update confirmation header missing"
+        )));
+    }
+
+    let app_dir = std::env::current_dir().map_err(|error| ApiError::bad_request(error.into()))?;
+    let script = app_dir.join("scripts/update-from-github");
+    if !script.is_file() {
+        return Err(ApiError::bad_request(anyhow!(
+            "update script not found at {}",
+            script.display()
+        )));
+    }
+
+    let escaped_dir = app_dir.display().to_string().replace('\'', "'\\''");
+    Command::new("setsid")
+        .arg("sh")
+        .arg("-c")
+        .arg(format!(
+            "cd '{escaped_dir}' && ./scripts/update-from-github --restart"
+        ))
+        .spawn()
+        .map_err(|error| ApiError::bad_request(error.into()))?;
+
+    Ok(Json(UpdateResponse {
+        status: "updating",
+        message: "Atualizacao iniciada. O app vai reiniciar em alguns segundos.",
+    }))
 }
 
 async fn events(State(state): State<AppState>) -> Json<Vec<crate::state::AppEvent>> {
@@ -1059,6 +1096,12 @@ impl YoutubePlayerSong {
 #[derive(Debug, Serialize)]
 struct ShutdownResponse {
     status: &'static str,
+}
+
+#[derive(Debug, Serialize)]
+struct UpdateResponse {
+    status: &'static str,
+    message: &'static str,
 }
 
 #[derive(Debug, Serialize)]

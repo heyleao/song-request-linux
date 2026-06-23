@@ -62,6 +62,12 @@ For the easiest local install, use the friendly installer:
 ./scripts/install-user-friendly --with-pear
 ```
 
+Update from the current GitHub remote:
+
+```bash
+./scripts/update-from-github --restart
+```
+
 Manual desktop entry install remains available:
 
 ```bash
@@ -76,6 +82,18 @@ Stop the app:
 ```
 
 You can also stop it from the dashboard with `Encerrar`.
+
+Remove the current user install while preserving config, tokens, logs and queue:
+
+```bash
+./scripts/uninstall-user
+```
+
+Remove everything, including local app data:
+
+```bash
+./scripts/uninstall-user --remove-data
+```
 
 ## Distribution
 

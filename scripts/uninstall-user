@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+REMOVE_DATA=0
+
+for arg in "$@"; do
+  case "$arg" in
+    --remove-data) REMOVE_DATA=1 ;;
+    -h|--help)
+      cat <<HELP
+Usage: ./scripts/uninstall-user [--remove-data]
+
+Remove o atalho e icone instalados para o usuario atual.
+Por padrao preserva config, tokens, logs e fila.
+Use --remove-data somente se quiser apagar tambem os dados locais do app.
+HELP
+      exit 0
+      ;;
+    *) echo "Opcao desconhecida: $arg" >&2; exit 2 ;;
+  esac
+done
+
+DESKTOP_FILE="${XDG_DATA_HOME:-$HOME/.local/share}/applications/song-request-linux.desktop"
+ICON_FILE="${XDG_DATA_HOME:-$HOME/.local/share}/icons/hicolor/512x512/apps/song-request-linux.png"
+CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/song-request-linux"
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/song-request-linux"
+RUNTIME_PID="${XDG_RUNTIME_DIR:-/tmp}/song-request-linux.pid"
+
+curl -fsS -X POST -H 'x-song-request-action: shutdown' "http://127.0.0.1:7384/api/shutdown" >/dev/null 2>&1 || true
+sleep 0.5
+
+if [[ -f "$RUNTIME_PID" ]] && kill -0 "$(cat "$RUNTIME_PID")" 2>/dev/null; then
+  kill "$(cat "$RUNTIME_PID")" 2>/dev/null || true
+fi
+
+rm -f "$RUNTIME_PID" "$DESKTOP_FILE" "$ICON_FILE"
+update-desktop-database "$(dirname "$DESKTOP_FILE")" >/dev/null 2>&1 || true
+gtk-update-icon-cache "${XDG_DATA_HOME:-$HOME/.local/share}/icons/hicolor" >/dev/null 2>&1 || true
+
+if (( REMOVE_DATA )); then
+  rm -rf "$CONFIG_DIR" "$STATE_DIR"
+  echo "Removido com dados locais."
+else
+  echo "Removido. Dados preservados em:"
+  echo "  $CONFIG_DIR"
+  echo "  $STATE_DIR"
+fi

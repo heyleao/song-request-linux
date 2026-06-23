@@ -645,6 +645,21 @@ pub async fn page() -> Html<&'static str> {
             <div class="endpoint-row"><span>Pear API</span><code>http://127.0.0.1:26538/api/v1</code></div>
           </div>
         </section>
+        <section>
+          <div class="toolbar">
+            <h2>Instalação e atualização</h2>
+            <button class="secondary" id="update-app" type="button">Atualizar pelo GitHub</button>
+          </div>
+          <div class="endpoints">
+            <div class="endpoint-row"><span>Instalar/reinstalar</span><code>./scripts/install-user-friendly --with-pear</code></div>
+            <div class="endpoint-row"><span>Atualizar manualmente</span><code>./scripts/update-from-github --restart</code></div>
+            <div class="endpoint-row"><span>Remover atalho e icone</span><code>./scripts/uninstall-user</code></div>
+            <div class="endpoint-row"><span>Remover tambem dados locais</span><code>./scripts/uninstall-user --remove-data</code></div>
+            <div class="endpoint-row"><span>Log de atualização</span><code>~/.local/state/song-request-linux/logs/update.log</code></div>
+          </div>
+          <p class="hint">A atualização preserva configuração, tokens, logs e fila. Ela exige um clone Git limpo, sem mudanças locais em arquivos rastreados.</p>
+          <div class="message" id="update-message"></div>
+        </section>
       </div>
     </div>
       </main>
@@ -983,6 +998,21 @@ pub async fn page() -> Html<&'static str> {
         window.open(result.auth_url, '_blank', 'noopener,noreferrer');
       } catch (error) {
         setMessage('setup-message', error.message, true);
+      }
+    });
+
+    $('update-app').addEventListener('click', async () => {
+      try {
+        $('update-app').disabled = true;
+        setMessage('update-message', 'Atualização iniciada. O app pode reiniciar e esta página pode cair por alguns segundos.');
+        const result = await api('/api/update', {
+          method: 'POST',
+          headers: { 'x-song-request-action': 'update' }
+        });
+        setMessage('update-message', result.message || 'Atualização iniciada.');
+      } catch (error) {
+        $('update-app').disabled = false;
+        setMessage('update-message', error.message, true);
       }
     });
 

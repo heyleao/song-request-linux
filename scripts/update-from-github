@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+LOG_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/song-request-linux/logs"
+LOG_FILE="$LOG_DIR/update.log"
+START_AFTER=0
+
+for arg in "$@"; do
+  case "$arg" in
+    --restart|--start) START_AFTER=1 ;;
+    -h|--help)
+      cat <<HELP
+Usage: ./scripts/update-from-github [--restart]
+
+Atualiza o Song Request Linux a partir do GitHub remoto configurado no repo.
+Config, tokens, logs e fila ficam preservados nos caminhos XDG do usuario.
+HELP
+      exit 0
+      ;;
+    *) echo "Opcao desconhecida: $arg" >&2; exit 2 ;;
+  esac
+done
+
+mkdir -p "$LOG_DIR"
+
+{
+  echo "== Song Request Linux Update =="
+  date -Is
+  echo "Projeto: $APP_DIR"
+} >>"$LOG_FILE"
+
+if ! command -v git >/dev/null 2>&1; then
+  echo "ERRO: git nao encontrado." | tee -a "$LOG_FILE" >&2
+  exit 1
+fi
+
+if ! command -v cargo >/dev/null 2>&1; then
+  echo "ERRO: cargo nao encontrado." | tee -a "$LOG_FILE" >&2
+  exit 1
+fi
+
+cd "$APP_DIR"
+
+if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  echo "ERRO: este diretorio nao e um repo git." | tee -a "$LOG_FILE" >&2
+  exit 1
+fi
+
+if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
+  echo "ERRO: existem alteracoes locais em arquivos rastreados. Salve ou descarte antes de atualizar." | tee -a "$LOG_FILE" >&2
+  git status --short --untracked-files=no | tee -a "$LOG_FILE" >&2
+  exit 1
+fi
+
+./scripts/song-request-linux-stop >>"$LOG_FILE" 2>&1 || true
+
+git fetch --prune >>"$LOG_FILE" 2>&1
+
+branch="$(git branch --show-current)"
+if [[ -z "$branch" ]]; then
+  echo "ERRO: repo esta em detached HEAD. Atualize manualmente." | tee -a "$LOG_FILE" >&2
+  exit 1
+fi
+
+upstream="$(git rev-parse --abbrev-ref --symbolic-full-name "@{u}" 2>/dev/null || true)"
+if [[ -n "$upstream" ]]; then
+  git pull --ff-only >>"$LOG_FILE" 2>&1
+else
+  git pull --ff-only origin "$branch" >>"$LOG_FILE" 2>&1
+fi
+
+cargo build --release >>"$LOG_FILE" 2>&1
+./scripts/install-desktop-entry >>"$LOG_FILE" 2>&1
+
+if (( START_AFTER )); then
+  ./scripts/song-request-linux-open >>"$LOG_FILE" 2>&1 &
+fi
+
+echo "Atualizacao concluida." | tee -a "$LOG_FILE"
