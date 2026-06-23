@@ -878,12 +878,21 @@ async fn merge_spotify_and_app_queue(state: &AppState, mut spotify_view: QueueVi
     let mut app_requests = app_pending_requests(app_view);
 
     if let Some(current) = &spotify_view.current_song {
-        let matched_ids = app_requests
+        let matched_requests = app_requests
             .iter()
             .filter(|song| spotify_current_matches_request(&current.title, song))
+            .cloned()
+            .collect::<Vec<_>>();
+        let matched_ids = matched_requests
+            .iter()
             .map(|song| song.id)
             .collect::<Vec<_>>();
-        if !matched_ids.is_empty() {
+        if let Some(matched_request) = matched_requests.into_iter().next() {
+            spotify_view.current_song = Some(SongRequest {
+                title: current.title.clone(),
+                artist: matched_request.artist,
+                ..matched_request
+            });
             {
                 let mut queue = state.queue.write().await;
                 for id in &matched_ids {

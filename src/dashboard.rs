@@ -1132,6 +1132,22 @@ pub async fn page() -> Html<&'static str> {
       return source.type;
     }
 
+    function fallbackPlaylistName(connections) {
+      return connections?.spotify?.fallback_playlist?.name || 'playlist fallback';
+    }
+
+    function isSpotifyFallbackSong(song) {
+      return song
+        && String(song.requester || '').toLowerCase() === 'spotify'
+        && String(song.artist || '').toLowerCase() === 'spotify';
+    }
+
+    function songMeta(song, connections) {
+      if (!song) return 'Nenhuma música tocando';
+      if (isSpotifyFallbackSong(song)) return `Playlist - ${fallbackPlaylistName(connections)}`;
+      return `${song.artist} - pedido por ${song.requester}`;
+    }
+
     function stateClass(ok, pending = false) {
       if (ok) return 'dot ok';
       return pending ? 'dot' : 'dot bad';
@@ -1375,9 +1391,7 @@ pub async fn page() -> Html<&'static str> {
 
         const current = queue.current_song;
         $('current-title').textContent = current ? current.title : 'Aguardando pedido';
-        $('current-meta').textContent = current
-          ? `${current.artist} - pedido por ${current.requester}`
-          : 'Nenhuma música tocando';
+        $('current-meta').textContent = songMeta(current, connections);
         $('current-source').textContent = sourceLabel(current?.source);
         renderQueuePersistence(queue);
         $('queue').innerHTML = queue.queue.length
@@ -1390,7 +1404,7 @@ pub async fn page() -> Html<&'static str> {
                 ${item.id > 0 && item.requester !== 'spotify'
                   ? `<span class="pill compact">${escapeHtml(sourceLabel(item.source))}</span>`
                   : ''}
-                <span class="queue-meta">${escapeHtml(item.artist)} - pedido por ${escapeHtml(item.requester)}</span>
+                <span class="queue-meta">${escapeHtml(songMeta(item, connections))}</span>
               </div>
             `).join('')
           : '<div class="queue-item muted">Fila vazia</div>';
