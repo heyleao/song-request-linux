@@ -230,6 +230,126 @@ pub async fn page() -> Html<&'static str> {
       align-items: center;
       margin-top: 2px;
     }
+    .setup-flow {
+      display: grid;
+      gap: 16px;
+      max-width: 1160px;
+    }
+    .setup-step {
+      display: grid;
+      grid-template-columns: 54px minmax(0, 1fr);
+      gap: 14px;
+      align-items: start;
+      background: var(--surface);
+    }
+    .step-number {
+      width: 40px;
+      height: 40px;
+      border-radius: 999px;
+      display: inline-grid;
+      place-items: center;
+      background: var(--action);
+      color: #06111d;
+      font-weight: 950;
+      box-shadow: 0 10px 24px rgba(90, 169, 255, .18);
+    }
+    .step-body {
+      display: grid;
+      gap: 12px;
+      min-width: 0;
+    }
+    .step-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: start;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .step-copy {
+      color: var(--muted);
+      line-height: 1.45;
+      max-width: 760px;
+    }
+    .setup-quick-list {
+      display: grid;
+      gap: 7px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    .setup-quick-list span {
+      display: block;
+      padding-left: 18px;
+      position: relative;
+    }
+    .setup-quick-list span::before {
+      content: "";
+      position: absolute;
+      left: 3px;
+      top: .62em;
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: var(--action-2);
+    }
+    .setup-inline-link {
+      display: inline-flex;
+      align-items: center;
+      min-height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 7px 10px;
+      background: var(--surface-2);
+      color: var(--text);
+      font-weight: 800;
+      text-decoration: none;
+    }
+    .setup-inline-link:hover { border-color: var(--action); }
+    .advanced-panel {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      padding: 0;
+      overflow: hidden;
+    }
+    .advanced-panel summary {
+      cursor: pointer;
+      padding: 14px;
+      font-weight: 900;
+      color: var(--text);
+      list-style: none;
+    }
+    .advanced-panel summary::-webkit-details-marker { display: none; }
+    .advanced-panel summary::after {
+      content: "+";
+      float: right;
+      color: var(--action-2);
+      font-size: 18px;
+      line-height: 1;
+    }
+    .advanced-panel[open] summary::after { content: "-"; }
+    .advanced-content {
+      display: grid;
+      gap: 14px;
+      padding: 0 14px 14px;
+    }
+    .setup-save-bar {
+      position: sticky;
+      bottom: 12px;
+      z-index: 8;
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) auto;
+      gap: 10px 14px;
+      align-items: center;
+      background: rgba(21, 27, 36, .96);
+      backdrop-filter: blur(10px);
+    }
+    .setup-save-bar .diagnostics,
+    .setup-save-bar .message { grid-column: 1 / -1; }
+    .setup-save-bar .diagnostics {
+      max-height: 150px;
+      overflow: auto;
+    }
     .grid-logs {
       display: grid;
       grid-template-columns: minmax(360px, 1fr) minmax(320px, 420px);
@@ -547,6 +667,9 @@ pub async fn page() -> Html<&'static str> {
       header, .grid-main, .grid-logs, .setup-callout { grid-template-columns: 1fr; }
       .setup-card, .setup-card.wide { grid-column: 1 / -1; }
       .form-grid { grid-template-columns: 1fr; }
+      .setup-step { grid-template-columns: 1fr; }
+      .step-number { width: 34px; height: 34px; }
+      .setup-save-bar { grid-template-columns: 1fr; position: static; }
       header { align-items: flex-start; }
       .page-title, .top-status { width: 100%; min-width: 0; }
       .top-status { justify-content: flex-start; }
@@ -713,66 +836,105 @@ pub async fn page() -> Html<&'static str> {
     </div>
 
     <div class="tab" id="setup-tab">
-      <form id="setup-form">
+      <form id="setup-form" class="setup-flow">
         <section class="setup-callout">
           <div>
-            <h2>Provider selecionado: <span id="setup-active-provider">...</span></h2>
-            <p id="setup-provider-help">Escolha Spotify ou YouTube e veja aqui o que precisa estar configurado para o pedido tocar sem erro.</p>
+            <h2>Configuração para iniciar a live</h2>
+            <p id="setup-provider-help">Siga os passos em ordem. Preencha, conecte as contas e clique em Salvar.</p>
+            <p class="field-note">Provider atual: <strong id="setup-active-provider">...</strong></p>
           </div>
           <div class="requirement-list" id="setup-provider-requirements"></div>
         </section>
 
-        <div class="grid-config">
-          <section class="setup-card">
-            <h2>Twitch</h2>
-            <div class="form-grid single">
-              <label>Client ID
+        <section class="setup-step">
+          <div class="step-number">1</div>
+          <div class="step-body">
+            <div class="step-head">
+              <div>
+                <h2>Twitch: ligar o bot ao chat</h2>
+                <p class="step-copy">Use a conta do bot aqui. Ela vai ler o chat e responder aos comandos.</p>
+              </div>
+              <a class="setup-inline-link" href="https://dev.twitch.tv/console/apps" target="_blank" rel="noreferrer">Criar app Twitch</a>
+            </div>
+            <div class="setup-quick-list">
+              <span>Redirect no app Twitch: <code>https://localhost:7443/auth/twitch/callback</code></span>
+              <span>Cole o Client ID, nome do bot e canal.</span>
+              <span>Clique em Conectar bot e entre com a conta do bot.</span>
+            </div>
+            <div class="form-grid">
+              <label>Client ID Twitch
                 <input id="setup-twitch-client-id" autocomplete="off" placeholder="Client ID do app Twitch">
               </label>
               <label>Conta do bot
-                <input id="setup-twitch-bot-username" autocomplete="off" placeholder="conta_bot">
+                <input id="setup-twitch-bot-username" autocomplete="off" placeholder="lelos_bot">
               </label>
-              <label>Canal
-                <input id="setup-twitch-channel" autocomplete="off" placeholder="canal_do_streamer">
+              <label>Canal da live
+                <input id="setup-twitch-channel" autocomplete="off" placeholder="hey_leao">
               </label>
-            </div>
-            <p class="field-note">Necessário para o bot ler comandos como !sr, !skip e !vol no chat.</p>
-            <div class="card-actions">
-              <button class="secondary" id="setup-twitch-login" type="button">Conectar bot</button>
-            </div>
-          </section>
-
-          <section class="setup-card wide">
-            <h2>Spotify</h2>
-            <div class="form-grid">
               <label>Provider padrão
                 <select id="setup-provider">
                   <option value="spotify">Spotify</option>
                   <option value="youtube">YouTube</option>
                 </select>
               </label>
-              <label>Client ID
+            </div>
+            <div class="card-actions">
+              <button class="secondary" id="setup-twitch-login" type="button">Conectar bot</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="setup-step">
+          <div class="step-number">2</div>
+          <div class="step-body">
+            <div class="step-head">
+              <div>
+                <h2>Spotify: tocar músicas e fallback</h2>
+                <p class="step-copy">Obrigatório se o provider padrão for Spotify. Precisa de Premium e Spotify aberto no PC da live.</p>
+              </div>
+              <a class="setup-inline-link" href="https://developer.spotify.com/dashboard" target="_blank" rel="noreferrer">Criar app Spotify</a>
+            </div>
+            <div class="setup-quick-list">
+              <span>Redirect no app Spotify: <code>http://127.0.0.1:7384/auth/spotify/callback</code></span>
+              <span>Cole o Client ID e clique em Login Spotify.</span>
+              <span>Se quiser música quando a fila estiver vazia, ative a playlist fallback.</span>
+            </div>
+            <div class="form-grid">
+              <label class="full">Client ID Spotify
                 <input id="setup-spotify-client-id" autocomplete="off" placeholder="Client ID do app Spotify">
               </label>
-              <label class="full"><span><input id="setup-spotify-fallback-enabled" type="checkbox"> Ativar playlist fallback quando a fila de pedidos estiver vazia</span></label>
+              <label class="full"><span><input id="setup-spotify-fallback-enabled" type="checkbox"> Tocar playlist fallback quando não houver pedidos</span></label>
               <label class="full">Playlist fallback
                 <select id="setup-spotify-fallback-playlist">
                   <option value="">Nenhuma playlist selecionada</option>
                 </select>
               </label>
             </div>
-            <p class="field-note">Texto do !sr usa este provider. Links do YouTube continuam indo direto para o YouTube. Spotify precisa de Client ID, OAuth, Premium e device ativo.</p>
             <div class="card-actions">
               <button class="secondary" id="setup-spotify-login" type="button">Login Spotify</button>
               <button class="secondary" id="setup-spotify-load-playlists" type="button">Carregar playlists</button>
               <button class="secondary" id="setup-spotify-save-playlist" type="button">Salvar fallback</button>
             </div>
-          </section>
+          </div>
+        </section>
 
-          <section class="setup-card">
-            <h2>YouTube</h2>
-            <div class="form-grid single">
-              <label>Player
+        <section class="setup-step">
+          <div class="step-number">3</div>
+          <div class="step-body">
+            <div class="step-head">
+              <div>
+                <h2>YouTube: links e pedidos do YouTube</h2>
+                <p class="step-copy">Opcional. Use Pear Desktop para tocar YouTube de forma mais estável.</p>
+              </div>
+              <a class="setup-inline-link" href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noreferrer">Criar API Key</a>
+            </div>
+            <div class="setup-quick-list">
+              <span>Ative YouTube Data API v3 no Google Cloud.</span>
+              <span>No Pear, ligue o API Server na porta 26538.</span>
+              <span>Use limite de tempo para evitar vídeos longos na fila.</span>
+            </div>
+            <div class="form-grid">
+              <label>Player YouTube
                 <select id="setup-youtube-playback">
                   <option value="pear">Pear Desktop</option>
                   <option value="browser">Browser Source OBS</option>
@@ -781,97 +943,121 @@ pub async fn page() -> Html<&'static str> {
               <label>Pear API
                 <input id="setup-pear-base-url" autocomplete="off" placeholder="http://127.0.0.1:26538/api/v1">
               </label>
-              <label>API Key
+              <label class="full">YouTube API Key
                 <input id="setup-youtube-api-key" autocomplete="off" placeholder="deixe vazio para manter a chave atual">
               </label>
-              <label>Máximo em segundos
+              <label>Máximo do vídeo em segundos
                 <input id="setup-youtube-max-duration" type="number" inputmode="numeric" min="30" max="86400" step="30" value="360">
               </label>
-              <label><span><input id="setup-youtube-allow-non-music" type="checkbox"> Aceitar resultados fora da categoria Música</span></label>
+              <label><span><input id="setup-youtube-allow-non-music" type="checkbox"> Aceitar vídeo fora da categoria Música</span></label>
             </div>
-            <p class="field-note">API Key é usada só para busca por texto. Links diretos não dependem da busca.</p>
-          </section>
+          </div>
+        </section>
 
-          <section class="setup-card wide">
-            <h2>Comandos do chat</h2>
-            <div class="form-grid">
-              <label>Pedido
-                <input id="setup-cmd-song-request" autocomplete="off" placeholder="!sr, !ssr">
-              </label>
-              <label>Volume
-                <input id="setup-cmd-volume" autocomplete="off" placeholder="!vol, !volume">
-              </label>
-              <label class="full">Atual / fila / remover
-                <input id="setup-cmd-basic" autocomplete="off" placeholder="!song | !fila, !queue | !rm, !remove">
-              </label>
-              <label class="full">Player
-                <input id="setup-cmd-player" autocomplete="off" placeholder="!play | !pause | !next">
-              </label>
+        <section class="setup-step">
+          <div class="step-number">4</div>
+          <div class="step-body">
+            <div class="step-head">
+              <div>
+                <h2>Live: comportamento da fila</h2>
+                <p class="step-copy">Escolha se a fila deve continuar depois que a live acabar e o app abrir de novo.</p>
+              </div>
             </div>
-            <p class="field-note">Use vírgula para aliases e barra vertical para grupos. Exemplo: !song | !fila, !queue | !rm, !remove.</p>
-          </section>
+            <div class="form-grid single">
+              <label><span><input id="setup-queue-persistence-enabled" type="checkbox"> Continuar com a fila salva quando o app abrir de novo</span></label>
+            </div>
+            <div class="setup-quick-list">
+              <span>Marcado: pedidos pendentes voltam na próxima abertura.</span>
+              <span>Desmarcado: a próxima live começa com fila vazia.</span>
+              <span>No OBS, use o overlay: <code>http://127.0.0.1:7384/overlay?max=48&width=520&size=24&lines=1</code></span>
+            </div>
+          </div>
+        </section>
 
-          <section class="setup-card full">
-            <h2>Permissões e limites</h2>
-            <div class="form-grid">
-              <label>Quem pode pedir música
-                <select id="setup-access-song-request">
-                  <option value="everyone">Viewer / todos</option>
-                  <option value="vip">VIP</option>
-                  <option value="moderator">Moderador</option>
-                  <option value="streamer">Streamer</option>
-                </select>
-              </label>
-              <label>Quem pode remover
-                <select id="setup-access-remove">
-                  <option value="everyone">Viewer / todos</option>
-                  <option value="vip">VIP</option>
-                  <option value="moderator">Moderador</option>
-                  <option value="streamer">Streamer</option>
-                </select>
-              </label>
-              <label>Quem pode controlar player
-                <select id="setup-access-playback">
-                  <option value="moderator">Moderador</option>
-                  <option value="streamer">Streamer</option>
-                  <option value="vip">VIP</option>
-                  <option value="everyone">Viewer / todos</option>
-                </select>
-              </label>
-              <label>Quem pode mudar volume
-                <select id="setup-access-volume-set">
-                  <option value="moderator">Moderador</option>
-                  <option value="streamer">Streamer</option>
-                  <option value="vip">VIP</option>
-                  <option value="everyone">Viewer / todos</option>
-                </select>
-              </label>
-            </div>
-            <div class="form-grid compact">
-              <label>Limite viewer
-                <input id="setup-limit-viewer" type="number" inputmode="numeric" min="0" max="100" step="1" value="1">
-              </label>
-              <label>Limite VIP
-                <input id="setup-limit-vip" type="number" inputmode="numeric" min="0" max="100" step="1" value="3">
-              </label>
-              <label>Limite moderador
-                <input id="setup-limit-moderator" type="number" inputmode="numeric" min="0" max="100" step="1" value="10">
-              </label>
-              <label>Limite streamer
-                <input id="setup-limit-streamer" type="number" inputmode="numeric" min="0" max="100" step="1" value="0">
-              </label>
-            </div>
-            <label class="full"><span><input id="setup-queue-persistence-enabled" type="checkbox"> Continuar com a fila salva quando o app abrir de novo</span></label>
-            <p class="field-note">As permissões usam as badges/tags oficiais que a Twitch envia em cada mensagem do chat: viewer, VIP, moderador e streamer. Limite 0 significa sem limite.</p>
-          </section>
-        </div>
+        <details class="advanced-panel">
+          <summary>Avançado: comandos, permissões e limites</summary>
+          <div class="advanced-content">
+            <section class="setup-card full">
+              <h2>Comandos do chat</h2>
+              <div class="form-grid">
+                <label>Pedido
+                  <input id="setup-cmd-song-request" autocomplete="off" placeholder="!sr, !ssr">
+                </label>
+                <label>Volume
+                  <input id="setup-cmd-volume" autocomplete="off" placeholder="!vol, !volume">
+                </label>
+                <label class="full">Atual / fila / remover
+                  <input id="setup-cmd-basic" autocomplete="off" placeholder="!song | !fila, !queue | !rm, !remove">
+                </label>
+                <label class="full">Player
+                  <input id="setup-cmd-player" autocomplete="off" placeholder="!play | !pause | !next">
+                </label>
+              </div>
+              <p class="field-note">Use vírgula para aliases e barra vertical para grupos. Exemplo: !song | !fila, !queue | !rm, !remove.</p>
+            </section>
 
-        <section>
-          <div class="toolbar">
-            <h2>Salvar configuração</h2>
-            <div class="actions">
-              <button type="submit">Salvar</button>
-            </div>
+            <section class="setup-card full">
+              <h2>Permissões e limites</h2>
+              <div class="form-grid">
+                <label>Quem pode pedir música
+                  <select id="setup-access-song-request">
+                    <option value="everyone">Viewer / todos</option>
+                    <option value="vip">VIP</option>
+                    <option value="moderator">Moderador</option>
+                    <option value="streamer">Streamer</option>
+                  </select>
+                </label>
+                <label>Quem pode remover
+                  <select id="setup-access-remove">
+                    <option value="everyone">Viewer / todos</option>
+                    <option value="vip">VIP</option>
+                    <option value="moderator">Moderador</option>
+                    <option value="streamer">Streamer</option>
+                  </select>
+                </label>
+                <label>Quem pode controlar player
+                  <select id="setup-access-playback">
+                    <option value="moderator">Moderador</option>
+                    <option value="streamer">Streamer</option>
+                    <option value="vip">VIP</option>
+                    <option value="everyone">Viewer / todos</option>
+                  </select>
+                </label>
+                <label>Quem pode mudar volume
+                  <select id="setup-access-volume-set">
+                    <option value="moderator">Moderador</option>
+                    <option value="streamer">Streamer</option>
+                    <option value="vip">VIP</option>
+                    <option value="everyone">Viewer / todos</option>
+                  </select>
+                </label>
+              </div>
+              <div class="form-grid compact">
+                <label>Limite viewer
+                  <input id="setup-limit-viewer" type="number" inputmode="numeric" min="0" max="100" step="1" value="1">
+                </label>
+                <label>Limite VIP
+                  <input id="setup-limit-vip" type="number" inputmode="numeric" min="0" max="100" step="1" value="3">
+                </label>
+                <label>Limite moderador
+                  <input id="setup-limit-moderator" type="number" inputmode="numeric" min="0" max="100" step="1" value="10">
+                </label>
+                <label>Limite streamer
+                  <input id="setup-limit-streamer" type="number" inputmode="numeric" min="0" max="100" step="1" value="0">
+                </label>
+              </div>
+              <p class="field-note">Os cargos vêm das badges/tags oficiais da Twitch. Limite 0 significa sem limite.</p>
+            </section>
+          </div>
+        </details>
+
+        <section class="setup-save-bar">
+          <div>
+            <h2>Pronto para iniciar?</h2>
+            <p class="field-note">Clique em Salvar. Depois confira a aba Operação e faça um pedido de teste.</p>
+          </div>
+          <div class="actions">
+            <button type="submit">Salvar configuração</button>
           </div>
           <div class="diagnostics" id="setup-summary"></div>
           <div class="message" id="setup-message"></div>
