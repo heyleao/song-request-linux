@@ -21,7 +21,7 @@ HELP
 done
 
 DESKTOP_FILE="${XDG_DATA_HOME:-$HOME/.local/share}/applications/song-request-linux.desktop"
-ICON_FILE="${XDG_DATA_HOME:-$HOME/.local/share}/icons/hicolor/512x512/apps/song-request-linux.png"
+ICON_ROOT="${XDG_DATA_HOME:-$HOME/.local/share}/icons/hicolor"
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/song-request-linux"
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/song-request-linux"
 RUNTIME_PID="${XDG_RUNTIME_DIR:-/tmp}/song-request-linux.pid"
@@ -33,9 +33,10 @@ if [[ -f "$RUNTIME_PID" ]] && kill -0 "$(cat "$RUNTIME_PID")" 2>/dev/null; then
   kill "$(cat "$RUNTIME_PID")" 2>/dev/null || true
 fi
 
-rm -f "$RUNTIME_PID" "$DESKTOP_FILE" "$ICON_FILE"
+rm -f "$RUNTIME_PID" "$DESKTOP_FILE"
+find "$ICON_ROOT" -path '*/apps/song-request-linux.png' -type f -delete 2>/dev/null || true
 update-desktop-database "$(dirname "$DESKTOP_FILE")" >/dev/null 2>&1 || true
-gtk-update-icon-cache "${XDG_DATA_HOME:-$HOME/.local/share}/icons/hicolor" >/dev/null 2>&1 || true
+gtk-update-icon-cache -f "$ICON_ROOT" >/dev/null 2>&1 || true
 
 if (( REMOVE_DATA )); then
   rm -rf "$CONFIG_DIR" "$STATE_DIR"
