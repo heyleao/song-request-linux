@@ -9,7 +9,7 @@ use tokio_tungstenite::{connect_async, tungstenite::Message};
 use tracing::{error, info, warn};
 
 use crate::{
-    commands::{parse_chat_command, ChatCommand, ChatCommandInput, PlaybackAction},
+    commands::{parse_chat_command, ChatCommand, ChatCommandInput, ChatUserRole, PlaybackAction},
     config::{self, TwitchBotSecrets, YoutubePlayback},
     request_flow,
     song_requests::MusicProvider,
@@ -119,7 +119,8 @@ async fn handle_privmsg(
         ChatCommandInput {
             requester: privmsg.sender.clone(),
             message: privmsg.message.clone(),
-            is_moderator: privmsg.is_moderator,
+            is_moderator: privmsg.role >= ChatUserRole::Moderator,
+            role: privmsg.role,
         },
         &settings,
     );
@@ -188,7 +189,7 @@ struct ChatRateLimiter {
 
 impl ChatRateLimiter {
     fn check(&mut self, privmsg: &Privmsg, command: &ChatCommand) -> Option<String> {
-        if privmsg.is_moderator
+        if privmsg.role >= ChatUserRole::Moderator
             || matches!(
                 command,
                 ChatCommand::Ignored | ChatCommand::AccessDenied { .. }
@@ -497,8 +498,14 @@ fn access_denied_reply(
         crate::commands::CommandAccess::Everyone => {
             format!("@{requester} {command} esta liberado para todos.")
         }
+        crate::commands::CommandAccess::Vip => {
+            format!("@{requester} {command} precisa de VIP, moderador ou streamer.")
+        }
         crate::commands::CommandAccess::Moderator => {
-            format!("@{requester} {command} precisa de moderador/broadcaster.")
+            format!("@{requester} {command} precisa de moderador ou streamer.")
+        }
+        crate::commands::CommandAccess::Streamer => {
+            format!("@{requester} {command} precisa do streamer.")
         }
     }
 }
@@ -516,7 +523,7 @@ async fn spotify_queue_snapshot(state: &AppState) -> Option<crate::spotify::Spot
 struct Privmsg {
     sender: String,
     message: String,
-    is_moderator: bool,
+    role: ChatUserRole,
 }
 
 impl Privmsg {
@@ -534,12 +541,12 @@ impl Privmsg {
 
         let sender = parse_sender(rest)?;
         let message = rest.split_once(" :")?.1.to_string();
-        let is_moderator = tags.is_some_and(tags_include_moderator);
+        let role = ChatUserRole::from_twitch_tags(tags);
 
         Some(Self {
             sender,
             message,
-            is_moderator,
+            role,
         })
     }
 }
@@ -554,15 +561,6 @@ fn parse_sender(rest: &str) -> Option<String> {
     }
 }
 
-fn tags_include_moderator(tags: &str) -> bool {
-    tags.split(';').any(|tag| {
-        tag == "mod=1"
-            || tag.strip_prefix("badges=").is_some_and(|badges| {
-                badges.contains("broadcaster/") || badges.contains("moderator/")
-            })
-    })
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -574,7 +572,23 @@ mod tests {
 
         assert_eq!(message.sender, "viewer");
         assert_eq!(message.message, "!sr one more time");
-        assert!(message.is_moderator);
+        assert_eq!(message.role, ChatUserRole::Moderator);
+    }
+
+    #[test]
+    fn parses_privmsg_with_vip_badge() {
+        let line = "@badge-info=;badges=vip/1;color=#fff;mod=0 :viewer!viewer@viewer.tmi.twitch.tv PRIVMSG #heyleao :!sr one more time";
+        let message = Privmsg::parse(line).expect("privmsg");
+
+        assert_eq!(message.role, ChatUserRole::Vip);
+    }
+
+    #[test]
+    fn parses_privmsg_with_broadcaster_badge() {
+        let line = "@badge-info=;badges=broadcaster/1;color=#fff;mod=0 :heyleao!heyleao@heyleao.tmi.twitch.tv PRIVMSG #heyleao :!skip";
+        let message = Privmsg::parse(line).expect("privmsg");
+
+        assert_eq!(message.role, ChatUserRole::Streamer);
     }
 
     #[test]

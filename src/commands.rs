@@ -8,6 +8,8 @@ pub struct ChatCommandInput {
     pub message: String,
     #[serde(default)]
     pub is_moderator: bool,
+    #[serde(default)]
+    pub role: ChatUserRole,
 }
 
 #[derive(Clone, Debug, Serialize, PartialEq, Eq)]
@@ -44,7 +46,19 @@ pub enum ChatCommand {
 pub enum CommandAccess {
     #[default]
     Everyone,
+    Vip,
     Moderator,
+    Streamer,
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord)]
+#[serde(rename_all = "snake_case")]
+pub enum ChatUserRole {
+    #[default]
+    Viewer,
+    Vip,
+    Moderator,
+    Streamer,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -127,6 +141,7 @@ impl Default for CommandAccessConfig {
 pub fn parse_chat_command(input: ChatCommandInput, settings: &CommandSettings) -> ChatCommand {
     let message = input.message.trim();
     let requester = clean_field(&input.requester);
+    let role = input.effective_role();
 
     if let Some(query) = command_payload_any(message, &settings.aliases.song_request) {
         if query.is_empty() {
@@ -136,7 +151,7 @@ pub fn parse_chat_command(input: ChatCommandInput, settings: &CommandSettings) -
             &requester,
             &settings.aliases.song_request[0],
             settings.access.song_request,
-            input.is_moderator,
+            role,
         ) {
             return denied;
         }
@@ -152,7 +167,7 @@ pub fn parse_chat_command(input: ChatCommandInput, settings: &CommandSettings) -
             &requester,
             &settings.aliases.current_song[0],
             settings.access.current_song,
-            input.is_moderator,
+            role,
         ) {
             return denied;
         }
@@ -164,7 +179,7 @@ pub fn parse_chat_command(input: ChatCommandInput, settings: &CommandSettings) -
             &requester,
             &settings.aliases.queue[0],
             settings.access.queue,
-            input.is_moderator,
+            role,
         ) {
             return denied;
         }
@@ -176,7 +191,7 @@ pub fn parse_chat_command(input: ChatCommandInput, settings: &CommandSettings) -
             &requester,
             &settings.aliases.remove[0],
             settings.access.remove,
-            input.is_moderator,
+            role,
         ) {
             return denied;
         }
@@ -188,7 +203,7 @@ pub fn parse_chat_command(input: ChatCommandInput, settings: &CommandSettings) -
             &requester,
             playback_command_name(action, &settings.aliases),
             settings.access.playback,
-            input.is_moderator,
+            role,
         ) {
             return denied;
         }
@@ -200,7 +215,7 @@ pub fn parse_chat_command(input: ChatCommandInput, settings: &CommandSettings) -
             &requester,
             &settings.aliases.skip[0],
             settings.access.skip,
-            input.is_moderator,
+            role,
         ) {
             return denied;
         }
@@ -214,12 +229,8 @@ pub fn parse_chat_command(input: ChatCommandInput, settings: &CommandSettings) -
         } else {
             settings.access.volume_read
         };
-        if let Some(denied) = deny_if_needed(
-            &requester,
-            &settings.aliases.volume[0],
-            access,
-            input.is_moderator,
-        ) {
+        if let Some(denied) = deny_if_needed(&requester, &settings.aliases.volume[0], access, role)
+        {
             return denied;
         }
 
@@ -231,7 +242,7 @@ pub fn parse_chat_command(input: ChatCommandInput, settings: &CommandSettings) -
             &requester,
             &settings.aliases.help[0],
             settings.access.help,
-            input.is_moderator,
+            role,
         ) {
             return denied;
         }
@@ -300,17 +311,74 @@ fn deny_if_needed(
     requester: &str,
     command: &str,
     access: CommandAccess,
-    is_moderator: bool,
+    role: ChatUserRole,
 ) -> Option<ChatCommand> {
-    if matches!(access, CommandAccess::Moderator) && !is_moderator {
+    if !role.allows(access) {
         return Some(ChatCommand::AccessDenied {
             requester: requester.to_string(),
             command: command.to_string(),
-            required: CommandAccess::Moderator,
+            required: access,
         });
     }
 
     None
+}
+
+impl ChatCommandInput {
+    fn effective_role(&self) -> ChatUserRole {
+        if self.is_moderator && self.role < ChatUserRole::Moderator {
+            ChatUserRole::Moderator
+        } else {
+            self.role
+        }
+    }
+}
+
+impl ChatUserRole {
+    pub fn from_twitch_tags(tags: Option<&str>) -> Self {
+        let Some(tags) = tags else {
+            return Self::Viewer;
+        };
+
+        let mut role = if tags
+            .split(';')
+            .any(|tag| tag == "mod=1" || tag == "user-type=mod")
+        {
+            Self::Moderator
+        } else {
+            Self::Viewer
+        };
+
+        if let Some(badges) = twitch_tag_value(tags, "badges") {
+            for badge in badges.split(',') {
+                if badge.starts_with("broadcaster/") {
+                    return Self::Streamer;
+                }
+                if badge.starts_with("moderator/") {
+                    role = role.max(Self::Moderator);
+                }
+                if badge.starts_with("vip/") {
+                    role = role.max(Self::Vip);
+                }
+            }
+        }
+
+        role
+    }
+
+    fn allows(self, access: CommandAccess) -> bool {
+        match access {
+            CommandAccess::Everyone => true,
+            CommandAccess::Vip => self >= Self::Vip,
+            CommandAccess::Moderator => self >= Self::Moderator,
+            CommandAccess::Streamer => self >= Self::Streamer,
+        }
+    }
+}
+
+fn twitch_tag_value<'a>(tags: &'a str, name: &str) -> Option<&'a str> {
+    tags.split(';')
+        .find_map(|tag| tag.strip_prefix(name)?.strip_prefix('='))
 }
 
 fn commands(values: &[&str]) -> Vec<String> {
@@ -342,6 +410,7 @@ mod tests {
             requester: "bruno".to_string(),
             message: "!sr daft punk one more time".to_string(),
             is_moderator: false,
+            role: ChatUserRole::Viewer,
         });
 
         assert_eq!(
@@ -359,6 +428,7 @@ mod tests {
             requester: "viewer".to_string(),
             message: "!skip".to_string(),
             is_moderator: false,
+            role: ChatUserRole::Viewer,
         });
 
         assert_eq!(
@@ -377,6 +447,7 @@ mod tests {
             requester: "viewer".to_string(),
             message: "!fila".to_string(),
             is_moderator: false,
+            role: ChatUserRole::Viewer,
         });
 
         assert_eq!(command, ChatCommand::Queue);
@@ -388,11 +459,13 @@ mod tests {
             requester: "viewer".to_string(),
             message: "!vol".to_string(),
             is_moderator: false,
+            role: ChatUserRole::Viewer,
         });
         let write = parse(ChatCommandInput {
             requester: "mod".to_string(),
             message: "!vol 35".to_string(),
             is_moderator: true,
+            role: ChatUserRole::Moderator,
         });
 
         assert_eq!(
@@ -417,6 +490,7 @@ mod tests {
             requester: "viewer".to_string(),
             message: "!vol 35".to_string(),
             is_moderator: false,
+            role: ChatUserRole::Viewer,
         });
 
         assert_eq!(
@@ -435,6 +509,7 @@ mod tests {
             requester: "viewer".to_string(),
             message: "!pause".to_string(),
             is_moderator: false,
+            role: ChatUserRole::Viewer,
         });
 
         assert_eq!(
@@ -453,6 +528,7 @@ mod tests {
             requester: "mod".to_string(),
             message: "!pause".to_string(),
             is_moderator: true,
+            role: ChatUserRole::Moderator,
         });
 
         assert_eq!(
@@ -470,12 +546,88 @@ mod tests {
             requester: "viewer".to_string(),
             message: "!remove".to_string(),
             is_moderator: false,
+            role: ChatUserRole::Viewer,
         });
 
         assert_eq!(
             command,
             ChatCommand::RemoveLast {
                 requester: "viewer".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn vip_access_allows_vip_and_blocks_viewer() {
+        let mut settings = CommandSettings::default();
+        settings.access.song_request = CommandAccess::Vip;
+
+        let vip = parse_chat_command(
+            ChatCommandInput {
+                requester: "vip".to_string(),
+                message: "!sr daft punk".to_string(),
+                is_moderator: false,
+                role: ChatUserRole::Vip,
+            },
+            &settings,
+        );
+        let viewer = parse_chat_command(
+            ChatCommandInput {
+                requester: "viewer".to_string(),
+                message: "!sr daft punk".to_string(),
+                is_moderator: false,
+                role: ChatUserRole::Viewer,
+            },
+            &settings,
+        );
+
+        assert!(matches!(vip, ChatCommand::SongRequest(_)));
+        assert_eq!(
+            viewer,
+            ChatCommand::AccessDenied {
+                requester: "viewer".to_string(),
+                command: "!sr".to_string(),
+                required: CommandAccess::Vip
+            }
+        );
+    }
+
+    #[test]
+    fn streamer_access_only_allows_streamer() {
+        let mut settings = CommandSettings::default();
+        settings.access.skip = CommandAccess::Streamer;
+
+        let mod_command = parse_chat_command(
+            ChatCommandInput {
+                requester: "mod".to_string(),
+                message: "!skip".to_string(),
+                is_moderator: true,
+                role: ChatUserRole::Moderator,
+            },
+            &settings,
+        );
+        let streamer_command = parse_chat_command(
+            ChatCommandInput {
+                requester: "heyleao".to_string(),
+                message: "!skip".to_string(),
+                is_moderator: false,
+                role: ChatUserRole::Streamer,
+            },
+            &settings,
+        );
+
+        assert_eq!(
+            mod_command,
+            ChatCommand::AccessDenied {
+                requester: "mod".to_string(),
+                command: "!skip".to_string(),
+                required: CommandAccess::Streamer
+            }
+        );
+        assert_eq!(
+            streamer_command,
+            ChatCommand::Skip {
+                requester: "heyleao".to_string()
             }
         );
     }
@@ -489,6 +641,7 @@ mod tests {
                 requester: "viewer".to_string(),
                 message: "!ssr scatman".to_string(),
                 is_moderator: false,
+                role: ChatUserRole::Viewer,
             },
             &settings,
         );

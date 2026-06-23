@@ -718,26 +718,34 @@ pub async fn page() -> Html<&'static str> {
             <div class="command-access-grid">
               <label>Quem pode pedir música
                 <select id="setup-access-song-request">
-                  <option value="everyone">Todos</option>
+                  <option value="everyone">Viewer / todos</option>
+                  <option value="vip">VIP</option>
                   <option value="moderator">Moderador</option>
+                  <option value="streamer">Streamer</option>
                 </select>
               </label>
               <label>Quem pode remover
                 <select id="setup-access-remove">
-                  <option value="everyone">Todos</option>
+                  <option value="everyone">Viewer / todos</option>
+                  <option value="vip">VIP</option>
                   <option value="moderator">Moderador</option>
+                  <option value="streamer">Streamer</option>
                 </select>
               </label>
               <label>Quem pode controlar player
                 <select id="setup-access-playback">
                   <option value="moderator">Moderador</option>
-                  <option value="everyone">Todos</option>
+                  <option value="streamer">Streamer</option>
+                  <option value="vip">VIP</option>
+                  <option value="everyone">Viewer / todos</option>
                 </select>
               </label>
               <label>Quem pode mudar volume
                 <select id="setup-access-volume-set">
                   <option value="moderator">Moderador</option>
-                  <option value="everyone">Todos</option>
+                  <option value="streamer">Streamer</option>
+                  <option value="vip">VIP</option>
+                  <option value="everyone">Viewer / todos</option>
                 </select>
               </label>
             </div>
@@ -1068,6 +1076,13 @@ pub async fn page() -> Html<&'static str> {
       }
     }
 
+    function accessLabel(access) {
+      if (access === 'streamer') return 'streamer';
+      if (access === 'moderator') return 'moderador';
+      if (access === 'vip') return 'VIP';
+      return 'viewer / todos';
+    }
+
     function renderDiagnostics(diagnostics, connections, pear, config) {
       const twitchReady = diagnostics.integrations.twitch.configured;
       const spotifyReady = connections.spotify.token_configured;
@@ -1103,7 +1118,7 @@ pub async fn page() -> Html<&'static str> {
       `).join('');
       const commandHtml = (config.commands_summary || []).map((command) => `
         <div class="diagnostic-row">
-          <span>${escapeHtml(command.name)} · ${escapeHtml(command.access === 'moderator' ? 'moderador' : 'todos')}</span>
+          <span>${escapeHtml(command.name)} · ${escapeHtml(accessLabel(command.access))}</span>
           <code>${escapeHtml((command.aliases || []).join(', '))}</code>
         </div>
       `).join('');
