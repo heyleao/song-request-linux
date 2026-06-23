@@ -675,8 +675,17 @@ pub async fn page() -> Html<&'static str> {
               <input id="setup-spotify-client-id" autocomplete="off" placeholder="Client ID do app Spotify">
             </label>
             <p class="field-note">Spotify precisa de Client ID, login OAuth, conta Premium e um device ativo.</p>
+            <label><span><input id="setup-spotify-fallback-enabled" type="checkbox"> Ativar playlist fallback quando a fila de pedidos estiver vazia</span></label>
+            <label>Playlist fallback
+              <select id="setup-spotify-fallback-playlist">
+                <option value="">Nenhuma playlist selecionada</option>
+              </select>
+            </label>
+            <p class="field-note">No modo Pear, o fallback continua sendo Spotify: ao terminar pedidos do YouTube/Pear, o Pear pausa e o Spotify retoma ou inicia esta playlist.</p>
             <div class="actions setup-actions">
               <button class="secondary" id="setup-spotify-login" type="button">Login Spotify</button>
+              <button class="secondary" id="setup-spotify-load-playlists" type="button">Carregar playlists</button>
+              <button class="secondary" id="setup-spotify-save-playlist" type="button">Salvar playlist fallback</button>
             </div>
           </section>
 
@@ -830,6 +839,7 @@ pub async fn page() -> Html<&'static str> {
     let setupDirty = false;
     let lastConfig = null;
     let volumeBusy = false;
+    let spotifyPlaylists = [];
 
     async function api(path, options = {}) {
       const response = await fetch(path, {
@@ -1083,6 +1093,25 @@ pub async fn page() -> Html<&'static str> {
       return 'viewer / todos';
     }
 
+    function fillSpotifyPlaylistOptions(playlists, selectedId = '') {
+      const options = ['<option value="">Nenhuma playlist selecionada</option>']
+        .concat(playlists.map((playlist) => {
+          const total = playlist.tracks?.total;
+          const suffix = total === undefined ? '' : ` (${total})`;
+          return `<option value="${escapeHtml(playlist.id)}">${escapeHtml(playlist.name)}${suffix}</option>`;
+        }));
+      $('setup-spotify-fallback-playlist').innerHTML = options.join('');
+      $('setup-spotify-fallback-playlist').value = selectedId || '';
+    }
+
+    function renderSpotifyFallback(connections) {
+      const selected = connections.spotify.fallback_playlist;
+      const selectedId = selected?.id || '';
+      const hasSelected = selected && !spotifyPlaylists.some((playlist) => playlist.id === selected.id);
+      const playlists = hasSelected ? [selected, ...spotifyPlaylists] : spotifyPlaylists;
+      fillSpotifyPlaylistOptions(playlists, selectedId);
+    }
+
     function renderDiagnostics(diagnostics, connections, pear, config) {
       const twitchReady = diagnostics.integrations.twitch.configured;
       const spotifyReady = connections.spotify.token_configured;
@@ -1104,6 +1133,7 @@ pub async fn page() -> Html<&'static str> {
         ? 'Texto do !sr busca no Spotify. Links do YouTube continuam entrando direto no YouTube/Pear.'
         : 'Texto do !sr busca no YouTube. Use Spotify apenas quando trocar o provider para Spotify.';
       renderProviderRequirements(config, connections, pear);
+      renderSpotifyFallback(connections);
 
       const rows = [
         ['Bot Twitch', twitchReady ? 'configurado' : 'não configurado'],
@@ -1149,6 +1179,7 @@ pub async fn page() -> Html<&'static str> {
           $('setup-provider').value = config.default_provider;
           $('setup-spotify-client-id').value = config.spotify_client_id || '';
           $('setup-twitch-client-id').value = config.twitch_client_id || '';
+          $('setup-spotify-fallback-enabled').checked = Boolean(config.spotify_fallback_enabled);
           $('setup-twitch-bot-username').value = config.twitch_bot_username || '';
           $('setup-twitch-channel').value = config.twitch_channel || '';
           $('setup-youtube-playback').value = config.youtube_playback || 'pear';
@@ -1330,6 +1361,7 @@ pub async fn page() -> Html<&'static str> {
           youtube_playback: $('setup-youtube-playback').value,
           pear_base_url: $('setup-pear-base-url').value,
           spotify_client_id: $('setup-spotify-client-id').value,
+          spotify_fallback_enabled: $('setup-spotify-fallback-enabled').checked,
           twitch_client_id: $('setup-twitch-client-id').value,
           twitch_bot_username: $('setup-twitch-bot-username').value,
           twitch_channel: $('setup-twitch-channel').value,
@@ -1397,6 +1429,33 @@ pub async fn page() -> Html<&'static str> {
         const result = await api('/api/connections/spotify/start', { method: 'POST' });
         setMessage('setup-message', 'Abrindo login Spotify.');
         window.open(result.auth_url, '_blank', 'noopener,noreferrer');
+      } catch (error) {
+        setMessage('setup-message', error.message, true);
+      }
+    });
+
+    $('setup-spotify-load-playlists').addEventListener('click', async () => {
+      try {
+        spotifyPlaylists = await api('/api/spotify/playlists');
+        const current = (await api('/api/connections/status')).spotify.fallback_playlist;
+        fillSpotifyPlaylistOptions(spotifyPlaylists, current?.id || '');
+        setMessage('setup-message', `${spotifyPlaylists.length} playlist(s) carregada(s).`);
+      } catch (error) {
+        setMessage('setup-message', error.message, true);
+      }
+    });
+
+    $('setup-spotify-save-playlist').addEventListener('click', async () => {
+      try {
+        const id = $('setup-spotify-fallback-playlist').value;
+        const playlist = spotifyPlaylists.find((item) => item.id === id);
+        if (!playlist) throw new Error('Carregue e selecione uma playlist primeiro.');
+        await api('/api/spotify/fallback-playlist', {
+          method: 'POST',
+          body: JSON.stringify({ id: playlist.id, name: playlist.name, uri: playlist.uri })
+        });
+        setMessage('setup-message', `Playlist fallback salva: ${playlist.name}.`);
+        await refresh();
       } catch (error) {
         setMessage('setup-message', error.message, true);
       }

@@ -161,11 +161,23 @@ opened to everyone if the streamer wants that.
 - By default, searched YouTube videos must be marked as Music by YouTube metadata.
 - Non-music YouTube search results can be allowed from the setup tab when needed.
 
-Spotify plays through your active Spotify device. For YouTube, the recommended
-mode is Pear Desktop with its API Server enabled at
+Spotify playback is limited to a stream-safe Spotify `Computer` device so the
+app does not transfer requested songs or fallback playback to a phone. The setup
+tab can store a Spotify fallback playlist and enable it when the local request
+queue is empty.
+
+For YouTube, the recommended mode is Pear Desktop with its API Server enabled at
 `http://127.0.0.1:26538/api/v1`; the app sends YouTube requests to Pear's queue.
-The local browser player at `http://127.0.0.1:7384/player` remains available as
-the OBS Browser Source fallback and requires `yt-dlp` on the system.
+When Pear is used, the fallback playlist still belongs to Spotify: Pear is paused
+after YouTube requests finish and Spotify resumes or starts the fallback. The
+local browser player at `http://127.0.0.1:7384/player` remains available as the
+OBS Browser Source fallback and requires `yt-dlp` on the system.
+
+Planned safety gates:
+
+- Optional Twitch live-online gate before accepting chat requests.
+- Visible app/server state gate so commands clearly fail when the service is not running.
+- Configurable Spotify device allowlist; current default is the live PC only.
 
 ## Local Data
 

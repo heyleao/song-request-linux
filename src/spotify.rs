@@ -17,7 +17,7 @@ use tracing::{debug, info, warn};
 use url::Url;
 
 use crate::{
-    config::AppConfig,
+    config::{AppConfig, UiConfigView},
     song_requests::{RequestSource, SongRequest},
 };
 
@@ -55,6 +55,7 @@ pub struct SpotifyConnectionStatus {
     pub product_check_error: Option<String>,
     pub redirect_uri: String,
     pub scopes: &'static str,
+    pub fallback_enabled: bool,
     pub fallback_playlist: Option<SpotifyFallbackPlaylist>,
 }
 
@@ -194,6 +195,7 @@ pub async fn connection_status(
         product_check_error,
         redirect_uri: config.spotify.redirect_uri.clone(),
         scopes: SCOPES,
+        fallback_enabled: UiConfigView::load(&config.paths).spotify_fallback_enabled,
         fallback_playlist: load_fallback_playlist(config).ok().flatten(),
     }
 }
@@ -497,6 +499,42 @@ pub async fn set_volume(config: &AppConfig, token: &mut SpotifyToken, level: u8)
     }
 
     Ok(level.min(100))
+}
+
+pub async fn play_context(
+    config: &AppConfig,
+    token: &mut SpotifyToken,
+    context_uri: &str,
+) -> Result<()> {
+    refresh_if_needed(config, token).await?;
+    let device = ensure_available_device(token).await?;
+
+    let response = Client::builder()
+        .http1_only()
+        .build()?
+        .put(format!("{API_URL}/me/player/play"))
+        .bearer_auth(&token.access_token)
+        .query(&[("device_id", device.id.as_deref().unwrap_or_default())])
+        .header(CONTENT_TYPE, "application/json")
+        .json(&serde_json::json!({ "context_uri": context_uri }))
+        .send()
+        .await
+        .context("failed to start Spotify context")?;
+
+    let status = response.status();
+    if status.is_success() {
+        info!(context_uri, "spotify context playback started");
+        return Ok(());
+    }
+
+    let body = response.text().await.unwrap_or_default();
+    warn!(
+        status = %status,
+        response = %body,
+        context_uri,
+        "spotify context playback failed"
+    );
+    bail!("Spotify nao aceitou iniciar a playlist ({status}): {body}");
 }
 
 pub async fn resume_playback(config: &AppConfig, token: &mut SpotifyToken) -> Result<()> {
@@ -844,7 +882,7 @@ async fn add_to_queue_once(token: &SpotifyToken, uri: &str) -> Result<(), Spotif
     Err(SpotifyQueueError {
         no_active_device: status.as_u16() == 404 && body.contains("NO_ACTIVE_DEVICE"),
         error: anyhow!(
-            "Spotify nao encontrou um device ativo ({status}). Abra o Spotify no PC/celular e de play ou pause em uma musica. Resposta: {body}"
+            "Spotify nao encontrou um device de stream ativo ({status}). Abra o Spotify no PC da live; celular nao e usado para playback do app. Resposta: {body}"
         ),
     })
 }
@@ -875,16 +913,12 @@ async fn transfer_to_available_device(token: &SpotifyToken) -> Result<SpotifyDev
     let devices = fetch_devices(token).await?.devices;
     let device = devices
         .iter()
-        .find(|device| device.is_active && !device.is_restricted && device.id.is_some())
-        .or_else(|| {
-            devices
-                .iter()
-                .find(|device| !device.is_restricted && device.id.is_some())
-        })
+        .find(|device| is_allowed_stream_device(device) && device.is_active)
+        .or_else(|| devices.iter().find(|device| is_allowed_stream_device(device)))
         .cloned()
         .ok_or_else(|| {
             anyhow!(
-                "Nenhum device Spotify disponivel. Abra o Spotify no PC/celular e de play ou pause em uma musica antes de pedir pelo chat."
+                "Nenhum device Spotify de stream disponivel. Abra o Spotify no PC da live; o app nao transfere playback para celular."
             )
         })?;
 
@@ -918,11 +952,17 @@ async fn transfer_to_available_device(token: &SpotifyToken) -> Result<SpotifyDev
     Ok(device)
 }
 
+fn is_allowed_stream_device(device: &SpotifyDevice) -> bool {
+    !device.is_restricted
+        && device.id.is_some()
+        && device.device_type.eq_ignore_ascii_case("computer")
+}
+
 async fn ensure_available_device(token: &SpotifyToken) -> Result<SpotifyDevice> {
     let devices = fetch_devices(token).await?.devices;
     if let Some(device) = devices
         .iter()
-        .find(|device| device.is_active && !device.is_restricted && device.id.is_some())
+        .find(|device| is_allowed_stream_device(device) && device.is_active)
         .cloned()
     {
         return Ok(device);

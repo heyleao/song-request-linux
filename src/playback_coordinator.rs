@@ -3,7 +3,7 @@ use std::{sync::atomic::Ordering, time::Duration};
 use tokio::time::{interval, sleep};
 
 use crate::{
-    config::YoutubePlayback,
+    config::{self, YoutubePlayback},
     pear,
     song_requests::{RequestSource, SongRequest},
     spotify,
@@ -25,6 +25,12 @@ pub fn spawn(state: AppState) {
 }
 
 async fn coordinate_once(state: &AppState) {
+    if has_local_requests(state).await {
+        state
+            .spotify_fallback_started
+            .store(false, Ordering::SeqCst);
+    }
+
     if matches!(state.config.youtube.playback, YoutubePlayback::Pear) {
         coordinate_pear_once(state).await;
         return;
@@ -32,6 +38,7 @@ async fn coordinate_once(state: &AppState) {
 
     if !has_pending_youtube(state).await {
         *state.youtube_waiting_spotify_title.lock().await = None;
+        start_spotify_fallback_if_idle(state).await;
         return;
     }
 
@@ -79,6 +86,7 @@ async fn coordinate_pear_once(state: &AppState) {
         *state.youtube_active_pear_video_id.lock().await = None;
         *state.youtube_failed_pear_video_id.lock().await = None;
         resume_spotify_after_youtube(state).await;
+        start_spotify_fallback_if_idle(state).await;
         return;
     };
 
@@ -305,6 +313,87 @@ async fn has_pending_youtube(state: &AppState) -> bool {
         .await
         .first_youtube()
         .is_some_and(|song| matches!(song.source, RequestSource::Youtube { .. }))
+}
+
+async fn has_local_requests(state: &AppState) -> bool {
+    let view = state.queue.read().await.view();
+    view.current_song.is_some() || !view.queue.is_empty()
+}
+
+async fn start_spotify_fallback_if_idle(state: &AppState) {
+    if !config::UiConfigView::load(&state.config.paths).spotify_fallback_enabled
+        || has_local_requests(state).await
+    {
+        return;
+    }
+
+    if state.spotify_fallback_started.load(Ordering::SeqCst) {
+        return;
+    }
+
+    let playlist = match spotify::load_fallback_playlist(&state.config) {
+        Ok(Some(playlist)) => playlist,
+        Ok(None) => return,
+        Err(error) => {
+            if !state.spotify_fallback_started.swap(true, Ordering::SeqCst) {
+                state
+                    .record_event(
+                        "error",
+                        format!("Nao consegui ler playlist fallback: {error}"),
+                    )
+                    .await;
+            }
+            return;
+        }
+    };
+
+    let mut token_guard = state.spotify_token.write().await;
+    let Some(token) = token_guard.as_mut() else {
+        return;
+    };
+
+    match spotify::current_playback(&state.config, token).await {
+        Ok(Some(playback)) if playback.is_playing => return,
+        Ok(_) => {}
+        Err(error) => {
+            if !state.spotify_fallback_started.swap(true, Ordering::SeqCst) {
+                state
+                    .record_event(
+                        "error",
+                        format!("Nao consegui verificar Spotify fallback: {error}"),
+                    )
+                    .await;
+            }
+            return;
+        }
+    }
+
+    if state
+        .spotify_fallback_started
+        .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+        .is_err()
+    {
+        return;
+    }
+
+    match spotify::play_context(&state.config, token, &playlist.uri).await {
+        Ok(()) => {
+            state
+                .record_event(
+                    "player",
+                    format!("Fallback Spotify iniciado: {}", playlist.name),
+                )
+                .await;
+        }
+        Err(error) => {
+            state
+                .record_event(
+                    "error",
+                    format!("Nao consegui iniciar fallback Spotify: {error}"),
+                )
+                .await;
+        }
+    }
 }
 
 async fn pause_spotify_for_youtube(state: &AppState, message: &'static str) {

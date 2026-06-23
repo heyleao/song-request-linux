@@ -29,6 +29,7 @@ pub struct UserConfig {
     pub default_provider: MusicProvider,
     pub spotify_client_id: Option<String>,
     pub spotify_redirect_uri: Option<String>,
+    pub spotify_fallback_enabled: bool,
     pub youtube_playback: YoutubePlayback,
     pub pear_base_url: Option<String>,
     pub youtube_max_duration_seconds: u64,
@@ -52,6 +53,7 @@ pub struct UiConfigInput {
     pub youtube_playback: YoutubePlayback,
     pub pear_base_url: Option<String>,
     pub spotify_client_id: Option<String>,
+    pub spotify_fallback_enabled: bool,
     pub twitch_client_id: Option<String>,
     pub twitch_bot_username: Option<String>,
     pub twitch_channel: Option<String>,
@@ -68,6 +70,7 @@ pub struct UiConfigView {
     pub youtube_playback: YoutubePlayback,
     pub pear_base_url: String,
     pub spotify_client_id: Option<String>,
+    pub spotify_fallback_enabled: bool,
     pub twitch_client_id: Option<String>,
     pub twitch_bot_username: Option<String>,
     pub twitch_channel: Option<String>,
@@ -90,6 +93,7 @@ pub struct CommandSummary {
 pub struct SpotifyConfig {
     pub client_id: Option<String>,
     pub redirect_uri: String,
+    pub fallback_enabled: bool,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -169,6 +173,7 @@ impl Default for UserConfig {
             default_provider: MusicProvider::Youtube,
             spotify_client_id: None,
             spotify_redirect_uri: None,
+            spotify_fallback_enabled: false,
             youtube_playback: YoutubePlayback::Browser,
             pear_base_url: None,
             youtube_max_duration_seconds: 360,
@@ -189,6 +194,9 @@ impl SpotifyConfig {
             redirect_uri: clean_optional_env("SPOTIFY_REDIRECT_URI")
                 .or_else(|| user_config.spotify_redirect_uri.clone())
                 .unwrap_or_else(|| "http://127.0.0.1:7384/auth/spotify/callback".to_string()),
+            fallback_enabled: clean_optional_env("SPOTIFY_FALLBACK_ENABLED")
+                .map(|value| matches!(value.as_str(), "1" | "true" | "yes" | "on"))
+                .unwrap_or(user_config.spotify_fallback_enabled),
         }
     }
 }
@@ -275,6 +283,7 @@ impl UiConfigView {
                 .pear_base_url
                 .unwrap_or_else(default_pear_base_url),
             spotify_client_id: user_config.spotify_client_id,
+            spotify_fallback_enabled: user_config.spotify_fallback_enabled,
             twitch_client_id: user_config.twitch_client_id,
             twitch_bot_username: user_config.twitch_bot_username,
             twitch_channel: user_config.twitch_channel,
@@ -299,6 +308,7 @@ pub fn save_ui_config(paths: &AppPaths, input: UiConfigInput) -> Result<UiConfig
         pear_base_url: clean_optional_value(input.pear_base_url),
         spotify_client_id: clean_optional_value(input.spotify_client_id),
         spotify_redirect_uri: None,
+        spotify_fallback_enabled: input.spotify_fallback_enabled,
         youtube_max_duration_seconds: input
             .youtube_max_duration_seconds
             .unwrap_or(360)
