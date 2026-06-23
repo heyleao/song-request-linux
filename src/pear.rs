@@ -3,6 +3,7 @@ use std::time::Duration;
 use anyhow::{bail, Context, Result};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 use crate::config::AppConfig;
 
@@ -40,9 +41,20 @@ pub struct PearVolume {
     pub is_muted: bool,
 }
 
+#[derive(Debug, Deserialize)]
+struct PearQueueInfo {
+    #[serde(default)]
+    items: Vec<Value>,
+}
+
 #[derive(Debug, Serialize)]
 struct PearVolumeRequest {
     volume: u8,
+}
+
+#[derive(Debug, Serialize)]
+struct PearQueueIndexRequest {
+    index: usize,
 }
 
 #[derive(Clone, Copy, Debug, Serialize)]
@@ -65,15 +77,26 @@ pub async fn status(config: &AppConfig) -> PearStatus {
 }
 
 pub async fn now_playing(config: &AppConfig) -> Result<PearNowPlaying> {
+    match read_now_playing(config, "song").await {
+        Ok(song) => return Ok(song),
+        Err(error) => {
+            tracing::debug!(%error, "Pear /song failed; falling back to /song-info");
+        }
+    }
+
+    read_now_playing(config, "song-info").await
+}
+
+async fn read_now_playing(config: &AppConfig, path: &str) -> Result<PearNowPlaying> {
     let response = client()?
-        .get(endpoint(config, "song-info"))
+        .get(endpoint(config, path))
         .send()
         .await
-        .context("Pear nao respondeu em /song-info")?;
+        .with_context(|| format!("Pear nao respondeu em /{path}"))?;
     let status = response.status();
     if !status.is_success() {
         let body = response.text().await.unwrap_or_default();
-        bail!("Pear /song-info falhou com {status}: {}", body.trim());
+        bail!("Pear /{path} falhou com {status}: {}", body.trim());
     }
 
     Ok(response.json::<PearNowPlaying>().await?)
@@ -111,6 +134,53 @@ pub async fn pause(config: &AppConfig) -> Result<()> {
 
 pub async fn next(config: &AppConfig) -> Result<()> {
     empty_post(config, "next").await
+}
+
+pub async fn select_video_from_queue(config: &AppConfig, video_id: &str) -> Result<bool> {
+    let Some(index) = queue_video_ids(config)
+        .await?
+        .into_iter()
+        .position(|id| id == video_id)
+    else {
+        return Ok(false);
+    };
+
+    let response = client()?
+        .patch(endpoint(config, "queue"))
+        .json(&PearQueueIndexRequest { index })
+        .send()
+        .await
+        .context("Pear nao respondeu em PATCH /queue")?;
+    let status = response.status();
+    if status.is_success() {
+        return Ok(true);
+    }
+
+    let body = response.text().await.unwrap_or_default();
+    bail!(
+        "Pear nao aceitou selecionar o indice {index} da fila ({status}): {}",
+        body.trim()
+    );
+}
+
+async fn queue_video_ids(config: &AppConfig) -> Result<Vec<String>> {
+    let response = client()?
+        .get(endpoint(config, "queue"))
+        .send()
+        .await
+        .context("Pear nao respondeu em /queue")?;
+    let status = response.status();
+    if !status.is_success() {
+        let body = response.text().await.unwrap_or_default();
+        bail!("Pear /queue falhou com {status}: {}", body.trim());
+    }
+
+    let queue = response.json::<PearQueueInfo>().await?;
+    Ok(queue
+        .items
+        .iter()
+        .filter_map(extract_queue_video_id)
+        .collect())
 }
 
 pub async fn current_volume(config: &AppConfig) -> Result<PearVolume> {
@@ -158,6 +228,14 @@ impl PearNowPlaying {
     }
 }
 
+fn extract_queue_video_id(item: &Value) -> Option<String> {
+    item.pointer("/videoId")
+        .or_else(|| item.pointer("/playlistPanelVideoRenderer/videoId"))
+        .and_then(Value::as_str)
+        .filter(|value| !value.trim().is_empty())
+        .map(ToString::to_string)
+}
+
 async fn empty_post(config: &AppConfig, path: &str) -> Result<()> {
     let response = client()?
         .post(endpoint(config, path))
@@ -183,4 +261,32 @@ fn endpoint(config: &AppConfig, path: &str) -> String {
 
 fn client() -> Result<Client> {
     Ok(Client::builder().timeout(Duration::from_secs(3)).build()?)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn extracts_direct_queue_video_id() {
+        let item = json!({ "videoId": "abc123" });
+
+        assert_eq!(extract_queue_video_id(&item).as_deref(), Some("abc123"));
+    }
+
+    #[test]
+    fn extracts_renderer_queue_video_id() {
+        let item = json!({
+            "playlistPanelVideoRenderer": {
+                "title": { "runs": [{ "text": "ATWA" }] },
+                "videoId": "Ph8Qt3DHVwo"
+            }
+        });
+
+        assert_eq!(
+            extract_queue_video_id(&item).as_deref(),
+            Some("Ph8Qt3DHVwo")
+        );
+    }
 }

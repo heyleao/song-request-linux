@@ -83,15 +83,22 @@ async fn coordinate_once(state: &AppState) {
 async fn coordinate_pear_once(state: &AppState) {
     let Some(pending) = first_pending_youtube(state).await else {
         *state.youtube_waiting_spotify_title.lock().await = None;
+        *state.youtube_waiting_pear_video_id.lock().await = None;
         *state.youtube_active_pear_video_id.lock().await = None;
         *state.youtube_failed_pear_video_id.lock().await = None;
-        resume_spotify_after_youtube(state).await;
+        finish_pear_background(state).await;
         start_spotify_fallback_if_idle(state).await;
         return;
     };
 
-    if state.youtube_player_paused_spotify.load(Ordering::SeqCst) {
+    if state.youtube_active_pear_video_id.lock().await.is_some()
+        || state.youtube_player_paused_spotify.load(Ordering::SeqCst)
+    {
         coordinate_active_pear_request(state, pending).await;
+        return;
+    }
+
+    if wait_for_current_pear_if_needed(state, &pending).await {
         return;
     }
 
@@ -160,7 +167,7 @@ async fn coordinate_active_pear_request(state: &AppState, pending: SongRequest) 
         if let Some(next_pending) = first_pending_youtube(state).await {
             start_pear_request(state, next_pending).await;
         } else {
-            resume_spotify_after_youtube(state).await;
+            finish_pear_background(state).await;
         }
         return;
     }
@@ -198,15 +205,44 @@ async fn start_pear_request(state: &AppState, pending: SongRequest) {
             }
         }
 
-        if let Err(error) = pear::next(&state.config).await {
-            state
-                .record_event(
-                    "error",
-                    format!("Nao consegui avancar Pear para o pedido: {error}"),
-                )
-                .await;
-            *state.youtube_failed_pear_video_id.lock().await = Some(video_id);
-            return;
+        match pear::select_video_from_queue(&state.config, &video_id).await {
+            Ok(true) => {}
+            Ok(false) => {
+                state
+                    .record_event(
+                        "player",
+                        "Pear nao retornou o pedido na fila; tentando avancar uma vez",
+                    )
+                    .await;
+                if let Err(error) = pear::next(&state.config).await {
+                    state
+                        .record_event(
+                            "error",
+                            format!("Nao consegui avancar Pear para o pedido: {error}"),
+                        )
+                        .await;
+                    *state.youtube_failed_pear_video_id.lock().await = Some(video_id);
+                    return;
+                }
+            }
+            Err(error) => {
+                state
+                    .record_event(
+                        "error",
+                        format!("Nao consegui selecionar pedido no Pear: {error}"),
+                    )
+                    .await;
+                if let Err(next_error) = pear::next(&state.config).await {
+                    state
+                        .record_event(
+                            "error",
+                            format!("Fallback de avancar Pear tambem falhou: {next_error}"),
+                        )
+                        .await;
+                    *state.youtube_failed_pear_video_id.lock().await = Some(video_id);
+                    return;
+                }
+            }
         }
     }
 
@@ -225,10 +261,21 @@ async fn start_pear_request(state: &AppState, pending: SongRequest) {
         .and_then(|song| song.video_id)
         .is_some_and(|current_video_id| current_video_id == video_id);
     if !confirmed {
+        if let Err(error) = pear::pause(&state.config).await {
+            state
+                .record_event(
+                    "error",
+                    format!("Pear abriu musica errada e nao consegui pausar: {error}"),
+                )
+                .await;
+        }
         state
             .record_event(
                 "error",
-                format!("Pear nao abriu o video solicitado: {}", pending.title),
+                format!(
+                    "Pear nao abriu o video solicitado: {}. Playback pausado para evitar musica errada.",
+                    pending.title
+                ),
             )
             .await;
         *state.youtube_failed_pear_video_id.lock().await = Some(video_id);
@@ -236,10 +283,65 @@ async fn start_pear_request(state: &AppState, pending: SongRequest) {
     }
 
     *state.youtube_failed_pear_video_id.lock().await = None;
+    *state.youtube_waiting_pear_video_id.lock().await = None;
     *state.youtube_active_pear_video_id.lock().await = Some(video_id);
     state
         .record_event("player", format!("Pear tocando pedido: {}", pending.title))
         .await;
+}
+
+async fn wait_for_current_pear_if_needed(state: &AppState, pending: &SongRequest) -> bool {
+    let RequestSource::Youtube { video_id } = &pending.source else {
+        return false;
+    };
+
+    let pear_current = pear::now_playing(&state.config).await.ok();
+    let current_video_id = pear_current.as_ref().and_then(|song| song.video_id.clone());
+    let current_is_paused = pear_current.as_ref().is_some_and(|song| song.is_paused);
+    let waiting_video_id = state.youtube_waiting_pear_video_id.lock().await.clone();
+
+    if let Some(waiting_video_id) = waiting_video_id {
+        if current_video_id.as_deref() == Some(waiting_video_id.as_str()) {
+            return true;
+        }
+
+        *state.youtube_waiting_pear_video_id.lock().await = None;
+        return false;
+    }
+
+    let Some(current_video_id) = current_video_id else {
+        return false;
+    };
+
+    if current_video_id == *video_id {
+        return false;
+    }
+
+    if current_is_paused {
+        *state.youtube_waiting_pear_video_id.lock().await = Some(current_video_id.clone());
+        state
+            .record_event(
+                "player",
+                format!(
+                    "Pear pausado manualmente; pedido aguardando play: {}",
+                    pending.title
+                ),
+            )
+            .await;
+        return true;
+    }
+
+    *state.youtube_waiting_pear_video_id.lock().await = Some(current_video_id);
+    state
+        .record_event(
+            "player",
+            format!(
+                "Pear aguardando fim da musica atual para tocar: {}",
+                pending.title
+            ),
+        )
+        .await;
+    true
 }
 
 async fn arm_against_current_spotify(state: &AppState) {
@@ -534,7 +636,14 @@ async fn finish_pear_request(state: &AppState, id: u64) {
 
     *state.youtube_active_pear_video_id.lock().await = None;
     *state.youtube_failed_pear_video_id.lock().await = None;
+    *state.youtube_waiting_pear_video_id.lock().await = None;
     state.record_event("player", "Pedido Pear finalizado").await;
+}
+
+async fn finish_pear_background(state: &AppState) {
+    if state.youtube_player_paused_spotify.load(Ordering::SeqCst) {
+        resume_spotify_after_youtube(state).await;
+    }
 }
 
 async fn resume_spotify_after_youtube(state: &AppState) {
