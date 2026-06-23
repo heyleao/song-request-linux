@@ -359,6 +359,38 @@ pub async fn page() -> Html<&'static str> {
       opacity: .55;
       cursor: not-allowed;
     }
+    body.stale-instance .content {
+      filter: saturate(.65);
+    }
+    body.stale-instance main,
+    body.stale-instance header .top-status {
+      pointer-events: none;
+    }
+    .instance-notice {
+      position: fixed;
+      inset: 0;
+      z-index: 80;
+      display: grid;
+      place-items: center;
+      padding: 18px;
+      background: rgba(3, 7, 12, .72);
+      backdrop-filter: blur(8px);
+    }
+    .instance-notice[hidden] { display: none; }
+    .instance-dialog {
+      width: min(520px, 100%);
+      border: 1px solid var(--line-2);
+      border-radius: 8px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      padding: 18px;
+      display: grid;
+      gap: 12px;
+    }
+    .instance-dialog p {
+      color: var(--muted);
+      line-height: 1.45;
+    }
     .volume-control {
       display: inline-flex;
       align-items: center;
@@ -538,6 +570,17 @@ pub async fn page() -> Html<&'static str> {
 </head>
 <body>
   <a class="skip-link" href="#main">Ir para o painel</a>
+  <div class="instance-notice" id="instance-notice" hidden role="dialog" aria-modal="true" aria-labelledby="instance-title">
+    <div class="instance-dialog">
+      <h2 id="instance-title">Outra aba assumiu o painel</h2>
+      <p>Uma nova aba do Song Request Linux foi aberta e virou a aba ativa. Para evitar comandos duplicados, esta aba ficou em espera.</p>
+      <div class="actions">
+        <button id="instance-takeover" type="button">Usar esta aba</button>
+        <button class="secondary" id="instance-close" type="button">Fechar esta aba</button>
+      </div>
+      <p class="hint" id="instance-message"></p>
+    </div>
+  </div>
   <div class="app-shell">
     <aside class="sidebar">
       <div class="brand">
@@ -904,6 +947,58 @@ pub async fn page() -> Html<&'static str> {
     let volumeTimer = null;
     let volumeInFlight = false;
     let spotifyPlaylists = [];
+    const instanceId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+    const instanceKey = 'song-request-linux-active-dashboard';
+    const instanceChannel = 'BroadcastChannel' in window ? new BroadcastChannel('song-request-linux-dashboard') : null;
+    let isActiveInstance = true;
+
+    function markActiveInstance() {
+      isActiveInstance = true;
+      document.body.classList.remove('stale-instance');
+      $('instance-notice').hidden = true;
+      localStorage.setItem(instanceKey, JSON.stringify({ id: instanceId, at: Date.now() }));
+      instanceChannel?.postMessage({ type: 'activate', id: instanceId });
+    }
+
+    function markStaleInstance() {
+      if (!isActiveInstance) return;
+      isActiveInstance = false;
+      document.body.classList.add('stale-instance');
+      $('instance-notice').hidden = false;
+      $('instance-message').textContent = 'Se quiser continuar por aqui, clique em Usar esta aba. A outra aba entrará em espera.';
+      if ($('refresh-state')) $('refresh-state').textContent = 'ABA ANTIGA';
+    }
+
+    function closeThisTab() {
+      $('instance-message').textContent = 'Tentando fechar a aba. Se o navegador bloquear, pode fechar manualmente.';
+      window.close();
+      setTimeout(() => {
+        document.body.innerHTML = '<main><section><h2>Aba em espera</h2><p class="muted">Esta aba pode ser fechada. O painel ativo está em outra aba.</p></section></main>';
+      }, 250);
+    }
+
+    instanceChannel?.addEventListener('message', (event) => {
+      if (event.data?.type === 'activate' && event.data.id !== instanceId) markStaleInstance();
+      if (event.data?.type === 'shutdown' && event.data.id !== instanceId) {
+        document.body.innerHTML = '<main><section><h2>Song Request Linux encerrando</h2><p class="muted">Outra aba solicitou o encerramento do app.</p></section></main>';
+      }
+    });
+
+    window.addEventListener('storage', (event) => {
+      if (event.key !== instanceKey || !event.newValue) return;
+      try {
+        const active = JSON.parse(event.newValue);
+        if (active.id && active.id !== instanceId) markStaleInstance();
+      } catch (_) {}
+    });
+
+    window.addEventListener('beforeunload', () => {
+      const active = localStorage.getItem(instanceKey);
+      if (!active) return;
+      try {
+        if (JSON.parse(active).id === instanceId) localStorage.removeItem(instanceKey);
+      } catch (_) {}
+    });
 
     async function api(path, options = {}) {
       const response = await fetch(path, {
@@ -1245,6 +1340,7 @@ pub async fn page() -> Html<&'static str> {
     }
 
     async function refresh() {
+      if (!isActiveInstance) return;
       try {
         const [status, queue, diagnostics, connections, pear, events, config] = await Promise.all([
           api('/api/status'),
@@ -1594,10 +1690,18 @@ pub async fn page() -> Html<&'static str> {
       }
     });
 
+    $('instance-takeover').addEventListener('click', () => {
+      markActiveInstance();
+      refresh();
+    });
+    $('instance-close').addEventListener('click', closeThisTab);
+
     $('shutdown-app').addEventListener('click', () => {
+      if (!confirm('Encerrar o Song Request Linux agora? Isso para o bot, a fila e o player local.')) return;
       $('refresh-state').textContent = 'SAINDO';
       setMessage('player-message', 'App encerrando. Esta aba pode ser fechada.');
       $('shutdown-app').disabled = true;
+      instanceChannel?.postMessage({ type: 'shutdown', id: instanceId });
 
       fetch('/api/shutdown', {
         method: 'POST',
@@ -1610,6 +1714,7 @@ pub async fn page() -> Html<&'static str> {
       }, 600);
     });
 
+    markActiveInstance();
     refresh();
     setInterval(refresh, 2500);
   </script>
