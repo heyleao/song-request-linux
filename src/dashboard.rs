@@ -8,6 +8,7 @@ pub async fn page() -> Html<&'static str> {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Song Request Linux</title>
+  <link rel="icon" type="image/png" href="/favicon.png">
   <style>
     :root {
       color-scheme: dark;
@@ -85,14 +86,14 @@ pub async fn page() -> Html<&'static str> {
       min-width: 0;
     }
     .brand-mark {
-      display: grid;
-      place-items: center;
-      width: 38px;
-      height: 38px;
+      width: 44px;
+      height: 44px;
       border-radius: 8px;
-      background: linear-gradient(135deg, #22c55e 0%, #5aa9ff 100%);
-      color: #061016;
-      font-weight: 950;
+      border: 1px solid rgba(90, 169, 255, .35);
+      background: #07111a;
+      object-fit: cover;
+      flex: 0 0 auto;
+      box-shadow: 0 10px 24px rgba(0, 0, 0, .22);
     }
     .brand span { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
     .sidebar {
@@ -412,7 +413,7 @@ pub async fn page() -> Html<&'static str> {
   <div class="app-shell">
     <aside class="sidebar">
       <div class="brand">
-        <div class="brand-mark">SR</div>
+        <img class="brand-mark" src="/assets/logo-srl.png" alt="SRL">
         <div>
           <h1>Song Request Linux</h1>
           <span>Controle de músicas para live</span>

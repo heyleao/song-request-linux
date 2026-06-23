@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+LOG_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/song-request-linux/logs"
+LOG_FILE="$LOG_DIR/install.log"
+
+WITH_DEPS=1
+WITH_PEAR=0
+WITH_BROWSER_PLAYER=0
+START_AFTER=1
+
+for arg in "$@"; do
+  case "$arg" in
+    --no-deps) WITH_DEPS=0 ;;
+    --with-pear) WITH_PEAR=1 ;;
+    --with-browser-player) WITH_BROWSER_PLAYER=1 ;;
+    --all) WITH_PEAR=1; WITH_BROWSER_PLAYER=1 ;;
+    --no-start) START_AFTER=0 ;;
+    -h|--help)
+      cat <<HELP
+Usage: ./scripts/install-user-friendly [--with-pear] [--with-browser-player] [--all] [--no-deps] [--no-start]
+
+Instala o Song Request Linux para o usuario atual:
+  1. Confere dependencias basicas
+  2. Opcionalmente instala pacotes no CachyOS/Arch
+  3. Compila em release
+  4. Cria atalho no menu com icone
+  5. Abre o dashboard
+
+Nada de tokens ou chaves e enviado para fora. Segredos ficam em ~/.local/state/song-request-linux.
+HELP
+      exit 0
+      ;;
+    *) echo "Opcao desconhecida: $arg" >&2; exit 2 ;;
+  esac
+done
+
+mkdir -p "$LOG_DIR"
+
+echo "== Song Request Linux Setup =="
+echo "Projeto: $APP_DIR"
+echo "Log: $LOG_FILE"
+
+if [[ ! -f "$APP_DIR/assets/logo-srl.png" ]]; then
+  echo "ERRO: assets/logo-srl.png nao encontrado." >&2
+  exit 1
+fi
+
+if (( WITH_DEPS )); then
+  deps_args=()
+  (( WITH_PEAR )) && deps_args+=(--with-pear)
+  (( WITH_BROWSER_PLAYER )) && deps_args+=(--with-browser-player)
+  if command -v pacman >/dev/null 2>&1; then
+    "$APP_DIR/scripts/install-cachyos-deps" "${deps_args[@]}"
+  else
+    echo "Pacman nao encontrado. Pulando instalacao automatica de dependencias."
+  fi
+fi
+
+(
+  cd "$APP_DIR"
+  cargo build --release
+) >>"$LOG_FILE" 2>&1
+
+"$APP_DIR/scripts/install-desktop-entry" >>"$LOG_FILE" 2>&1
+
+echo "Atalho instalado: Song Request Linux"
+
+if (( START_AFTER )); then
+  "$APP_DIR/scripts/song-request-linux-open"
+fi
+
+echo "Pronto. Dashboard: http://127.0.0.1:7384/"

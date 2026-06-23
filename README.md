@@ -35,6 +35,10 @@ UI direction:
 
 [docs/UI_REFERENCES.md](docs/UI_REFERENCES.md)
 
+Packaging and security-minded install plan:
+
+[docs/PACKAGING.md](docs/PACKAGING.md)
+
 The dashboard guide links directly to:
 
 - Spotify Developer Dashboard
@@ -52,7 +56,13 @@ Install dependencies on CachyOS/Arch:
 Use `--all` instead if you also want the OBS Browser Source fallback through
 `yt-dlp`.
 
-Install the desktop entry and open the app:
+For the easiest local install, use the friendly installer:
+
+```bash
+./scripts/install-user-friendly --with-pear
+```
+
+Manual desktop entry install remains available:
 
 ```bash
 ./scripts/install-desktop-entry

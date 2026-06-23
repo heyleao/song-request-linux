@@ -1,7 +1,7 @@
 use anyhow::anyhow;
 use axum::{
     extract::{Query, State},
-    http::{HeaderMap, StatusCode},
+    http::{header::CONTENT_TYPE, HeaderMap, StatusCode},
     response::{Html, IntoResponse},
     routing::{get, post},
     Json, Router,
@@ -30,6 +30,8 @@ pub fn router(state: AppState) -> Router {
         .route("/auth/spotify/callback", get(spotify_callback))
         .route("/auth/twitch/callback", get(twitch_callback))
         .route("/health", get(health))
+        .route("/assets/logo-srl.png", get(logo_srl))
+        .route("/favicon.png", get(logo_srl))
         .route("/api/shutdown", post(shutdown))
         .route("/api/status", get(status))
         .route("/api/events", get(events))
@@ -64,6 +66,11 @@ pub fn router(state: AppState) -> Router {
 
 async fn health() -> Json<HealthResponse> {
     Json(HealthResponse { status: "ok" })
+}
+
+async fn logo_srl() -> impl IntoResponse {
+    static LOGO: &[u8] = include_bytes!("../assets/logo-srl.png");
+    ([(CONTENT_TYPE, "image/png")], LOGO)
 }
 
 async fn shutdown(

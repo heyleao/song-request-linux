@@ -18,6 +18,7 @@ SECURITY.md
 docs/*
 !docs/SETUP.md
 !docs/UI_REFERENCES.md
+!docs/PACKAGING.md
 
 # Editor noise
 .idea/
@@ -25,3 +26,7 @@ docs/*
 *.swp
 *.swo
 .secrets/
+
+# Project assets that are safe to publish.
+!assets/
+!assets/logo-srl.png
