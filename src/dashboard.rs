@@ -912,7 +912,7 @@ pub async fn page() -> Html<&'static str> {
           <div class="endpoints">
             <div class="endpoint-row with-action"><span>Dashboard</span><code>http://127.0.0.1:7384/</code><a class="secondary" href="/" target="_blank" rel="noreferrer">Abrir</a></div>
             <div class="endpoint-row with-action"><span>Overlay da música</span><code>http://127.0.0.1:7384/overlay</code><a class="secondary" href="/overlay" target="_blank" rel="noreferrer">Abrir</a></div>
-            <p class="endpoint-description">Use como Browser Source no OBS para mostrar a música atual e pedidos na cena.</p>
+            <p class="endpoint-description">Use como Browser Source no OBS para mostrar a música atual. Ajuste tamanho pela URL: /overlay?max=48&width=520&size=24&lines=1.</p>
             <div class="endpoint-row with-action"><span>Player YouTube OBS</span><code>http://127.0.0.1:7384/player</code><a class="secondary" href="/player" target="_blank" rel="noreferrer">Abrir</a></div>
             <p class="endpoint-description">Use apenas se o player do YouTube estiver em modo Browser Source OBS. No modo Pear Desktop, essa fonte não é necessária.</p>
             <div class="endpoint-row"><span>Pear API</span><code>http://127.0.0.1:26538/api/v1</code></div>

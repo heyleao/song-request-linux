@@ -116,6 +116,7 @@ Arch package or AppImage.
 
 - Dashboard: `http://127.0.0.1:7384/`
 - OBS overlay: `http://127.0.0.1:7384/overlay`
+- Compact OBS overlay: `http://127.0.0.1:7384/overlay?max=48&width=520&size=24&lines=1`
 - OBS YouTube player/audio source: `http://127.0.0.1:7384/player`
 - Queue API: `http://127.0.0.1:7384/api/queue`
 - Events API: `http://127.0.0.1:7384/api/events`

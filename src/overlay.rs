@@ -22,9 +22,11 @@ pub async fn page() -> Html<&'static str> {
     main {
       display: inline-grid;
       gap: 4px;
-      padding: 16px 18px;
-      min-width: 320px;
-      max-width: min(760px, calc(100vw - 36px));
+      padding: var(--overlay-padding, 16px 18px);
+      min-width: min(320px, 100vw);
+      width: min(var(--overlay-width, 620px), calc(100vw - 36px));
+      max-width: calc(100vw - 36px);
+      text-align: var(--overlay-align, left);
     }
     .label {
       font-size: 14px;
@@ -33,13 +35,19 @@ pub async fn page() -> Html<&'static str> {
       letter-spacing: 0.08em;
     }
     .song {
-      font-size: 28px;
+      font-size: var(--song-size, 28px);
       font-weight: 700;
-      line-height: 1.1;
+      line-height: 1.12;
       max-width: 100%;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+    .song.multiline {
+      display: -webkit-box;
+      -webkit-line-clamp: var(--song-lines, 2);
+      -webkit-box-orient: vertical;
+      white-space: normal;
     }
     .meta {
       font-size: 18px;
@@ -55,6 +63,21 @@ pub async fn page() -> Html<&'static str> {
     <div class="meta" id="meta">Song Request Linux</div>
   </main>
   <script>
+    const params = new URLSearchParams(window.location.search);
+    const overlayOptions = {
+      maxChars: clampNumber(params.get('max'), 24, 140, 56),
+      width: clampNumber(params.get('width'), 240, 1200, 620),
+      size: clampNumber(params.get('size'), 14, 64, 28),
+      lines: clampNumber(params.get('lines'), 1, 3, 1),
+      align: ['left', 'center', 'right'].includes(params.get('align')) ? params.get('align') : 'left'
+    };
+
+    document.documentElement.style.setProperty('--overlay-width', `${overlayOptions.width}px`);
+    document.documentElement.style.setProperty('--song-size', `${overlayOptions.size}px`);
+    document.documentElement.style.setProperty('--song-lines', overlayOptions.lines);
+    document.documentElement.style.setProperty('--overlay-align', overlayOptions.align);
+    document.getElementById('song').classList.toggle('multiline', overlayOptions.lines > 1);
+
     const GENERIC_ARTISTS = new Set(['spotify', 'youtube', 'spotify search', 'youtube search']);
     const NOISE_PATTERNS = [
       /\[[^\]]*\]/g,
@@ -69,6 +92,18 @@ pub async fn page() -> Html<&'static str> {
       /\b4k\b/gi,
       /\bhd\b/gi
     ];
+
+    function clampNumber(value, min, max, fallback) {
+      const number = Number(value);
+      if (!Number.isFinite(number)) return fallback;
+      return Math.min(max, Math.max(min, Math.floor(number)));
+    }
+
+    function trimDisplay(value, maxChars = overlayOptions.maxChars) {
+      const text = String(value || '').trim();
+      if (text.length <= maxChars) return text;
+      return `${text.slice(0, Math.max(0, maxChars - 3)).trim()}...`;
+    }
 
     function cleanPart(value) {
       let text = String(value || '').normalize('NFKC');
@@ -100,7 +135,7 @@ pub async fn page() -> Html<&'static str> {
           : title;
 
       display = cleanPart(display);
-      return display.length > 88 ? `${display.slice(0, 85).trim()}...` : display;
+      return trimDisplay(display);
     }
 
     async function refresh() {
