@@ -268,10 +268,57 @@ impl RequestSource {
             };
         }
 
+        if let Some(uri) = SpotifyTrackRef::parse(query).map(|track| track.uri) {
+            return Self::Spotify { uri };
+        }
+
         Self::Search {
             provider: default_provider,
         }
     }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SpotifyTrackRef {
+    pub id: String,
+    pub uri: String,
+}
+
+impl SpotifyTrackRef {
+    pub fn parse(value: &str) -> Option<Self> {
+        let trimmed = value.trim();
+        let id = parse_spotify_uri(trimmed).or_else(|| parse_spotify_url(trimmed))?;
+        Some(Self {
+            uri: format!("spotify:track:{id}"),
+            id,
+        })
+    }
+}
+
+fn parse_spotify_uri(value: &str) -> Option<String> {
+    let id = value.strip_prefix("spotify:track:")?;
+    valid_spotify_track_id(id).then(|| id.to_string())
+}
+
+fn parse_spotify_url(value: &str) -> Option<String> {
+    let without_fragment = value.split_once('#').map_or(value, |(left, _)| left);
+    let without_query = without_fragment
+        .split_once('?')
+        .map_or(without_fragment, |(left, _)| left);
+    let path = without_query
+        .strip_prefix("https://open.spotify.com/")
+        .or_else(|| without_query.strip_prefix("http://open.spotify.com/"))?;
+    let parts = path
+        .split('/')
+        .filter(|part| !part.is_empty())
+        .collect::<Vec<_>>();
+    let track_index = parts.iter().position(|part| *part == "track")?;
+    let id = parts.get(track_index + 1)?;
+    valid_spotify_track_id(id).then(|| (*id).to_string())
+}
+
+fn valid_spotify_track_id(value: &str) -> bool {
+    value.len() == 22 && value.chars().all(|char| char.is_ascii_alphanumeric())
 }
 
 fn validate_input(input: &SongRequestInput) -> Result<()> {
@@ -314,6 +361,40 @@ fn artist_from_source(source: &RequestSource) -> String {
 mod tests {
     use super::*;
     use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[test]
+    fn parses_spotify_track_url() {
+        let source = RequestSource::from_query_public(
+            "https://open.spotify.com/track/3YxaaLqXvyWhQJwVFlvVVa?si=test",
+            MusicProvider::Youtube,
+        );
+
+        assert_eq!(
+            source,
+            RequestSource::Spotify {
+                uri: "spotify:track:3YxaaLqXvyWhQJwVFlvVVa".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn parses_spotify_international_track_url() {
+        let track =
+            SpotifyTrackRef::parse("https://open.spotify.com/intl-pt/track/3YxaaLqXvyWhQJwVFlvVVa")
+                .expect("spotify track");
+
+        assert_eq!(track.id, "3YxaaLqXvyWhQJwVFlvVVa");
+        assert_eq!(track.uri, "spotify:track:3YxaaLqXvyWhQJwVFlvVVa");
+    }
+
+    #[test]
+    fn parses_spotify_track_uri() {
+        let track =
+            SpotifyTrackRef::parse("spotify:track:3YxaaLqXvyWhQJwVFlvVVa").expect("spotify track");
+
+        assert_eq!(track.id, "3YxaaLqXvyWhQJwVFlvVVa");
+        assert_eq!(track.uri, "spotify:track:3YxaaLqXvyWhQJwVFlvVVa");
+    }
 
     #[test]
     fn first_request_becomes_current_song() {

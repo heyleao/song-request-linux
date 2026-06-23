@@ -18,7 +18,7 @@ use url::Url;
 
 use crate::{
     config::{AppConfig, UiConfigView},
-    song_requests::{RequestSource, SongRequest},
+    song_requests::{RequestSource, SongRequest, SpotifyTrackRef},
 };
 
 const AUTH_URL: &str = "https://accounts.spotify.com/authorize";
@@ -313,7 +313,10 @@ pub async fn search_and_queue(
 ) -> Result<SongRequest> {
     refresh_if_needed(config, token).await?;
 
-    let track = search_track(token, query).await?;
+    let track = match SpotifyTrackRef::parse(query) {
+        Some(track_ref) => get_track(token, &track_ref.id).await?,
+        None => search_track(token, query).await?,
+    };
     let title = format_track(&track);
     info!(
         query = %query,
@@ -693,6 +696,26 @@ async fn search_track(token: &SpotifyToken, query: &str) -> Result<SpotifyTrack>
 
     let tracks = response.json::<SearchResponse>().await?.tracks.items;
     choose_best_track(query, tracks).ok_or_else(|| anyhow!("no Spotify track found for query"))
+}
+
+async fn get_track(token: &SpotifyToken, track_id: &str) -> Result<SpotifyTrack> {
+    let response = Client::new()
+        .get(format!("{API_URL}/tracks/{track_id}"))
+        .bearer_auth(&token.access_token)
+        .send()
+        .await
+        .context("failed to read Spotify track")?;
+
+    let status = response.status();
+    if !status.is_success() {
+        let body = response.text().await.unwrap_or_default();
+        bail!("spotify track lookup failed with {status}: {body}");
+    }
+
+    response
+        .json::<SpotifyTrack>()
+        .await
+        .context("failed to parse Spotify track")
 }
 
 async fn spotify_queue_contains(token: &SpotifyToken, title: &str) -> Result<bool> {

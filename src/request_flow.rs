@@ -105,19 +105,16 @@ async fn enforce_queue_limit(
 }
 
 fn should_use_spotify(default_provider: MusicProvider, input: &SongRequestInput) -> bool {
-    matches!(default_provider, MusicProvider::Spotify)
-        && !matches!(
-            RequestSource::from_query_public(&input.query, MusicProvider::Spotify),
-            RequestSource::Youtube { .. }
-        )
+    let source = RequestSource::from_query_public(&input.query, MusicProvider::Spotify);
+    matches!(source, RequestSource::Spotify { .. })
+        || (matches!(default_provider, MusicProvider::Spotify)
+            && !matches!(source, RequestSource::Youtube { .. }))
 }
 
 fn should_use_youtube(default_provider: MusicProvider, input: &SongRequestInput) -> bool {
+    let source = RequestSource::from_query_public(&input.query, MusicProvider::Youtube);
     matches!(default_provider, MusicProvider::Youtube)
-        && !matches!(
-            RequestSource::from_query_public(&input.query, MusicProvider::Youtube),
-            RequestSource::Youtube { .. }
-        )
+        && matches!(source, RequestSource::Search { .. })
 }
 
 #[cfg(test)]
@@ -265,5 +262,16 @@ mod tests {
         .expect("youtube urls should not require api key");
 
         assert_eq!(request.title, "YouTube URL");
+    }
+
+    #[test]
+    fn spotify_link_uses_spotify_even_when_youtube_is_default() {
+        let input = SongRequestInput {
+            requester: "viewer".to_string(),
+            query: "https://open.spotify.com/track/3YxaaLqXvyWhQJwVFlvVVa?si=test".to_string(),
+        };
+
+        assert!(should_use_spotify(MusicProvider::Youtube, &input));
+        assert!(!should_use_youtube(MusicProvider::Youtube, &input));
     }
 }
