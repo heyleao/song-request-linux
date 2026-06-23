@@ -363,10 +363,14 @@ async fn start_spotify_fallback_if_idle(state: &AppState) {
             return;
         }
         Ok(Some(playback)) if playback.context_uri.as_deref() == Some(playlist.uri.as_str()) => {
-            *state.spotify_manual_playback_title.lock().await = None;
+            remember_manual_spotify_pause(state, &playback.title).await;
+            return;
         }
         Ok(Some(playback)) => {
-            if spotify_playback_finished(&playback) {
+            if !playback.is_playing {
+                remember_manual_spotify_pause(state, &playback.title).await;
+                return;
+            } else if spotify_playback_finished(&playback) {
                 *state.spotify_manual_playback_title.lock().await = None;
             } else {
                 remember_manual_spotify_playback(state, &playback.title).await;
@@ -483,6 +487,23 @@ async fn remember_manual_spotify_playback(state: &AppState, title: &str) {
         .record_event(
             "player",
             format!("Spotify manual detectado; fallback aguardando fim: {title}"),
+        )
+        .await;
+}
+
+async fn remember_manual_spotify_pause(state: &AppState, title: &str) {
+    let mut manual_title = state.spotify_manual_playback_title.lock().await;
+    if manual_title.as_deref() == Some(title) {
+        return;
+    }
+
+    *manual_title = Some(title.to_string());
+    drop(manual_title);
+
+    state
+        .record_event(
+            "player",
+            format!("Spotify pausado manualmente; fallback aguardando play: {title}"),
         )
         .await;
 }
