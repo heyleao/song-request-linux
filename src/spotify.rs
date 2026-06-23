@@ -230,8 +230,15 @@ pub async fn exchange_code(
         .await
         .context("failed to exchange Spotify authorization code")?;
 
-    if !response.status().is_success() {
-        bail!("spotify token exchange failed with {}", response.status());
+    let status = response.status();
+    if !status.is_success() {
+        let body = response.text().await.unwrap_or_default();
+        warn!(
+            status = %status,
+            response = %body,
+            "spotify token exchange failed"
+        );
+        bail!("spotify token exchange failed with {status}: {body}");
     }
 
     Ok(token_from_response(response.json().await?))
@@ -547,8 +554,17 @@ async fn refresh_if_needed(config: &AppConfig, token: &mut SpotifyToken) -> Resu
         .await
         .context("failed to refresh Spotify token")?;
 
-    if !response.status().is_success() {
-        bail!("spotify token refresh failed with {}", response.status());
+    let status = response.status();
+    if !status.is_success() {
+        let body = response.text().await.unwrap_or_default();
+        warn!(
+            status = %status,
+            response = %body,
+            "spotify token refresh failed"
+        );
+        bail!(
+            "Spotify precisa ser reconectado: o token salvo nao foi aceito ({status}). Abra Configuracao > Spotify > Login Spotify. Detalhe: {body}"
+        );
     }
 
     let refreshed = token_from_response(response.json().await?);
