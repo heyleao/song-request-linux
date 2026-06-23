@@ -201,9 +201,34 @@ pub async fn page() -> Html<&'static str> {
     }
     .grid-config {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+      grid-template-columns: repeat(12, minmax(0, 1fr));
       gap: 16px;
       align-items: start;
+    }
+    .setup-card {
+      grid-column: span 4;
+      display: grid;
+      gap: 12px;
+      align-content: start;
+    }
+    .setup-card.wide { grid-column: span 8; }
+    .setup-card.full { grid-column: 1 / -1; }
+    .setup-card h2 { margin-bottom: 2px; }
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      align-items: start;
+    }
+    .form-grid.single { grid-template-columns: 1fr; }
+    .form-grid.compact { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .form-grid .full, label.full, .full-row { grid-column: 1 / -1; }
+    .card-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin-top: 2px;
     }
     .grid-logs {
       display: grid;
@@ -303,7 +328,7 @@ pub async fn page() -> Html<&'static str> {
       outline: 2px solid var(--focus);
       outline-offset: 2px;
     }
-    button, a.button {
+    button, a.button, a.secondary {
       display: inline-flex;
       align-items: center;
       justify-content: center;
@@ -318,7 +343,7 @@ pub async fn page() -> Html<&'static str> {
       cursor: pointer;
       transition: border-color .18s ease, background .18s ease, color .18s ease;
     }
-    button:hover, a.button:hover { background: #83c4ff; }
+    button:hover, a.button:hover, a.secondary:hover { background: #83c4ff; }
     button.secondary, a.secondary {
       border-color: var(--line);
       background: var(--surface-2);
@@ -445,6 +470,14 @@ pub async fn page() -> Html<&'static str> {
     }
     .diagnostic-row code, .endpoint-row code { text-align: right; }
     .endpoint-row a { font-weight: 800; text-decoration: none; }
+    .endpoint-row.with-action { grid-template-columns: minmax(160px, .8fr) minmax(220px, 1fr) auto; }
+    .endpoint-description {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+      margin-top: -4px;
+      padding: 0 2px 4px;
+    }
     code { color: var(--ok); overflow-wrap: anywhere; }
     .message {
       min-height: 20px;
@@ -474,11 +507,14 @@ pub async fn page() -> Html<&'static str> {
       }
       .tabs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
       .side-note { display: none; }
-      .grid-config { grid-template-columns: 1fr 1fr; }
+      .setup-card, .setup-card.wide { grid-column: span 6; }
+      .form-grid.compact { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .status-board { grid-template-columns: 1fr 1fr; }
     }
     @media (max-width: 880px) {
-      header, .grid-main, .grid-config, .grid-logs, .setup-callout { grid-template-columns: 1fr; }
+      header, .grid-main, .grid-logs, .setup-callout { grid-template-columns: 1fr; }
+      .setup-card, .setup-card.wide { grid-column: 1 / -1; }
+      .form-grid { grid-template-columns: 1fr; }
       header { align-items: flex-start; }
       .page-title, .top-status { width: 100%; min-width: 0; }
       .top-status { justify-content: flex-start; }
@@ -490,11 +526,12 @@ pub async fn page() -> Html<&'static str> {
       .provider-options { grid-template-columns: 1fr; }
       .status-board { grid-template-columns: 1fr; }
       .toolbar { display: grid; grid-template-columns: 1fr; }
-      .diagnostic-row, .endpoint-row { grid-template-columns: 1fr; }
+      .diagnostic-row, .endpoint-row, .endpoint-row.with-action { grid-template-columns: 1fr; }
+      .form-grid.compact { grid-template-columns: 1fr; }
       .diagnostic-row code, .endpoint-row code { text-align: left; }
       .top-status { display: grid; grid-template-columns: 1fr; }
       .pill { width: 100%; white-space: normal; justify-content: flex-start; }
-      button, a.button { width: 100%; }
+      button, a.button, a.secondary { width: 100%; }
       .actions { align-items: stretch; }
     }
   </style>
@@ -515,8 +552,6 @@ pub async fn page() -> Html<&'static str> {
         <button class="tab-button" data-tab="setup-tab" type="button"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="M19.4 15a1.8 1.8 0 0 0 .36 1.98l.03.03a2 2 0 1 1-2.83 2.83l-.03-.03A1.8 1.8 0 0 0 15 19.4a1.8 1.8 0 0 0-1 .6l-.02.02a2 2 0 1 1-3.96 0L10 20a1.8 1.8 0 0 0-1-.6 1.8 1.8 0 0 0-1.98.36l-.03.03a2 2 0 1 1-2.83-2.83l.03-.03A1.8 1.8 0 0 0 4.6 15a1.8 1.8 0 0 0-.6-1l-.02-.02a2 2 0 1 1 0-3.96L4 10a1.8 1.8 0 0 0 .6-1 1.8 1.8 0 0 0-.36-1.98l-.03-.03a2 2 0 1 1 2.83-2.83l.03.03A1.8 1.8 0 0 0 9 4.6a1.8 1.8 0 0 0 1-.6l.02-.02a2 2 0 1 1 3.96 0L14 4a1.8 1.8 0 0 0 1 .6 1.8 1.8 0 0 0 1.98-.36l.03-.03a2 2 0 1 1 2.83 2.83l-.03.03A1.8 1.8 0 0 0 19.4 9c.22.38.43.61.6 1l.02.02a2 2 0 1 1 0 3.96L20 14a1.8 1.8 0 0 0-.6 1Z"/></svg></span>Configuração</button>
         <button class="tab-button" data-tab="logs-tab" type="button"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg></span>Logs</button>
         <button class="tab-button" data-tab="guide-tab" type="button"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15Z"/></svg></span>Guia</button>
-        <a class="tab-button" href="/overlay" target="_blank" rel="noreferrer"><span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 9h5M7 13h10"/></svg></span>Overlay</a>
-        <a class="tab-button" href="/player" target="_blank" rel="noreferrer"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="m8 5 11 7-11 7V5Z"/></svg></span>Player OBS</a>
       </nav>
       <div class="side-note">Use um provider por vez. Links do YouTube entram direto no YouTube/Pear; texto segue o provider ativo.</div>
     </aside>
@@ -645,86 +680,97 @@ pub async fn page() -> Html<&'static str> {
         </section>
 
         <div class="grid-config">
-          <section>
+          <section class="setup-card">
             <h2>Twitch</h2>
-            <label>Client ID
-              <input id="setup-twitch-client-id" autocomplete="off" placeholder="Client ID do app Twitch">
-            </label>
-            <label>Conta do bot
-              <input id="setup-twitch-bot-username" autocomplete="off" placeholder="conta_bot">
-            </label>
-            <label>Canal
-              <input id="setup-twitch-channel" autocomplete="off" placeholder="canal_do_streamer">
-            </label>
+            <div class="form-grid single">
+              <label>Client ID
+                <input id="setup-twitch-client-id" autocomplete="off" placeholder="Client ID do app Twitch">
+              </label>
+              <label>Conta do bot
+                <input id="setup-twitch-bot-username" autocomplete="off" placeholder="conta_bot">
+              </label>
+              <label>Canal
+                <input id="setup-twitch-channel" autocomplete="off" placeholder="canal_do_streamer">
+              </label>
+            </div>
             <p class="field-note">Necessário para o bot ler comandos como !sr, !skip e !vol no chat.</p>
-            <div class="actions setup-actions">
+            <div class="card-actions">
               <button class="secondary" id="setup-twitch-login" type="button">Conectar bot</button>
             </div>
           </section>
 
-          <section>
+          <section class="setup-card wide">
             <h2>Spotify</h2>
-            <label>Provider padrão
-              <select id="setup-provider">
-                <option value="spotify">Spotify</option>
-                <option value="youtube">YouTube</option>
-              </select>
-            </label>
-            <p class="field-note">Texto do !sr usa este provider. Links do YouTube continuam indo direto para o YouTube.</p>
-            <label>Client ID
-              <input id="setup-spotify-client-id" autocomplete="off" placeholder="Client ID do app Spotify">
-            </label>
-            <p class="field-note">Spotify precisa de Client ID, login OAuth, conta Premium e um device ativo.</p>
-            <label><span><input id="setup-spotify-fallback-enabled" type="checkbox"> Ativar playlist fallback quando a fila de pedidos estiver vazia</span></label>
-            <label>Playlist fallback
-              <select id="setup-spotify-fallback-playlist">
-                <option value="">Nenhuma playlist selecionada</option>
-              </select>
-            </label>
-            <p class="field-note">No modo Pear, o fallback continua sendo Spotify: ao terminar pedidos do YouTube/Pear, o Pear pausa e o Spotify retoma ou inicia esta playlist.</p>
-            <div class="actions setup-actions">
+            <div class="form-grid">
+              <label>Provider padrão
+                <select id="setup-provider">
+                  <option value="spotify">Spotify</option>
+                  <option value="youtube">YouTube</option>
+                </select>
+              </label>
+              <label>Client ID
+                <input id="setup-spotify-client-id" autocomplete="off" placeholder="Client ID do app Spotify">
+              </label>
+              <label class="full"><span><input id="setup-spotify-fallback-enabled" type="checkbox"> Ativar playlist fallback quando a fila de pedidos estiver vazia</span></label>
+              <label class="full">Playlist fallback
+                <select id="setup-spotify-fallback-playlist">
+                  <option value="">Nenhuma playlist selecionada</option>
+                </select>
+              </label>
+            </div>
+            <p class="field-note">Texto do !sr usa este provider. Links do YouTube continuam indo direto para o YouTube. Spotify precisa de Client ID, OAuth, Premium e device ativo.</p>
+            <div class="card-actions">
               <button class="secondary" id="setup-spotify-login" type="button">Login Spotify</button>
               <button class="secondary" id="setup-spotify-load-playlists" type="button">Carregar playlists</button>
-              <button class="secondary" id="setup-spotify-save-playlist" type="button">Salvar playlist fallback</button>
+              <button class="secondary" id="setup-spotify-save-playlist" type="button">Salvar fallback</button>
             </div>
           </section>
 
-          <section>
+          <section class="setup-card">
             <h2>YouTube</h2>
-            <label>Player
-              <select id="setup-youtube-playback">
-                <option value="pear">Pear Desktop</option>
-                <option value="browser">Browser Source OBS</option>
-              </select>
-            </label>
-            <label>Pear API
-              <input id="setup-pear-base-url" autocomplete="off" placeholder="http://127.0.0.1:26538/api/v1">
-            </label>
-            <label>API Key
-              <input id="setup-youtube-api-key" autocomplete="off" placeholder="deixe vazio para manter a chave atual">
-            </label>
-            <p class="field-note">YouTube precisa de API Key para busca por texto. Links diretos não dependem da busca.</p>
-            <label>Máximo em segundos
-              <input id="setup-youtube-max-duration" type="number" inputmode="numeric" min="30" max="86400" step="30" value="360">
-            </label>
-            <label><span><input id="setup-youtube-allow-non-music" type="checkbox"> Aceitar resultados fora da categoria Música</span></label>
+            <div class="form-grid single">
+              <label>Player
+                <select id="setup-youtube-playback">
+                  <option value="pear">Pear Desktop</option>
+                  <option value="browser">Browser Source OBS</option>
+                </select>
+              </label>
+              <label>Pear API
+                <input id="setup-pear-base-url" autocomplete="off" placeholder="http://127.0.0.1:26538/api/v1">
+              </label>
+              <label>API Key
+                <input id="setup-youtube-api-key" autocomplete="off" placeholder="deixe vazio para manter a chave atual">
+              </label>
+              <label>Máximo em segundos
+                <input id="setup-youtube-max-duration" type="number" inputmode="numeric" min="30" max="86400" step="30" value="360">
+              </label>
+              <label><span><input id="setup-youtube-allow-non-music" type="checkbox"> Aceitar resultados fora da categoria Música</span></label>
+            </div>
+            <p class="field-note">API Key é usada só para busca por texto. Links diretos não dependem da busca.</p>
           </section>
 
-          <section>
+          <section class="setup-card wide">
             <h2>Comandos do chat</h2>
-            <label>Pedido
-              <input id="setup-cmd-song-request" autocomplete="off" placeholder="!sr, !ssr">
-            </label>
-            <label>Atual / fila / remover
-              <input id="setup-cmd-basic" autocomplete="off" placeholder="!song | !fila, !queue | !rm, !remove">
-            </label>
-            <label>Volume
-              <input id="setup-cmd-volume" autocomplete="off" placeholder="!vol, !volume">
-            </label>
-            <label>Player
-              <input id="setup-cmd-player" autocomplete="off" placeholder="!play | !pause | !next">
-            </label>
-            <div class="command-access-grid">
+            <div class="form-grid">
+              <label>Pedido
+                <input id="setup-cmd-song-request" autocomplete="off" placeholder="!sr, !ssr">
+              </label>
+              <label>Volume
+                <input id="setup-cmd-volume" autocomplete="off" placeholder="!vol, !volume">
+              </label>
+              <label class="full">Atual / fila / remover
+                <input id="setup-cmd-basic" autocomplete="off" placeholder="!song | !fila, !queue | !rm, !remove">
+              </label>
+              <label class="full">Player
+                <input id="setup-cmd-player" autocomplete="off" placeholder="!play | !pause | !next">
+              </label>
+            </div>
+            <p class="field-note">Use vírgula para aliases e barra vertical para grupos. Exemplo: !song | !fila, !queue | !rm, !remove.</p>
+          </section>
+
+          <section class="setup-card full">
+            <h2>Permissões e limites</h2>
+            <div class="form-grid">
               <label>Quem pode pedir música
                 <select id="setup-access-song-request">
                   <option value="everyone">Viewer / todos</option>
@@ -758,7 +804,7 @@ pub async fn page() -> Html<&'static str> {
                 </select>
               </label>
             </div>
-            <div class="command-access-grid">
+            <div class="form-grid compact">
               <label>Limite viewer
                 <input id="setup-limit-viewer" type="number" inputmode="numeric" min="0" max="100" step="1" value="1">
               </label>
@@ -772,7 +818,7 @@ pub async fn page() -> Html<&'static str> {
                 <input id="setup-limit-streamer" type="number" inputmode="numeric" min="0" max="100" step="1" value="0">
               </label>
             </div>
-            <p class="field-note">Use vírgula para aliases e barra vertical para grupos: atual | fila | remover. Exemplo: !song | !fila, !queue | !rm, !remove. Limite 0 significa sem limite.</p>
+            <p class="field-note">As permissões seguem os cargos reais da Twitch: viewer, VIP, moderador e streamer. Limite 0 significa sem limite.</p>
           </section>
         </div>
 
@@ -819,11 +865,13 @@ pub async fn page() -> Html<&'static str> {
           </div>
         </section>
         <section>
-          <h2>URLs locais</h2>
+          <h2>OBS e URLs locais</h2>
           <div class="endpoints">
-            <div class="endpoint-row"><span>Dashboard</span><code>http://127.0.0.1:7384/</code></div>
-            <div class="endpoint-row"><span>Overlay OBS</span><code>http://127.0.0.1:7384/overlay</code></div>
-            <div class="endpoint-row"><span>Player OBS</span><code>http://127.0.0.1:7384/player</code></div>
+            <div class="endpoint-row with-action"><span>Dashboard</span><code>http://127.0.0.1:7384/</code><a class="secondary" href="/" target="_blank" rel="noreferrer">Abrir</a></div>
+            <div class="endpoint-row with-action"><span>Overlay da música</span><code>http://127.0.0.1:7384/overlay</code><a class="secondary" href="/overlay" target="_blank" rel="noreferrer">Abrir</a></div>
+            <p class="endpoint-description">Use como Browser Source no OBS para mostrar a música atual e pedidos na cena.</p>
+            <div class="endpoint-row with-action"><span>Player YouTube OBS</span><code>http://127.0.0.1:7384/player</code><a class="secondary" href="/player" target="_blank" rel="noreferrer">Abrir</a></div>
+            <p class="endpoint-description">Use apenas se o player do YouTube estiver em modo Browser Source OBS. No modo Pear Desktop, essa fonte não é necessária.</p>
             <div class="endpoint-row"><span>Pear API</span><code>http://127.0.0.1:26538/api/v1</code></div>
           </div>
         </section>
