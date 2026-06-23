@@ -49,6 +49,8 @@ Use for:
 Current fit:
 
 - Treat it as an assistant-side design skill/reference.
+- Installed in this repository at `.codex/skills/ui-ux-pro-max` via
+  `uipro init --ai codex`.
 - Do not make the app depend on `uipro` at runtime.
 - If installed locally, generated recommendations still need human review and
   must match this project's UI/UX direction.

@@ -6,6 +6,8 @@ target/
 !.env.example
 *.log
 *.tmp
+__pycache__/
+*.py[cod]
 
 # Local app data must not be versioned.
 config/
