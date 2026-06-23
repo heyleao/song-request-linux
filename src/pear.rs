@@ -31,6 +31,18 @@ struct PearQueueRequest<'a> {
     insert_position: PearInsertPosition,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct PearVolume {
+    pub state: u8,
+    #[serde(default, rename = "isMuted")]
+    pub is_muted: bool,
+}
+
+#[derive(Debug, Serialize)]
+struct PearVolumeRequest {
+    volume: u8,
+}
+
 #[derive(Clone, Copy, Debug, Serialize)]
 enum PearInsertPosition {
     #[serde(rename = "INSERT_AFTER_CURRENT_VIDEO")]
@@ -97,6 +109,38 @@ pub async fn pause(config: &AppConfig) -> Result<()> {
 
 pub async fn next(config: &AppConfig) -> Result<()> {
     empty_post(config, "next").await
+}
+
+pub async fn current_volume(config: &AppConfig) -> Result<PearVolume> {
+    let response = client()?
+        .get(endpoint(config, "volume"))
+        .send()
+        .await
+        .context("Pear nao respondeu em /volume")?;
+    let status = response.status();
+    if !status.is_success() {
+        let body = response.text().await.unwrap_or_default();
+        bail!("Pear /volume falhou com {status}: {}", body.trim());
+    }
+
+    Ok(response.json::<PearVolume>().await?)
+}
+
+pub async fn set_volume(config: &AppConfig, level: u8) -> Result<u8> {
+    let level = level.min(100);
+    let response = client()?
+        .post(endpoint(config, "volume"))
+        .json(&PearVolumeRequest { volume: level })
+        .send()
+        .await
+        .context("Pear nao respondeu em /volume")?;
+    let status = response.status();
+    if status.is_success() {
+        return Ok(level);
+    }
+
+    let body = response.text().await.unwrap_or_default();
+    bail!("Pear nao aceitou mudar volume ({status}): {}", body.trim());
 }
 
 impl PearNowPlaying {

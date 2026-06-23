@@ -533,43 +533,88 @@ async fn spotify_playback_message(
 }
 
 async fn volume_message(state: &AppState, requester: String, level: Option<u8>) -> String {
+    match level {
+        Some(level) => {
+            let level = level.min(100);
+            let mut changed = Vec::new();
+            let mut errors = Vec::new();
+
+            match set_spotify_volume(state, level).await {
+                Some(Ok(level)) => changed.push(format!("Spotify {level}%")),
+                Some(Err(error)) => errors.push(format!("Spotify: {error}")),
+                None => errors.push("Spotify nao conectado".to_string()),
+            }
+
+            if matches!(state.config.youtube.playback, YoutubePlayback::Pear) {
+                match pear::set_volume(&state.config, level).await {
+                    Ok(level) => changed.push(format!("Pear/YouTube {level}%")),
+                    Err(error) => errors.push(format!("Pear/YouTube: {error}")),
+                }
+            }
+
+            if !changed.is_empty() {
+                let message = format!("@{requester} volume ajustado para {level}%.");
+                state.record_event("volume", message.clone()).await;
+                if !errors.is_empty() {
+                    state
+                        .record_event(
+                            "volume",
+                            format!(
+                                "Volume parcial: {}. Falhas: {}",
+                                changed.join(", "),
+                                errors.join(" | ")
+                            ),
+                        )
+                        .await;
+                }
+                message
+            } else {
+                let message = format!(
+                    "@{requester} nao consegui mudar volume: {}",
+                    errors.join(" | ")
+                );
+                state.record_event("error", message.clone()).await;
+                message
+            }
+        }
+        None => current_volume_message(state).await,
+    }
+}
+
+async fn set_spotify_volume(state: &AppState, level: u8) -> Option<anyhow::Result<u8>> {
+    let mut token_guard = state.spotify_token.write().await;
+    let token = token_guard.as_mut()?;
+    Some(spotify::set_volume(&state.config, token, level).await)
+}
+
+async fn current_volume_message(state: &AppState) -> String {
+    if matches!(
+        (state.config.default_provider, state.config.youtube.playback),
+        (MusicProvider::Youtube, YoutubePlayback::Pear)
+    ) {
+        let message = match pear::current_volume(&state.config).await {
+            Ok(volume) => {
+                let suffix = if volume.is_muted { " (mutado)" } else { "" };
+                format!("Volume atual Pear/YouTube: {}%{suffix}.", volume.state)
+            }
+            Err(error) => format!("Nao consegui ler o volume Pear/YouTube: {error}"),
+        };
+        state.record_event("volume", message.clone()).await;
+        return message;
+    }
+
     let mut token_guard = state.spotify_token.write().await;
     let Some(token) = token_guard.as_mut() else {
         return "Spotify nao conectado.".to_string();
     };
 
-    match level {
-        Some(level) => match spotify::set_volume(&state.config, token, level).await {
-            Ok(level) => {
-                let message = format!("@{requester} volume ajustado para {level}%.");
-                state.record_event("volume", message.clone()).await;
-                message
-            }
-            Err(error) => {
-                let message = format!("@{requester} nao consegui mudar volume: {error}");
-                state.record_event("error", message.clone()).await;
-                message
-            }
-        },
-        None => match spotify::current_volume(&state.config, token).await {
-            Ok(Some(level)) => {
-                let message = format!("Volume atual: {level}%.");
-                state.record_event("volume", message.clone()).await;
-                message
-            }
-            Ok(None) => {
-                let message =
-                    "Nao encontrei um device Spotify ativo para ler o volume.".to_string();
-                state.record_event("volume", message.clone()).await;
-                message
-            }
-            Err(error) => {
-                let message = format!("Nao consegui ler o volume: {error}");
-                state.record_event("error", message.clone()).await;
-                message
-            }
-        },
-    }
+    let message = match spotify::current_volume(&state.config, token).await {
+        Ok(Some(level)) => format!("Volume atual Spotify: {level}%."),
+        Ok(None) => "Nao encontrei um device Spotify ativo para ler o volume.".to_string(),
+        Err(error) => format!("Nao consegui ler o volume Spotify: {error}"),
+    };
+    state.record_event("volume", message.clone()).await;
+    message
 }
 
 fn access_denied_message(
