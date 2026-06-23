@@ -120,6 +120,16 @@ Overlay da musica:
 http://127.0.0.1:7384/overlay?max=48&width=520&size=24&lines=1
 ```
 
+Tamanho da fonte no OBS:
+
+```text
+Width/Largura: 620
+Height/Altura: 120
+```
+
+O `width=520` da URL controla a largura interna do texto. A Browser Source deve
+ficar um pouco maior para sobrar area transparente e evitar corte.
+
 Player YouTube OBS, use so se voce escolheu `Browser Source OBS` no player YouTube:
 
 ```text

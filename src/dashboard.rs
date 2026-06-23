@@ -626,6 +626,30 @@ pub async fn page() -> Html<&'static str> {
     .diagnostic-row code, .endpoint-row code { text-align: right; }
     .endpoint-row a { font-weight: 800; text-decoration: none; }
     .endpoint-row.with-action { grid-template-columns: minmax(160px, .8fr) minmax(220px, 1fr) auto; }
+    .obs-size-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .obs-size-card {
+      border: 1px solid rgba(154, 166, 181, .18);
+      border-radius: 8px;
+      background: rgba(10, 16, 23, .42);
+      padding: 10px;
+      min-width: 0;
+    }
+    .obs-size-card strong {
+      display: block;
+      color: var(--text);
+      font-size: 18px;
+      line-height: 1.15;
+    }
+    .obs-size-card span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 4px;
+    }
     .endpoint-description {
       color: var(--muted);
       font-size: 12px;
@@ -684,6 +708,7 @@ pub async fn page() -> Html<&'static str> {
       .provider-options { grid-template-columns: 1fr; }
       .status-board { grid-template-columns: 1fr; }
       .toolbar { display: grid; grid-template-columns: 1fr; }
+      .obs-size-grid { grid-template-columns: 1fr; }
       .diagnostic-row, .endpoint-row, .endpoint-row.with-action { grid-template-columns: 1fr; }
       .form-grid.compact { grid-template-columns: 1fr; }
       .diagnostic-row code, .endpoint-row code { text-align: left; }
@@ -973,6 +998,7 @@ pub async fn page() -> Html<&'static str> {
               <span>Marcado: pedidos pendentes voltam na próxima abertura.</span>
               <span>Desmarcado: a próxima live começa com fila vazia.</span>
               <span>No OBS, use o overlay: <code>http://127.0.0.1:7384/overlay?max=48&width=520&size=24&lines=1</code></span>
+              <span>Tamanho da Browser Source: largura <code>620</code>, altura <code>120</code>. Depois posicione e redimensione na cena se precisar.</span>
             </div>
           </div>
         </section>
@@ -1106,6 +1132,11 @@ pub async fn page() -> Html<&'static str> {
             <div class="endpoint-row with-action"><span>Dashboard</span><code>http://127.0.0.1:7384/</code><a class="secondary" href="/" target="_blank" rel="noreferrer">Abrir</a></div>
             <div class="endpoint-row with-action"><span>Overlay pronto</span><code>http://127.0.0.1:7384/overlay?max=48&width=520&size=24&lines=1</code><a class="secondary" href="/overlay?max=48&width=520&size=24&lines=1" target="_blank" rel="noreferrer">Abrir</a></div>
             <p class="endpoint-description">No OBS, adicione como Browser Source para mostrar a musica atual.</p>
+            <div class="obs-size-grid" aria-label="Tamanho recomendado para a Browser Source do overlay">
+              <div class="obs-size-card"><strong>620 px</strong><span>Largura da fonte no OBS</span></div>
+              <div class="obs-size-card"><strong>120 px</strong><span>Altura da fonte no OBS</span></div>
+            </div>
+            <p class="endpoint-description">O parametro <code>width=520</code> limita o texto dentro do overlay. A fonte do OBS deve ficar um pouco maior para sobrar area transparente.</p>
             <div class="endpoint-row with-action"><span>Player YouTube</span><code>http://127.0.0.1:7384/player</code><a class="secondary" href="/player" target="_blank" rel="noreferrer">Abrir</a></div>
             <p class="endpoint-description">Use so se o YouTube estiver em Browser Source OBS. Se usar Pear Desktop, nao precisa.</p>
             <div class="endpoint-row"><span>Pear API</span><code>http://127.0.0.1:26538/api/v1</code></div>
