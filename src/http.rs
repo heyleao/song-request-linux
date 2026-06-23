@@ -1144,7 +1144,7 @@ mod tests {
                     .uri("/api/song-requests")
                     .header("content-type", "application/json")
                     .body(Body::from(
-                        r#"{"requester":"bruno","query":"one more time"}"#,
+                        r#"{"requester":"bruno","query":"https://youtu.be/dQw4w9WgXcQ"}"#,
                     ))
                     .expect("request"),
             )
