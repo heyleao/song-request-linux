@@ -84,6 +84,7 @@ async fn coordinate_once(state: &AppState) {
 async fn coordinate_pear_once(state: &AppState) {
     let Some(pending) = first_pending_youtube(state).await else {
         *state.youtube_waiting_spotify_title.lock().await = None;
+        *state.pear_waiting_video_id.lock().await = None;
         *state.youtube_active_pear_video_id.lock().await = None;
         *state.youtube_failed_pear_video_id.lock().await = None;
         finish_pear_background(state).await;
@@ -101,7 +102,12 @@ async fn coordinate_pear_once(state: &AppState) {
         return;
     }
 
+    if wait_for_current_pear_before_request(state, &pending).await {
+        return;
+    }
+
     *state.youtube_waiting_spotify_title.lock().await = None;
+    *state.pear_waiting_video_id.lock().await = None;
     start_pear_request(state, pending).await;
 }
 
@@ -297,6 +303,64 @@ async fn compact_pear_to_app_queue(state: &AppState, current_id: u64) {
             )
             .await;
     }
+}
+
+async fn wait_for_current_pear_before_request(state: &AppState, pending: &SongRequest) -> bool {
+    let RequestSource::Youtube {
+        video_id: pending_video_id,
+    } = &pending.source
+    else {
+        return false;
+    };
+
+    let current = match pear::now_playing(&state.config).await {
+        Ok(current) => current,
+        Err(_) => {
+            *state.pear_waiting_video_id.lock().await = None;
+            return false;
+        }
+    };
+
+    if current.is_paused || current.video_id.as_deref() == Some(pending_video_id.as_str()) {
+        *state.pear_waiting_video_id.lock().await = None;
+        return false;
+    }
+
+    let current_key = pear_playback_key(&current);
+    let Some(current_key) = current_key else {
+        return false;
+    };
+
+    let mut waiting = state.pear_waiting_video_id.lock().await;
+    match waiting.as_deref() {
+        Some(waiting_key) if waiting_key == current_key => true,
+        Some(_) => {
+            *waiting = None;
+            false
+        }
+        None => {
+            let display = current
+                .clone()
+                .display_name()
+                .unwrap_or_else(|| "musica atual do Pear".to_string());
+            *waiting = Some(current_key.to_string());
+            drop(waiting);
+            state
+                .record_event(
+                    "player",
+                    format!("Pear aguardando fim da musica atual: {display}"),
+                )
+                .await;
+            true
+        }
+    }
+}
+
+fn pear_playback_key(song: &pear::PearNowPlaying) -> Option<&str> {
+    song.video_id
+        .as_deref()
+        .or(song.title.as_deref())
+        .filter(|value| !value.trim().is_empty())
 }
 
 async fn wait_for_current_spotify_before_pear(state: &AppState) -> bool {
@@ -658,6 +722,7 @@ async fn finish_pear_request(state: &AppState, id: u64) {
 
     *state.youtube_active_pear_video_id.lock().await = None;
     *state.youtube_failed_pear_video_id.lock().await = None;
+    *state.pear_waiting_video_id.lock().await = None;
     state.record_event("player", "Pedido Pear finalizado").await;
 }
 
