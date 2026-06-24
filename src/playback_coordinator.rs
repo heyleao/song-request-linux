@@ -733,6 +733,25 @@ async fn finish_pear_background(state: &AppState) {
         return;
     }
 
+    if should_let_pear_continue_when_idle(state).await {
+        if state.pear_idle_stopped.swap(true, Ordering::SeqCst) {
+            return;
+        }
+
+        if let Ok(Some(song)) = pear::now_playing_request(&state.config).await {
+            state
+                .record_event(
+                    "player",
+                    format!(
+                        "Pear livre sem fila do app; seguindo a seguir: {} - {}",
+                        song.artist, song.title
+                    ),
+                )
+                .await;
+        }
+        return;
+    }
+
     if state.pear_idle_stopped.swap(true, Ordering::SeqCst) {
         return;
     }
@@ -767,6 +786,10 @@ async fn finish_pear_background(state: &AppState) {
             .record_event("player", "Pear pausado sem pedidos pendentes")
             .await;
     }
+}
+
+async fn should_let_pear_continue_when_idle(_state: &AppState) -> bool {
+    true
 }
 
 async fn resume_spotify_after_youtube(state: &AppState) {
