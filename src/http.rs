@@ -942,18 +942,34 @@ async fn volume_message(state: &AppState, requester: String, level: Option<u8>) 
             match (current_provider(state), current_youtube_playback(state)) {
                 (MusicProvider::Youtube, YoutubePlayback::Pear) => {
                     match pear::set_volume(&state.config, level).await {
-                        Ok(level) => changed.push(format!("Pear/YouTube {level}%")),
+                        Ok(level) => {
+                            persist_volume_setting(
+                                state,
+                                MusicProvider::Youtube,
+                                YoutubePlayback::Pear,
+                                level,
+                            )
+                            .await;
+                            changed.push(format!("Pear/YouTube {level}%"));
+                        }
                         Err(error) => errors.push(format!("Pear/YouTube: {error}")),
                     }
                 }
                 (MusicProvider::Youtube, YoutubePlayback::Browser) => {
-                    errors.push(
-                        "No modo OBS Browser, ajuste o volume diretamente no mixer do OBS."
-                            .to_string(),
-                    );
+                    let level = set_browser_volume(state, level).await;
+                    changed.push(format!("OBS Browser {level}%"));
                 }
                 (MusicProvider::Spotify, _) => match set_spotify_volume(state, level).await {
-                    Some(Ok(level)) => changed.push(format!("Spotify {level}%")),
+                    Some(Ok(level)) => {
+                        persist_volume_setting(
+                            state,
+                            MusicProvider::Spotify,
+                            YoutubePlayback::Browser,
+                            level,
+                        )
+                        .await;
+                        changed.push(format!("Spotify {level}%"));
+                    }
                     Some(Err(error)) => errors.push(format!("Spotify: {error}")),
                     None => errors.push("Spotify nao conectado".to_string()),
                 },
@@ -994,6 +1010,34 @@ async fn set_spotify_volume(state: &AppState, level: u8) -> Option<anyhow::Resul
     Some(spotify::set_volume(&state.config, token, level).await)
 }
 
+async fn set_browser_volume(state: &AppState, level: u8) -> u8 {
+    let level = level.clamp(1, 100);
+    state.youtube_browser_volume.store(level, Ordering::SeqCst);
+    persist_volume_setting(
+        state,
+        MusicProvider::Youtube,
+        YoutubePlayback::Browser,
+        level,
+    )
+    .await;
+    level
+}
+
+async fn persist_volume_setting(
+    state: &AppState,
+    provider: MusicProvider,
+    playback: YoutubePlayback,
+    level: u8,
+) {
+    if let Err(error) =
+        config::update_volume_setting(&state.config.paths, provider, playback, level)
+    {
+        state
+            .record_event("error", format!("Nao consegui salvar volume: {error}"))
+            .await;
+    }
+}
+
 async fn current_volume_message(state: &AppState) -> String {
     let response = read_volume(state).await;
     state.record_event("volume", response.message.clone()).await;
@@ -1025,11 +1069,17 @@ async fn read_volume(state: &AppState) -> VolumeResponse {
     }
 
     if is_youtube_browser_mode(state) {
+        let level = state
+            .youtube_browser_volume
+            .load(Ordering::SeqCst)
+            .clamp(1, 100);
         return VolumeResponse {
             target: "browser",
-            level: None,
+            level: Some(level),
             muted: false,
-            message: "Volume do OBS Browser deve ser ajustado no mixer do OBS.".to_string(),
+            message: format!(
+                "Volume atual OBS Browser: {level}%. O fader do OBS continua separado no mixer."
+            ),
         };
     }
 
@@ -1479,7 +1529,8 @@ async fn current_youtube_song(state: &AppState) -> Option<YoutubePlayerSong> {
         .queue
         .read()
         .await
-        .first_youtube()
+        .view()
+        .current_song
         .and_then(|song| YoutubePlayerSong::from_request(&song))
 }
 
@@ -1488,7 +1539,8 @@ async fn has_pending_youtube_request(state: &AppState) -> bool {
         .queue
         .read()
         .await
-        .first_youtube()
+        .view()
+        .current_song
         .is_some_and(|song| matches!(song.source, RequestSource::Youtube { .. }))
 }
 
@@ -1974,6 +2026,39 @@ mod tests {
             response.current_song.map(|song| song.video_id),
             Some("dQw4w9WgXcQ".to_string())
         );
+        assert_eq!(response.waiting_for_spotify, None);
+    }
+
+    #[tokio::test]
+    async fn youtube_player_respects_current_queue_order() {
+        let mut config = AppConfig::from_env().expect("config");
+        config.youtube.playback = YoutubePlayback::Browser;
+        let state = AppState::new(config);
+        state.queue.write().await.clear();
+        state.queue.write().await.add_resolved(SongRequest {
+            id: 0,
+            requester: "viewer".to_string(),
+            query: "system of a down spiders".to_string(),
+            source: RequestSource::Spotify {
+                uri: "spotify:track:3njyXewwWLp3B0p6rSMeyw".to_string(),
+            },
+            title: "Spiders".to_string(),
+            artist: "System Of A Down".to_string(),
+        });
+        state.queue.write().await.add_resolved(SongRequest {
+            id: 0,
+            requester: "viewer".to_string(),
+            query: "https://youtu.be/dQw4w9WgXcQ".to_string(),
+            source: RequestSource::Youtube {
+                video_id: "dQw4w9WgXcQ".to_string(),
+            },
+            title: "Never Gonna Give You Up".to_string(),
+            artist: "Rick Astley".to_string(),
+        });
+
+        let response = youtube_player_response(&state).await;
+
+        assert!(response.current_song.is_none());
         assert_eq!(response.waiting_for_spotify, None);
     }
 

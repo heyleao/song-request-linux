@@ -39,6 +39,10 @@ async fn coordinate_once(state: &AppState) {
             .store(false, Ordering::SeqCst);
     }
 
+    if matches!(ui_config.default_provider, MusicProvider::Spotify) {
+        coordinate_spotify_requests_once(state).await;
+    }
+
     if matches!(ui_config.default_provider, MusicProvider::Youtube)
         && matches!(ui_config.youtube_playback, YoutubePlayback::Pear)
     {
@@ -88,6 +92,40 @@ async fn coordinate_once(state: &AppState) {
 
     *state.youtube_waiting_spotify_title.lock().await = None;
     pause_spotify_for_youtube(state, "Spotify pausado para iniciar pedido YouTube").await;
+}
+
+async fn coordinate_spotify_requests_once(state: &AppState) {
+    let Some(request) = first_pending_spotify(state).await else {
+        return;
+    };
+
+    let mut token_guard = state.spotify_token.write().await;
+    let Some(token) = token_guard.as_mut() else {
+        return;
+    };
+
+    match spotify::ensure_request_queued(&state.config, token, &request).await {
+        Ok(true) => {
+            state
+                .record_event(
+                    "player",
+                    format!(
+                        "Pedido Spotify restaurado na fila: {}",
+                        display::chat_song_title(&request)
+                    ),
+                )
+                .await;
+        }
+        Ok(false) => {}
+        Err(error) => {
+            state
+                .record_event(
+                    "error",
+                    format!("Nao consegui restaurar pedido Spotify salvo: {error}"),
+                )
+                .await;
+        }
+    }
 }
 
 async fn coordinate_pear_once(state: &AppState) {
@@ -477,8 +515,21 @@ async fn first_pending_youtube(state: &AppState) -> Option<SongRequest> {
         .queue
         .read()
         .await
-        .first_youtube()
+        .view()
+        .current_song
         .filter(|song| matches!(song.source, RequestSource::Youtube { .. }))
+}
+
+async fn first_pending_spotify(state: &AppState) -> Option<SongRequest> {
+    state.queue.read().await.view().current_song.filter(|song| {
+        matches!(
+            song.source,
+            RequestSource::Spotify { .. }
+                | RequestSource::Search {
+                    provider: MusicProvider::Spotify
+                }
+        )
+    })
 }
 
 async fn next_youtube_after(state: &AppState, current_id: u64) -> Option<SongRequest> {
@@ -513,7 +564,8 @@ async fn has_pending_youtube(state: &AppState) -> bool {
         .queue
         .read()
         .await
-        .first_youtube()
+        .view()
+        .current_song
         .is_some_and(|song| matches!(song.source, RequestSource::Youtube { .. }))
 }
 

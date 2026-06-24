@@ -80,6 +80,11 @@ impl AppState {
             SongQueue::new(config.default_provider)
         };
         let (shutdown, _) = broadcast::channel(1);
+        let browser_volume = config::configured_volume(
+            &config.paths,
+            crate::song_requests::MusicProvider::Youtube,
+            crate::config::YoutubePlayback::Browser,
+        );
 
         Self {
             spotify_token: Arc::new(RwLock::new(load_token(&config).ok().flatten())),
@@ -91,7 +96,7 @@ impl AppState {
             twitch_bot_running: Arc::new(AtomicBool::new(false)),
             youtube_player_paused_spotify: Arc::new(AtomicBool::new(false)),
             youtube_browser_paused: Arc::new(AtomicBool::new(false)),
-            youtube_browser_volume: Arc::new(AtomicU8::new(100)),
+            youtube_browser_volume: Arc::new(AtomicU8::new(browser_volume)),
             spotify_fallback_started: Arc::new(AtomicBool::new(false)),
             pear_idle_stopped: Arc::new(AtomicBool::new(false)),
             youtube_active_pear_video_id: Arc::new(Mutex::new(None)),

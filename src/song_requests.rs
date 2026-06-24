@@ -168,6 +168,7 @@ impl SongQueue {
         self.current_song.clone()
     }
 
+    #[cfg(test)]
     pub fn first_youtube(&self) -> Option<SongRequest> {
         self.current_song
             .iter()

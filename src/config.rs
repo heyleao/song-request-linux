@@ -33,9 +33,12 @@ pub struct UserConfig {
     pub spotify_client_id: Option<String>,
     pub spotify_redirect_uri: Option<String>,
     pub spotify_fallback_enabled: bool,
+    pub spotify_volume: u8,
     pub queue_persistence_enabled: bool,
     pub youtube_playback: YoutubePlayback,
     pub pear_base_url: Option<String>,
+    pub pear_volume: u8,
+    pub browser_volume: u8,
     pub youtube_max_duration_seconds: u64,
     pub youtube_allow_non_music: bool,
     pub twitch_client_id: Option<String>,
@@ -81,7 +84,10 @@ pub struct UiConfigView {
     pub pear_base_url: String,
     pub spotify_client_id: Option<String>,
     pub spotify_fallback_enabled: bool,
+    pub spotify_volume: u8,
     pub queue_persistence_enabled: bool,
+    pub pear_volume: u8,
+    pub browser_volume: u8,
     pub twitch_client_id: Option<String>,
     pub twitch_bot_username: Option<String>,
     pub twitch_channel: Option<String>,
@@ -253,9 +259,12 @@ impl Default for UserConfig {
             spotify_client_id: None,
             spotify_redirect_uri: None,
             spotify_fallback_enabled: false,
+            spotify_volume: 50,
             queue_persistence_enabled: false,
             youtube_playback: YoutubePlayback::Browser,
             pear_base_url: None,
+            pear_volume: 50,
+            browser_volume: 100,
             youtube_max_duration_seconds: 360,
             youtube_allow_non_music: false,
             twitch_client_id: None,
@@ -368,7 +377,10 @@ impl UiConfigView {
                 .unwrap_or_else(default_pear_base_url),
             spotify_client_id: user_config.spotify_client_id,
             spotify_fallback_enabled: user_config.spotify_fallback_enabled,
+            spotify_volume: normalize_volume(user_config.spotify_volume),
             queue_persistence_enabled: user_config.queue_persistence_enabled,
+            pear_volume: normalize_volume(user_config.pear_volume),
+            browser_volume: normalize_volume(user_config.browser_volume),
             twitch_client_id: user_config.twitch_client_id,
             twitch_bot_username: user_config.twitch_bot_username,
             twitch_channel: user_config.twitch_channel,
@@ -395,6 +407,7 @@ pub fn save_ui_config(paths: &AppPaths, input: UiConfigInput) -> Result<UiConfig
     fs::create_dir_all(&paths.config_dir)?;
     fs::create_dir_all(&paths.state_dir)?;
 
+    let existing_config = load_user_config_from_paths(paths).unwrap_or_default();
     let existing_secrets = load_user_secrets_from_paths(paths).unwrap_or_default();
     let user_config = UserConfig {
         default_provider: input.default_provider,
@@ -403,6 +416,7 @@ pub fn save_ui_config(paths: &AppPaths, input: UiConfigInput) -> Result<UiConfig
         spotify_client_id: clean_optional_value(input.spotify_client_id),
         spotify_redirect_uri: None,
         spotify_fallback_enabled: input.spotify_fallback_enabled,
+        spotify_volume: normalize_volume(existing_config.spotify_volume),
         queue_persistence_enabled: input.queue_persistence_enabled,
         youtube_max_duration_seconds: input
             .youtube_max_duration_seconds
@@ -412,6 +426,8 @@ pub fn save_ui_config(paths: &AppPaths, input: UiConfigInput) -> Result<UiConfig
         twitch_client_id: clean_optional_value(input.twitch_client_id),
         twitch_bot_username: clean_optional_value(input.twitch_bot_username),
         twitch_channel: clean_optional_value(input.twitch_channel),
+        pear_volume: normalize_volume(existing_config.pear_volume),
+        browser_volume: normalize_volume(existing_config.browser_volume),
         command_settings: normalize_command_settings(input.command_settings.unwrap_or_default()),
         queue_limits: normalize_queue_limits(input.queue_limits.unwrap_or_default()),
         overlay: input.overlay.unwrap_or_default().normalized(),
@@ -444,6 +460,44 @@ pub fn command_settings(paths: &AppPaths) -> CommandSettings {
     load_user_config_from_paths(paths)
         .map(|config| normalize_command_settings(config.command_settings))
         .unwrap_or_default()
+}
+
+pub fn update_volume_setting(
+    paths: &AppPaths,
+    provider: MusicProvider,
+    playback: YoutubePlayback,
+    level: u8,
+) -> Result<u8> {
+    fs::create_dir_all(&paths.config_dir)?;
+    let mut user_config = load_user_config_from_paths(paths).unwrap_or_default();
+    let level = normalize_volume(level);
+    match (provider, playback) {
+        (MusicProvider::Spotify, _) => user_config.spotify_volume = level,
+        (MusicProvider::Youtube, YoutubePlayback::Pear) => user_config.pear_volume = level,
+        (MusicProvider::Youtube, YoutubePlayback::Browser) => user_config.browser_volume = level,
+    }
+    fs::write(
+        user_config_path(paths),
+        serde_json::to_vec_pretty(&user_config)?,
+    )?;
+    Ok(level)
+}
+
+pub fn configured_volume(
+    paths: &AppPaths,
+    provider: MusicProvider,
+    playback: YoutubePlayback,
+) -> u8 {
+    let user_config = load_user_config_from_paths(paths).unwrap_or_default();
+    match (provider, playback) {
+        (MusicProvider::Spotify, _) => normalize_volume(user_config.spotify_volume),
+        (MusicProvider::Youtube, YoutubePlayback::Pear) => {
+            normalize_volume(user_config.pear_volume)
+        }
+        (MusicProvider::Youtube, YoutubePlayback::Browser) => {
+            normalize_volume(user_config.browser_volume)
+        }
+    }
 }
 
 fn youtube_api_keys_from_sources(user_secrets: &UserSecrets) -> Vec<String> {
@@ -712,6 +766,10 @@ fn clean_optional_value(value: Option<String>) -> Option<String> {
 
 fn default_pear_base_url() -> String {
     "http://127.0.0.1:26538/api/v1".to_string()
+}
+
+fn normalize_volume(level: u8) -> u8 {
+    level.clamp(1, 100)
 }
 
 fn load_user_config_from_paths(paths: &AppPaths) -> Result<UserConfig> {

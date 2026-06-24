@@ -569,18 +569,34 @@ async fn volume_reply(state: &AppState, requester: String, level: Option<u8>) ->
             match (current_provider(state), current_youtube_playback(state)) {
                 (MusicProvider::Youtube, YoutubePlayback::Pear) => {
                     match crate::pear::set_volume(&state.config, level).await {
-                        Ok(level) => changed.push(format!("Pear/YouTube {level}%")),
+                        Ok(level) => {
+                            persist_volume_setting(
+                                state,
+                                MusicProvider::Youtube,
+                                YoutubePlayback::Pear,
+                                level,
+                            )
+                            .await;
+                            changed.push(format!("Pear/YouTube {level}%"));
+                        }
                         Err(error) => errors.push(format!("Pear/YouTube: {error}")),
                     }
                 }
                 (MusicProvider::Youtube, YoutubePlayback::Browser) => {
-                    errors.push(
-                        "No modo OBS Browser, ajuste o volume diretamente no mixer do OBS."
-                            .to_string(),
-                    );
+                    let level = set_browser_volume(state, level).await;
+                    changed.push(format!("OBS Browser {level}%"));
                 }
                 (MusicProvider::Spotify, _) => match set_spotify_volume(state, level).await {
-                    Some(Ok(level)) => changed.push(format!("Spotify {level}%")),
+                    Some(Ok(level)) => {
+                        persist_volume_setting(
+                            state,
+                            MusicProvider::Spotify,
+                            YoutubePlayback::Browser,
+                            level,
+                        )
+                        .await;
+                        changed.push(format!("Spotify {level}%"));
+                    }
                     Some(Err(error)) => errors.push(format!("Spotify: {error}")),
                     None => errors.push("Spotify nao conectado".to_string()),
                 },
@@ -621,6 +637,34 @@ async fn set_spotify_volume(state: &AppState, level: u8) -> Option<Result<u8>> {
     Some(crate::spotify::set_volume(&state.config, token, level).await)
 }
 
+async fn set_browser_volume(state: &AppState, level: u8) -> u8 {
+    let level = level.clamp(1, 100);
+    state.youtube_browser_volume.store(level, Ordering::SeqCst);
+    persist_volume_setting(
+        state,
+        MusicProvider::Youtube,
+        YoutubePlayback::Browser,
+        level,
+    )
+    .await;
+    level
+}
+
+async fn persist_volume_setting(
+    state: &AppState,
+    provider: MusicProvider,
+    playback: YoutubePlayback,
+    level: u8,
+) {
+    if let Err(error) =
+        config::update_volume_setting(&state.config.paths, provider, playback, level)
+    {
+        state
+            .record_event("error", format!("Nao consegui salvar volume: {error}"))
+            .await;
+    }
+}
+
 async fn current_volume_reply(state: &AppState) -> String {
     if matches!(
         (current_provider(state), current_youtube_playback(state)),
@@ -636,7 +680,13 @@ async fn current_volume_reply(state: &AppState) -> String {
     }
 
     if is_youtube_browser_mode(state) {
-        return "Volume do OBS Browser deve ser ajustado no mixer do OBS.".to_string();
+        let level = state
+            .youtube_browser_volume
+            .load(Ordering::SeqCst)
+            .clamp(1, 100);
+        return format!(
+            "Volume atual OBS Browser: {level}%. O fader do OBS continua separado no mixer."
+        );
     }
 
     let mut token_guard = state.spotify_token.write().await;

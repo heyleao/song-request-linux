@@ -351,6 +351,31 @@ pub async fn search_and_queue(
     })
 }
 
+pub async fn ensure_request_queued(
+    config: &AppConfig,
+    token: &mut SpotifyToken,
+    request: &SongRequest,
+) -> Result<bool> {
+    refresh_if_needed(config, token).await?;
+    let title = format!("{} - {}", request.title, request.artist);
+    if spotify_queue_contains(token, &title).await? {
+        return Ok(false);
+    }
+
+    match &request.source {
+        RequestSource::Spotify { uri } => add_to_queue(token, uri).await?,
+        RequestSource::Search {
+            provider: crate::song_requests::MusicProvider::Spotify,
+        } => {
+            let track = search_track(token, &request.query).await?;
+            add_to_queue(token, &track.uri).await?;
+        }
+        _ => return Ok(false),
+    }
+
+    Ok(true)
+}
+
 pub async fn list_playlists(
     config: &AppConfig,
     token: &mut SpotifyToken,
