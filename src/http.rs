@@ -33,6 +33,7 @@ pub fn router(state: AppState) -> Router {
         .route("/auth/twitch/callback", get(twitch_callback))
         .route("/health", get(health))
         .route("/assets/logo-srl.png", get(logo_srl))
+        .route("/assets/i18n/:lang", get(i18n_asset))
         .route("/favicon.png", get(logo_srl))
         .route("/api/shutdown", post(shutdown))
         .route("/api/status", get(status))
@@ -79,6 +80,34 @@ async fn health() -> Json<HealthResponse> {
 async fn logo_srl() -> impl IntoResponse {
     static LOGO: &[u8] = include_bytes!("../assets/logo-srl.png");
     ([(CONTENT_TYPE, "image/png")], LOGO)
+}
+
+async fn i18n_asset(AxumPath(lang): AxumPath<String>) -> impl IntoResponse {
+    let fallback = match lang.as_str() {
+        "en-US.json" => Some(include_str!("../i18n/en-US.json")),
+        "pt-BR.json" => Some(include_str!("../i18n/pt-BR.json")),
+        _ => None,
+    };
+    let Some(fallback) = fallback else {
+        return (
+            StatusCode::NOT_FOUND,
+            [(CONTENT_TYPE, "text/plain")],
+            "not found".to_string(),
+        );
+    };
+
+    let contents = match app_root_dir() {
+        Ok(root) => tokio::fs::read_to_string(root.join("i18n").join(&lang))
+            .await
+            .unwrap_or_else(|_| fallback.to_string()),
+        Err(_) => fallback.to_string(),
+    };
+
+    (
+        StatusCode::OK,
+        [(CONTENT_TYPE, "application/json")],
+        contents,
+    )
 }
 
 async fn shutdown(

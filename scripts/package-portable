@@ -62,7 +62,7 @@ stage="$DIST_DIR/$name"
 archive="$DIST_DIR/$name.tar.gz"
 
 rm -rf "$stage" "$archive" "$archive.sha256"
-mkdir -p "$stage/bin" "$stage/scripts" "$stage/assets" "$stage/docs/images"
+mkdir -p "$stage/bin" "$stage/scripts" "$stage/assets" "$stage/i18n" "$stage/docs/images"
 
 install -m 0755 "$bin" "$stage/bin/song-request-linux"
 install -m 0755 scripts/check-runtime-prereqs "$stage/scripts/check-runtime-prereqs"
@@ -72,6 +72,7 @@ install -m 0755 scripts/install-desktop-entry "$stage/scripts/install-desktop-en
 install -m 0755 scripts/update-from-github "$stage/scripts/update-from-github"
 install -m 0755 scripts/uninstall-user "$stage/scripts/uninstall-user"
 install -m 0644 assets/logo-srl.png "$stage/assets/logo-srl.png"
+install -m 0644 i18n/*.json "$stage/i18n/"
 install -m 0644 README.md "$stage/README.md"
 install -m 0644 LICENSE "$stage/LICENSE"
 install -m 0644 docs/SETUP.md "$stage/docs/SETUP.md"

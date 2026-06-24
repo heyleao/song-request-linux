@@ -64,7 +64,7 @@ stage="$DIST_DIR/$name"
 archive="$DIST_DIR/$name.zip"
 
 rm -rf "$stage" "$archive" "$archive.sha256"
-mkdir -p "$stage/bin" "$stage/scripts/windows" "$stage/assets" "$stage/docs/images"
+mkdir -p "$stage/bin" "$stage/scripts/windows" "$stage/assets" "$stage/i18n" "$stage/docs/images"
 
 install -m 0644 "$bin" "$stage/bin/song-request-linux.exe"
 
@@ -77,6 +77,7 @@ fi
 install -m 0644 scripts/windows/open.ps1 "$stage/scripts/windows/open.ps1"
 install -m 0644 scripts/windows/stop.ps1 "$stage/scripts/windows/stop.ps1"
 install -m 0644 assets/logo-srl.png "$stage/assets/logo-srl.png"
+install -m 0644 i18n/*.json "$stage/i18n/"
 install -m 0644 README.md "$stage/README.md"
 install -m 0644 README_EN.md "$stage/README_EN.md"
 install -m 0644 LICENSE "$stage/LICENSE"

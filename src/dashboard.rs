@@ -454,7 +454,7 @@ pub async fn page() -> Html<&'static str> {
       padding: 12px;
       display: grid;
       align-content: center;
-      cursor: pointer;
+      cursor: default;
     }
     .provider-option.active {
       border-color: rgba(34, 197, 94, .75);
@@ -1462,175 +1462,32 @@ pub async fn page() -> Html<&'static str> {
     const instanceKey = 'song-request-linux-active-dashboard';
     const instanceChannel = 'BroadcastChannel' in window ? new BroadcastChannel('song-request-linux-dashboard') : null;
     let isActiveInstance = true;
-    const I18N_EN = {
-      'Ir para o painel': 'Skip to dashboard',
-      'Outra aba assumiu o painel': 'Another tab took over the dashboard',
-      'Uma nova aba do Song Request Linux foi aberta e virou a aba ativa. Para evitar comandos duplicados, esta aba ficou em espera.': 'A new Song Request Linux tab was opened and became active. To avoid duplicate commands, this tab is on standby.',
-      'Usar esta aba': 'Use this tab',
-      'Fechar esta aba': 'Close this tab',
-      'Alterações não salvas': 'Unsaved changes',
-      'Salve a configuração antes de trocar de tela, fechar o app ou iniciar a live.': 'Save settings before changing screens, closing the app, or starting the stream.',
-      'Salvar configuração': 'Save settings',
-      'Descartar': 'Discard',
-      'Controle de músicas para live': 'Music control for livestreams',
-      'Operação': 'Live',
-      'Configuração': 'Setup',
-      'Guia': 'Guide',
-      'Operação da live': 'Live operation',
-      'SRL': 'SRL',
-      'Fila, player, eventos e conexões em uma tela.': 'Queue, player, events, and connections on one screen.',
-      'verificando': 'checking',
-      'Encerrar': 'Quit',
-      'Provider ativo': 'Active provider',
-      'Modo': 'Mode',
-      'Escolha um modo por live.': 'Choose one mode per stream.',
-      'Ao vivo': 'Live status',
-      'Dashboard': 'Dashboard',
-      'Fila': 'Queue',
-      'Origem': 'Source',
-      'Player YouTube': 'YouTube player',
-      'Eventos': 'Events',
-      'Tocando agora': 'Now playing',
-      'Aguardando pedido': 'Waiting for request',
-      'Nenhuma música tocando': 'No song playing',
-      'Novo pedido': 'New request',
-      'Chat ou teste manual': 'Chat or manual test',
-      'Solicitante': 'Requester',
-      'Música, artista ou link': 'Song, artist, or link',
-      'Adicionar pedido': 'Add request',
-      'Controles': 'Controls',
-      'Moderador/broadcaster': 'Moderator/broadcaster',
-      'Volume --': 'Volume --',
-      'Fila de pedidos': 'Request queue',
-      'Atualizar': 'Refresh',
-      'Zerar': 'Clear',
-      'Últimos eventos': 'Latest events',
-      'Configuração para iniciar a live': 'Setup to start the stream',
-      'Siga os passos em ordem. Preencha, conecte as contas e clique em Salvar.': 'Follow the steps in order. Fill in the fields, connect accounts, and click Save.',
-      'Escolha um modo por live:': 'Choose one mode per stream:',
-      'Spotify, YouTube via Pear ou YouTube via OBS Browser.': 'Spotify, YouTube via Pear, or YouTube via OBS Browser.',
-      'Provider atual:': 'Current provider:',
-      'Twitch: ligar o bot ao chat': 'Twitch: connect the bot to chat',
-      'Use a conta do bot aqui. Ela vai ler o chat e responder aos comandos.': 'Use the bot account here. It reads chat and responds to commands.',
-      'Criar app Twitch': 'Create Twitch app',
-      'Client ID Twitch': 'Twitch Client ID',
-      'Conta do bot': 'Bot account',
-      'Canal da live': 'Stream channel',
-      'Modo de operação': 'Operation mode',
-      'Conectar bot': 'Connect bot',
-      'Spotify: tocar músicas e fallback': 'Spotify: playback and fallback',
-      'Obrigatório se o provider padrão for Spotify. Precisa de Premium e Spotify aberto no PC da live.': 'Required when Spotify is the active mode. Requires Premium and Spotify open on the stream PC.',
-      'Criar app Spotify': 'Create Spotify app',
-      'Client ID Spotify': 'Spotify Client ID',
-      'Tocar playlist fallback quando não houver pedidos': 'Play fallback playlist when there are no requests',
-      'Playlist fallback': 'Fallback playlist',
-      'Nenhuma playlist selecionada': 'No playlist selected',
-      'Login Spotify': 'Spotify login',
-      'Carregar playlists': 'Load playlists',
-      'Salvar fallback': 'Save fallback',
-      'YouTube: links e pedidos do YouTube': 'YouTube: links and YouTube requests',
-      'Escolha onde o YouTube vai tocar: OBS Browser Source ou Pear Desktop.': 'Choose where YouTube plays: OBS Browser Source or Pear Desktop.',
-      'Escolha o player no Setup:': 'Choose the player in Setup:',
-      'Pear Desktop ou Browser Source OBS. Use apenas um modo por vez.': 'Pear Desktop or OBS Browser Source. Use only one mode at a time.',
-      'Player YouTube OBS': 'OBS YouTube player',
-      'Browser Source OBS:': 'OBS Browser Source:',
-      'adicione a URL acima como Browser Source, marque': 'add the URL above as a Browser Source, enable',
-      'e, nas propriedades avancadas de audio, use': 'and, in Advanced Audio Properties, use',
-      'O volume fica no mixer do OBS.': 'Volume is controlled in the OBS mixer.',
-      'Pear Desktop:': 'Pear Desktop:',
-      'nao use a fonte': 'do not use the',
-      'Abra o Pear, ative o plugin': 'Open Pear, enable the',
-      'na porta': 'plugin on port',
-      'e deixe a Pear API salva no Setup.': 'and keep the Pear API saved in Setup.',
-      'Criar API Key': 'Create API key',
-      'Player YouTube': 'YouTube player',
-      'Pear API': 'Pear API',
-      'YouTube API Keys': 'YouTube API keys',
-      'Máximo do vídeo em segundos': 'Max video length in seconds',
-      'Aceitar vídeo fora da categoria Música': 'Accept videos outside the Music category',
-      'Live: comportamento da fila': 'Stream: queue behavior',
-      'Escolha se a fila deve continuar depois que a live acabar e o app abrir de novo.': 'Choose whether the queue continues after the stream ends and the app opens again.',
-      'Continuar com a fila salva quando o app abrir de novo': 'Restore saved queue when the app opens again',
-      'Texto do overlay': 'Overlay label',
-      'Linhas do nome no overlay': 'Song title lines',
-      '1 linha': '1 line',
-      '2 linhas': '2 lines',
-      '3 linhas': '3 lines',
-      'Avançado: comandos, permissões e limites': 'Advanced: commands, permissions, and limits',
-      'Comandos e permissões do chat': 'Chat commands and permissions',
-      'Pedido de música': 'Song request',
-      'Adiciona uma música na fila.': 'Adds a song to the queue.',
-      'Comandos': 'Commands',
-      'Permissão': 'Permission',
-      'Música atual': 'Current song',
-      'Mostra o que está tocando agora.': 'Shows what is playing now.',
-      'Mostra as próximas músicas.': 'Shows the next songs.',
-      'Remover último pedido': 'Remove last request',
-      'Remove o último pedido do próprio usuário.': 'Removes the user\'s last request.',
-      'Pula a música atual.': 'Skips the current song.',
-      'Retoma o player.': 'Resumes the player.',
-      'Pause / Stop': 'Pause / Stop',
-      'Pausa o player.': 'Pauses the player.',
-      'Next / Pular': 'Next / Skip',
-      'Avança para a próxima música.': 'Moves to the next song.',
-      'Sem número mostra o volume. Com número muda o volume.': 'Without a number, shows volume. With a number, changes volume.',
-      'Quem pode ver': 'Who can view',
-      'Quem pode mudar': 'Who can change',
-      'Ajuda': 'Help',
-      'Mostra a lista de comandos.': 'Shows the command list.',
-      'Limites de pedidos por cargo': 'Request limits by role',
-      'Limite follower': 'Follower limit',
-      'Limite subscriber': 'Subscriber limit',
-      'Limite VIP': 'VIP limit',
-      'Limite moderador': 'Moderator limit',
-      'Limite streamer': 'Streamer limit',
-      'Salvar': 'Save',
-      'Logs em tempo real': 'Real-time logs',
-      'Apagar logs': 'Clear logs',
-      'Mostrando os 30 eventos mais recentes.': 'Showing the 30 most recent events.',
-      'Guia rápido': 'Quick guide',
-      'Guia completo': 'Complete guide',
-      '1. Twitch Console': '1. Twitch Console',
-      'Redirect Twitch': 'Twitch redirect',
-      '2. Spotify Dashboard': '2. Spotify Dashboard',
-      'Redirect Spotify': 'Spotify redirect',
-      '3. Google API Key': '3. Google API Key',
-      '4. Setup': '4. Setup',
-      'Escolha Spotify, Pear ou OBS Browser. Use um provider por vez.': 'Choose Spotify, Pear, or OBS Browser. Use one provider at a time.',
-      'OBS e players': 'OBS and players',
-      'Dashboard local': 'Local dashboard',
-      'Overlay OBS': 'OBS overlay',
-      'Tamanho overlay': 'Overlay size',
-      '620 px de largura x': '620 px wide x',
-      'de altura': 'high',
-      'Player OBS Browser': 'OBS Browser player',
-      'Audio OBS Browser': 'OBS Browser audio',
-      'Controlar audio via OBS + Monitorar e enviar saida': 'Control audio via OBS + Monitor and Output',
-      'Pear Desktop': 'Pear Desktop',
-      'Ative o plugin API Server na porta 26538.': 'Enable the API Server plugin on port 26538.',
-      'Copiar': 'Copy',
-      'Instalar e atualizar': 'Install and update',
-      'Atualizar pelo GitHub': 'Update from GitHub',
-      'Verificando atualizacao...': 'Checking for updates...',
-      'Instalar': 'Install',
-      'Abrir': 'Open',
-      'Fechar': 'Close',
-      'Atualizar manual': 'Manual update',
-      'Remover app': 'Uninstall app',
-      'Fila vazia': 'Queue empty',
-      'Nenhum evento ainda': 'No events yet',
-      'Aba em espera': 'Tab on standby',
-      'Song Request Linux encerrando': 'Song Request Linux is shutting down'
-    };
-    const I18N_PLACEHOLDERS_EN = {
-      'system of a down spiders ou https://youtu.be/...': 'system of a down spiders or https://youtu.be/...',
-      'Client ID do app Twitch': 'Twitch app Client ID',
-      'Client ID do app Spotify': 'Spotify app Client ID',
-      'deixe vazio para manter a chave atual': 'leave empty to keep the current key',
-      'Tocando agora': 'Now playing'
-    };
-    const I18N_REVERSE_EN = Object.fromEntries(Object.entries(I18N_EN).map(([pt, en]) => [en, pt]));
-    const I18N_PLACEHOLDERS_REVERSE_EN = Object.fromEntries(Object.entries(I18N_PLACEHOLDERS_EN).map(([pt, en]) => [en, pt]));
+    let i18nText = {};
+    let i18nPlaceholders = {};
+    let i18nReverseText = {};
+    let i18nReversePlaceholders = {};
+
+    function languageFile(lang) {
+      return lang === 'en' ? 'en-US.json' : 'pt-BR.json';
+    }
+
+    async function loadI18n(lang = currentLanguage()) {
+      try {
+        const response = await fetch(`/assets/i18n/${languageFile(lang)}`);
+        if (!response.ok) throw new Error(`i18n ${response.status}`);
+        const data = await response.json();
+        i18nText = data.text || {};
+        i18nPlaceholders = data.placeholders || {};
+        i18nReverseText = Object.fromEntries(Object.entries(i18nText).map(([source, translated]) => [translated, source]));
+        i18nReversePlaceholders = Object.fromEntries(Object.entries(i18nPlaceholders).map(([source, translated]) => [translated, source]));
+      } catch (error) {
+        console.warn('i18n load failed', error);
+        i18nText = {};
+        i18nPlaceholders = {};
+        i18nReverseText = {};
+        i18nReversePlaceholders = {};
+      }
+    }
 
     function currentLanguage() {
       const queryLang = new URLSearchParams(window.location.search).get('lang');
@@ -1641,9 +1498,10 @@ pub async fn page() -> Html<&'static str> {
       return localStorage.getItem('song-request-linux-language') || 'pt';
     }
 
-    function translateText(value, lang) {
-      if (lang === 'en') return I18N_EN[value] || value;
-      return I18N_REVERSE_EN[value] || value;
+    function t(value) { return translateText(value); }
+
+    function translateText(value) {
+      return i18nText[value] || value;
     }
 
     function translateTree(root = document.body) {
@@ -1662,16 +1520,16 @@ pub async fn page() -> Html<&'static str> {
       nodes.forEach((node) => {
         const raw = node.nodeValue;
         const trimmed = raw.trim();
-        const source = node.__i18nSource || I18N_REVERSE_EN[trimmed] || trimmed;
+        const source = node.__i18nSource || i18nReverseText[trimmed] || trimmed;
         node.__i18nSource = source;
-        const translated = translateText(source, lang);
+        const translated = translateText(source);
         node.nodeValue = raw.replace(trimmed, translated);
       });
       document.querySelectorAll('[placeholder]').forEach((element) => {
         const value = element.getAttribute('placeholder');
-        const source = element.dataset.i18nPlaceholder || I18N_PLACEHOLDERS_REVERSE_EN[value] || value;
+        const source = element.dataset.i18nPlaceholder || i18nReversePlaceholders[value] || value;
         element.dataset.i18nPlaceholder = source;
-        element.setAttribute('placeholder', lang === 'en' ? (I18N_PLACEHOLDERS_EN[source] || source) : source);
+        element.setAttribute('placeholder', i18nPlaceholders[source] || source);
       });
       const select = $('language-select');
       if (select) select.value = lang;
@@ -2234,17 +2092,17 @@ pub async fn page() -> Html<&'static str> {
     function renderQueuePersistence(queue) {
       const persistence = queue.persistence;
       if (!persistence) {
-        $('queue-persistence').innerHTML = '<span>Persistência: não informada nesta resposta.</span>';
+        $('queue-persistence').innerHTML = `<span>${escapeHtml(t('Persistência: não informada nesta resposta.'))}</span>`;
         return;
       }
       if (!persistence.enabled) {
-        $('queue-persistence').innerHTML = '<span><strong>Persistência desativada</strong> - a fila atual não será restaurada ao reabrir o app.</span>';
+        $('queue-persistence').innerHTML = `<span><strong>${escapeHtml(t('Persistência desativada'))}</strong> - ${escapeHtml(t('a fila atual não será restaurada ao reabrir o app.'))}</span>`;
         return;
       }
       const saved = `${persistence.saved_items} item(ns) salvo(s)`;
       const state = persistence.exists ? 'arquivo encontrado' : 'arquivo será criado no próximo pedido';
       $('queue-persistence').innerHTML = `
-        <span><strong>Persistência ativa</strong> - ${escapeHtml(saved)} - ${escapeHtml(state)}</span>
+        <span><strong>${escapeHtml(t('Persistência ativa'))}</strong> - ${escapeHtml(saved)} - ${escapeHtml(state)}</span>
         <code>${escapeHtml(persistence.path)}</code>
       `;
     }
@@ -2461,11 +2319,11 @@ pub async fn page() -> Html<&'static str> {
     window.addEventListener('hashchange', () => showTab(tabFromHash(), { force: true, updateHash: false }));
     showTab(tabFromHash(), { force: true, updateHash: false });
     $('language-select').value = currentLanguage();
-    $('language-select').addEventListener('change', () => {
+    $('language-select').addEventListener('change', async () => {
       localStorage.setItem('song-request-linux-language', $('language-select').value);
+      await loadI18n(currentLanguage());
       translateTree();
     });
-    translateTree();
 
     $('request-form').addEventListener('submit', async (event) => {
       event.preventDefault();
@@ -2691,21 +2549,6 @@ pub async fn page() -> Html<&'static str> {
         : 'Persistência da fila desmarcada. Clique em Salvar configuração.');
     });
 
-    $('provider-spotify').addEventListener('click', () => {
-      applyOperationMode('spotify', { dirty: true });
-      showTab('setup-tab');
-    });
-
-    $('provider-youtube-pear').addEventListener('click', () => {
-      applyOperationMode('youtube_pear', { dirty: true });
-      showTab('setup-tab');
-    });
-
-    $('provider-youtube-browser').addEventListener('click', () => {
-      applyOperationMode('youtube_browser', { dirty: true });
-      showTab('setup-tab');
-    });
-
     $('global-save-setup').addEventListener('click', () => {
       $('setup-form').requestSubmit();
     });
@@ -2838,13 +2681,16 @@ pub async fn page() -> Html<&'static str> {
     });
 
     markActiveInstance();
-    const pendingUpdate = localStorage.getItem('song-request-linux-update-pending') === '1';
-    setUpdateProgress(pendingUpdate);
-    refreshUpdateStatus(pendingUpdate);
-    refreshLatestUpdate(false);
-    setInterval(() => refreshLatestUpdate(false), 30 * 60 * 1000);
-    refresh();
-    setInterval(refresh, 2500);
+    loadI18n(currentLanguage()).then(() => {
+      translateTree();
+      const pendingUpdate = localStorage.getItem('song-request-linux-update-pending') === '1';
+      setUpdateProgress(pendingUpdate);
+      refreshUpdateStatus(pendingUpdate);
+      refreshLatestUpdate(false);
+      setInterval(() => refreshLatestUpdate(false), 30 * 60 * 1000);
+      refresh();
+      setInterval(refresh, 2500);
+    });
   </script>
 </body>
 </html>"##,
