@@ -23,24 +23,6 @@ Song Request Linux is a local app for streamers who want Twitch chat song reques
 
 The app avoids Windows-only dependencies, WebView2, and Wine. The current flow is simple: choose one active provider, connect the Twitch bot, configure the player, and add the OBS overlay.
 
-## Current Status
-
-- Local dashboard at `http://127.0.0.1:7384/`.
-- Guided setup for Twitch, Spotify, YouTube/Pear, queue behavior, and OBS.
-- Configurable Twitch bot commands.
-- Twitch roles from official IRC tags/badges: streamer, moderator, VIP, subscriber, and follower.
-- Per-role request limits, where `0` means unlimited.
-- One active provider at a time: Spotify or YouTube/Pear.
-- YouTube links go directly to YouTube.
-- Text search uses the active provider.
-- Spotify OAuth, search, queue control, volume, and fallback playlist.
-- YouTube Data API v3 with recommended Pear Desktop playback.
-- Optional persistent queue.
-- OBS now-playing overlay.
-- Logs and diagnostics in the dashboard.
-
-Follower note: Twitch IRC does not reliably tell whether a normal chatter follows the channel. SRL treats a normal chatter as `Follower`; to strictly block non-followers, enable follower-only mode in Twitch chat.
-
 ## Install
 
 On CachyOS/Arch:

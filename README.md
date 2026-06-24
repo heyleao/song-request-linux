@@ -27,26 +27,6 @@ O app foi pensado para evitar dependencias Windows-only, WebView2 e Wine. O
 fluxo atual e simples: escolha um provider principal, conecte o bot da Twitch,
 configure o player e adicione o overlay no OBS.
 
-## Estado Atual
-
-- Dashboard local em `http://127.0.0.1:7384/`.
-- Setup guiado para Twitch, Spotify, YouTube/Pear, fila e OBS.
-- Twitch bot com comandos configuraveis.
-- Cargos reconhecidos por tags oficiais da Twitch: streamer, moderator, VIP,
-  subscriber e follower.
-- Limite de pedidos por cargo, com `0` significando sem limite.
-
-Nota sobre follower: o IRC da Twitch nao informa com seguranca se um chatter comum segue o canal. No SRL, chatter comum entra como `Follower`; para garantir que so seguidores possam pedir musica, ative o modo seguidores no chat da Twitch.
-- Um provider ativo por vez: Spotify ou YouTube/Pear.
-- Links do YouTube entram direto como YouTube.
-- Busca de texto usa o provider ativo.
-- Spotify com OAuth, busca, fila, controle de player, volume e playlist fallback.
-- YouTube com YouTube Data API v3 e playback recomendado via Pear Desktop.
-- Fila persistente opcional: o streamer decide se continua a fila ao reabrir.
-- Overlay de musica atual para OBS.
-- Logs e diagnostico no dashboard.
-- Launcher com instancia unica e botao `Encerrar`.
-
 ## Instalar
 
 No CachyOS/Arch, use o instalador amigavel:
