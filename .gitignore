@@ -28,3 +28,6 @@ docs/*
 # Project assets that are safe to publish.
 !assets/
 !assets/logo-srl.png
+
+# Local Codex/agent files
+.codex/
