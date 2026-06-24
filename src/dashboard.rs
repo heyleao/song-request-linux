@@ -235,6 +235,7 @@ pub async fn page() -> Html<&'static str> {
       align-items: start;
       background: var(--surface);
     }
+    .setup-step.provider-hidden { display: none; }
     .step-number {
       width: 40px;
       height: 40px;
@@ -571,11 +572,26 @@ pub async fn page() -> Html<&'static str> {
       line-height: 1.4;
       margin-top: -2px;
     }
-    .command-access-grid {
+    .command-access-grid, .command-card-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
       gap: 10px;
     }
+    .command-card {
+      display: grid;
+      gap: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface-2);
+      padding: 12px;
+    }
+    .command-card h3 {
+      color: var(--text);
+      font-size: 14px;
+      text-transform: none;
+      letter-spacing: 0;
+    }
+    .command-card p { color: var(--muted); font-size: 12px; line-height: 1.35; }
     .setup-actions {
       padding-top: 4px;
       align-items: stretch;
@@ -915,7 +931,7 @@ pub async fn page() -> Html<&'static str> {
           </div>
         </section>
 
-        <section class="setup-step">
+        <section class="setup-step" data-provider-step="spotify">
           <div class="step-number">2</div>
           <div class="step-body">
             <div class="step-head">
@@ -949,7 +965,7 @@ pub async fn page() -> Html<&'static str> {
           </div>
         </section>
 
-        <section class="setup-step">
+        <section class="setup-step" data-provider-step="youtube">
           <div class="step-number">3</div>
           <div class="step-body">
             <div class="step-head">
@@ -1010,60 +1026,117 @@ pub async fn page() -> Html<&'static str> {
           <summary>Avançado: comandos, permissões e limites</summary>
           <div class="advanced-content">
             <section class="setup-card full">
-              <h2>Comandos do chat</h2>
-              <div class="form-grid">
-                <label>Pedido
-                  <input id="setup-cmd-song-request" autocomplete="off" placeholder="!sr, !ssr">
-                </label>
-                <label>Volume
-                  <input id="setup-cmd-volume" autocomplete="off" placeholder="!vol, !volume">
-                </label>
-                <label class="full">Atual / fila / remover
-                  <input id="setup-cmd-basic" autocomplete="off" placeholder="!song | !fila, !queue | !rm, !remove">
-                </label>
-                <label class="full">Player
-                  <input id="setup-cmd-player" autocomplete="off" placeholder="!play | !pause | !next">
-                </label>
+              <h2>Comandos e permissões do chat</h2>
+              <p class="field-note">Cada caixa configura um comando específico. Use vírgula para aliases: <code>!fila, !queue, !q</code>.</p>
+              <div class="command-card-grid">
+                <div class="command-card">
+                  <h3>Pedido de música</h3>
+                  <p>Adiciona uma música na fila.</p>
+                  <label>Comandos
+                    <input id="setup-cmd-song-request" autocomplete="off" placeholder="!sr, !ssr">
+                  </label>
+                  <label>Permissão
+                    <select id="setup-access-song-request"></select>
+                  </label>
+                </div>
+                <div class="command-card">
+                  <h3>Música atual</h3>
+                  <p>Mostra o que está tocando agora.</p>
+                  <label>Comandos
+                    <input id="setup-cmd-current-song" autocomplete="off" placeholder="!song">
+                  </label>
+                  <label>Permissão
+                    <select id="setup-access-current-song"></select>
+                  </label>
+                </div>
+                <div class="command-card">
+                  <h3>Fila</h3>
+                  <p>Mostra as próximas músicas.</p>
+                  <label>Comandos
+                    <input id="setup-cmd-queue" autocomplete="off" placeholder="!queue, !fila, !q">
+                  </label>
+                  <label>Permissão
+                    <select id="setup-access-queue"></select>
+                  </label>
+                </div>
+                <div class="command-card">
+                  <h3>Remover último pedido</h3>
+                  <p>Remove o último pedido do próprio usuário.</p>
+                  <label>Comandos
+                    <input id="setup-cmd-remove" autocomplete="off" placeholder="!rm, !remove">
+                  </label>
+                  <label>Permissão
+                    <select id="setup-access-remove"></select>
+                  </label>
+                </div>
+                <div class="command-card">
+                  <h3>Skip</h3>
+                  <p>Pula a música atual.</p>
+                  <label>Comandos
+                    <input id="setup-cmd-skip" autocomplete="off" placeholder="!skip">
+                  </label>
+                  <label>Permissão
+                    <select id="setup-access-skip"></select>
+                  </label>
+                </div>
+                <div class="command-card">
+                  <h3>Play</h3>
+                  <p>Retoma o player.</p>
+                  <label>Comandos
+                    <input id="setup-cmd-play" autocomplete="off" placeholder="!play, !resume">
+                  </label>
+                  <label>Permissão
+                    <select id="setup-access-play"></select>
+                  </label>
+                </div>
+                <div class="command-card">
+                  <h3>Pause / Stop</h3>
+                  <p>Pausa o player.</p>
+                  <label>Comandos
+                    <input id="setup-cmd-pause" autocomplete="off" placeholder="!pause, !stop">
+                  </label>
+                  <label>Permissão
+                    <select id="setup-access-pause"></select>
+                  </label>
+                </div>
+                <div class="command-card">
+                  <h3>Next / Pular</h3>
+                  <p>Avança para a próxima música.</p>
+                  <label>Comandos
+                    <input id="setup-cmd-next" autocomplete="off" placeholder="!next, !pular">
+                  </label>
+                  <label>Permissão
+                    <select id="setup-access-next"></select>
+                  </label>
+                </div>
+                <div class="command-card">
+                  <h3>Volume</h3>
+                  <p>Sem número mostra o volume. Com número muda o volume.</p>
+                  <label>Comandos
+                    <input id="setup-cmd-volume" autocomplete="off" placeholder="!vol, !volume">
+                  </label>
+                  <label>Quem pode ver
+                    <select id="setup-access-volume-read"></select>
+                  </label>
+                  <label>Quem pode mudar
+                    <select id="setup-access-volume-set"></select>
+                  </label>
+                </div>
+                <div class="command-card">
+                  <h3>Ajuda</h3>
+                  <p>Mostra a lista de comandos.</p>
+                  <label>Comandos
+                    <input id="setup-cmd-help" autocomplete="off" placeholder="!commands, !comandos, !help">
+                  </label>
+                  <label>Permissão
+                    <select id="setup-access-help"></select>
+                  </label>
+                </div>
               </div>
-              <p class="field-note">Use vírgula para aliases e barra vertical para grupos. Exemplo: !song | !fila, !queue | !rm, !remove.</p>
             </section>
 
             <section class="setup-card full">
-              <h2>Permissões e limites</h2>
-              <div class="form-grid">
-                <label>Quem pode pedir música
-                  <select id="setup-access-song-request">
-                    <option value="everyone">Viewer / todos</option>
-                    <option value="vip">VIP</option>
-                    <option value="moderator">Moderador</option>
-                    <option value="streamer">Streamer</option>
-                  </select>
-                </label>
-                <label>Quem pode remover
-                  <select id="setup-access-remove">
-                    <option value="everyone">Viewer / todos</option>
-                    <option value="vip">VIP</option>
-                    <option value="moderator">Moderador</option>
-                    <option value="streamer">Streamer</option>
-                  </select>
-                </label>
-                <label>Quem pode controlar player
-                  <select id="setup-access-playback">
-                    <option value="moderator">Moderador</option>
-                    <option value="streamer">Streamer</option>
-                    <option value="vip">VIP</option>
-                    <option value="everyone">Viewer / todos</option>
-                  </select>
-                </label>
-                <label>Quem pode mudar volume
-                  <select id="setup-access-volume-set">
-                    <option value="moderator">Moderador</option>
-                    <option value="streamer">Streamer</option>
-                    <option value="vip">VIP</option>
-                    <option value="everyone">Viewer / todos</option>
-                  </select>
-                </label>
-              </div>
+              <h2>Limites de pedidos por cargo</h2>
               <div class="form-grid compact">
                 <label>Limite viewer
                   <input id="setup-limit-viewer" type="number" inputmode="numeric" min="0" max="100" step="1" value="1">
@@ -1286,69 +1359,96 @@ pub async fn page() -> Html<&'static str> {
       const current = lastConfig?.command_settings || {};
       const aliases = current.aliases || {};
       const access = current.access || {};
-      const basic = groupedAliases($('setup-cmd-basic').value, [
-        aliases.current_song || ['!song'],
-        aliases.queue || ['!queue', '!fila', '!q'],
-        aliases.remove || ['!rm', '!remove']
-      ]);
-      const player = groupedAliases($('setup-cmd-player').value, [
-        aliases.play || ['!play', '!resume'],
-        aliases.pause || ['!pause', '!stop'],
-        aliases.next || ['!next', '!pular']
-      ]);
 
       return {
         aliases: {
           song_request: textToAliases($('setup-cmd-song-request').value, aliases.song_request || ['!sr']),
-          current_song: basic[0],
-          queue: basic[1],
-          remove: basic[2],
-          skip: aliases.skip || ['!skip'],
-          play: player[0],
-          pause: player[1],
-          next: player[2],
+          current_song: textToAliases($('setup-cmd-current-song').value, aliases.current_song || ['!song']),
+          queue: textToAliases($('setup-cmd-queue').value, aliases.queue || ['!queue', '!fila', '!q']),
+          remove: textToAliases($('setup-cmd-remove').value, aliases.remove || ['!rm', '!remove']),
+          skip: textToAliases($('setup-cmd-skip').value, aliases.skip || ['!skip']),
+          play: textToAliases($('setup-cmd-play').value, aliases.play || ['!play', '!resume']),
+          pause: textToAliases($('setup-cmd-pause').value, aliases.pause || ['!pause', '!stop']),
+          next: textToAliases($('setup-cmd-next').value, aliases.next || ['!next', '!pular']),
           volume: textToAliases($('setup-cmd-volume').value, aliases.volume || ['!vol', '!volume']),
-          help: aliases.help || ['!commands', '!comandos', '!help']
+          help: textToAliases($('setup-cmd-help').value, aliases.help || ['!commands', '!comandos', '!help'])
         },
         access: {
           song_request: $('setup-access-song-request').value,
-          current_song: access.current_song || 'everyone',
-          queue: access.queue || 'everyone',
+          current_song: $('setup-access-current-song').value,
+          queue: $('setup-access-queue').value,
           remove: $('setup-access-remove').value,
-          skip: access.skip || 'moderator',
-          playback: $('setup-access-playback').value,
-          volume_read: access.volume_read || 'everyone',
+          skip: $('setup-access-skip').value,
+          play: $('setup-access-play').value,
+          pause: $('setup-access-pause').value,
+          next: $('setup-access-next').value,
+          playback: $('setup-access-next').value,
+          volume_read: $('setup-access-volume-read').value,
           volume_set: $('setup-access-volume-set').value,
-          help: access.help || 'everyone'
+          help: $('setup-access-help').value
         }
       };
     }
 
     function fillCommandSettings(config) {
+      fillPermissionSelects();
       const settings = config.command_settings || {};
       const aliases = settings.aliases || {};
       const access = settings.access || {};
+      const legacyPlayback = access.playback || 'moderator';
       $('setup-cmd-song-request').value = aliasesToText(aliases.song_request || ['!sr']);
-      $('setup-cmd-basic').value = [
-        aliasesToText(aliases.current_song || ['!song']),
-        aliasesToText(aliases.queue || ['!queue', '!fila', '!q']),
-        aliasesToText(aliases.remove || ['!rm', '!remove'])
-      ].join(' | ');
+      $('setup-cmd-current-song').value = aliasesToText(aliases.current_song || ['!song']);
+      $('setup-cmd-queue').value = aliasesToText(aliases.queue || ['!queue', '!fila', '!q']);
+      $('setup-cmd-remove').value = aliasesToText(aliases.remove || ['!rm', '!remove']);
+      $('setup-cmd-skip').value = aliasesToText(aliases.skip || ['!skip']);
+      $('setup-cmd-play').value = aliasesToText(aliases.play || ['!play', '!resume']);
+      $('setup-cmd-pause').value = aliasesToText(aliases.pause || ['!pause', '!stop']);
+      $('setup-cmd-next').value = aliasesToText(aliases.next || ['!next', '!pular']);
       $('setup-cmd-volume').value = aliasesToText(aliases.volume || ['!vol', '!volume']);
-      $('setup-cmd-player').value = [
-        aliasesToText(aliases.play || ['!play', '!resume']),
-        aliasesToText(aliases.pause || ['!pause', '!stop']),
-        aliasesToText(aliases.next || ['!next', '!pular'])
-      ].join(' | ');
+      $('setup-cmd-help').value = aliasesToText(aliases.help || ['!commands', '!comandos', '!help']);
       $('setup-access-song-request').value = access.song_request || 'everyone';
+      $('setup-access-current-song').value = access.current_song || 'everyone';
+      $('setup-access-queue').value = access.queue || 'everyone';
       $('setup-access-remove').value = access.remove || 'everyone';
-      $('setup-access-playback').value = access.playback || 'moderator';
+      $('setup-access-skip').value = access.skip || 'moderator';
+      $('setup-access-play').value = access.play || legacyPlayback;
+      $('setup-access-pause').value = access.pause || legacyPlayback;
+      $('setup-access-next').value = access.next || legacyPlayback;
+      $('setup-access-volume-read').value = access.volume_read || 'everyone';
       $('setup-access-volume-set').value = access.volume_set || 'moderator';
+      $('setup-access-help').value = access.help || 'everyone';
       const limits = config.queue_limits || {};
       $('setup-limit-viewer').value = limits.viewer ?? 1;
       $('setup-limit-vip').value = limits.vip ?? 3;
       $('setup-limit-moderator').value = limits.moderator ?? 10;
       $('setup-limit-streamer').value = limits.streamer ?? 0;
+    }
+
+    function fillPermissionSelects() {
+      const labels = [
+        ['everyone', 'Viewer / todos'],
+        ['vip', 'VIP'],
+        ['moderator', 'Moderador'],
+        ['streamer', 'Streamer']
+      ];
+      document.querySelectorAll('select[id^="setup-access-"]').forEach((select) => {
+        if (select.options.length) return;
+        select.innerHTML = labels.map(([value, label]) => `<option value="${value}">${label}</option>`).join('');
+      });
+    }
+
+    function updateProviderStepVisibility(config) {
+      const provider = config.default_provider || $('setup-provider').value || 'youtube';
+      document.querySelectorAll('[data-provider-step]').forEach((section) => {
+        const visible = section.dataset.providerStep === provider;
+        section.classList.toggle('provider-hidden', !visible);
+        section.querySelectorAll('input, select, button').forEach((control) => {
+          control.disabled = !visible;
+        });
+      });
+      document.querySelectorAll('.setup-step:not(.provider-hidden) .step-number').forEach((item, index) => {
+        item.textContent = String(index + 1);
+      });
     }
 
     function sourceLabel(source) {
@@ -1392,6 +1492,7 @@ pub async fn page() -> Html<&'static str> {
     function renderProviderRequirements(config, connections, pear) {
       const provider = config.default_provider === 'spotify' ? 'Spotify' : 'YouTube';
       $('setup-active-provider').textContent = provider;
+      updateProviderStepVisibility(config);
 
       if (config.default_provider === 'spotify') {
         const spotifyProduct = connections.spotify.product;

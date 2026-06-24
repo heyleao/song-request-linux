@@ -8,7 +8,7 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    commands::{ChatUserRole, CommandSettings},
+    commands::{ChatUserRole, CommandAccess, CommandSettings},
     song_requests::MusicProvider,
 };
 
@@ -404,6 +404,16 @@ fn normalize_queue_limits(mut limits: QueueLimitConfig) -> QueueLimitConfig {
 }
 
 fn normalize_command_settings(mut settings: CommandSettings) -> CommandSettings {
+    if settings.access.play == CommandAccess::Moderator
+        && settings.access.pause == CommandAccess::Moderator
+        && settings.access.next == CommandAccess::Moderator
+        && settings.access.playback != CommandAccess::Moderator
+    {
+        settings.access.play = settings.access.playback;
+        settings.access.pause = settings.access.playback;
+        settings.access.next = settings.access.playback;
+    }
+
     settings.aliases.song_request = normalize_aliases(settings.aliases.song_request, &["!sr"]);
     settings.aliases.current_song = normalize_aliases(settings.aliases.current_song, &["!song"]);
     settings.aliases.queue = normalize_aliases(settings.aliases.queue, &["!queue", "!fila", "!q"]);
@@ -489,16 +499,19 @@ fn command_summary(settings: &CommandSettings) -> Vec<CommandSummary> {
             access: settings.access.skip,
         },
         CommandSummary {
-            name: "Play/Pause/Next",
-            aliases: settings
-                .aliases
-                .play
-                .iter()
-                .chain(settings.aliases.pause.iter())
-                .chain(settings.aliases.next.iter())
-                .cloned()
-                .collect(),
-            access: settings.access.playback,
+            name: "Play",
+            aliases: settings.aliases.play.clone(),
+            access: settings.access.play,
+        },
+        CommandSummary {
+            name: "Pause/Stop",
+            aliases: settings.aliases.pause.clone(),
+            access: settings.access.pause,
+        },
+        CommandSummary {
+            name: "Next/Pular",
+            aliases: settings.aliases.next.clone(),
+            access: settings.access.next,
         },
         CommandSummary {
             name: "Volume atual",

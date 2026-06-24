@@ -94,6 +94,9 @@ pub struct CommandAccessConfig {
     pub queue: CommandAccess,
     pub remove: CommandAccess,
     pub skip: CommandAccess,
+    pub play: CommandAccess,
+    pub pause: CommandAccess,
+    pub next: CommandAccess,
     pub playback: CommandAccess,
     pub volume_read: CommandAccess,
     pub volume_set: CommandAccess,
@@ -133,6 +136,9 @@ impl Default for CommandAccessConfig {
             queue: CommandAccess::Everyone,
             remove: CommandAccess::Everyone,
             skip: CommandAccess::Moderator,
+            play: CommandAccess::Moderator,
+            pause: CommandAccess::Moderator,
+            next: CommandAccess::Moderator,
             playback: CommandAccess::Moderator,
             volume_read: CommandAccess::Everyone,
             volume_set: CommandAccess::Moderator,
@@ -208,7 +214,7 @@ pub fn parse_chat_command(input: ChatCommandInput, settings: &CommandSettings) -
         if let Some(denied) = deny_if_needed(
             &requester,
             playback_command_name(action, &settings.aliases),
-            settings.access.playback,
+            playback_access(action, &settings.access),
             role,
         ) {
             return denied;
@@ -303,6 +309,14 @@ fn playback_action(message: &str, aliases: &CommandAliases) -> Option<PlaybackAc
     }
 
     None
+}
+
+fn playback_access(action: PlaybackAction, access: &CommandAccessConfig) -> CommandAccess {
+    match action {
+        PlaybackAction::Play => access.play,
+        PlaybackAction::Pause => access.pause,
+        PlaybackAction::Next => access.next,
+    }
 }
 
 fn playback_command_name(action: PlaybackAction, aliases: &CommandAliases) -> &str {
