@@ -718,8 +718,11 @@ pub async fn page() -> Html<&'static str> {
     }
     .diagnostic-row code, .endpoint-row code { text-align: right; }
     .endpoint-row a { font-weight: 800; text-decoration: none; }
-    .endpoint-row.with-action { grid-template-columns: minmax(110px, .45fr) minmax(0, 1fr) 36px auto; }
-    .endpoint-row.with-action a.secondary { min-width: 58px; min-height: 34px; padding: 6px 8px; }
+    .endpoint-row.with-action { grid-template-columns: minmax(130px, .36fr) minmax(0, 1fr) 36px; }
+    .endpoint-row.guide-note {
+      align-items: start;
+      grid-template-columns: minmax(130px, .36fr) minmax(0, 1fr);
+    }
     .copy-button { min-height: 34px; }
     .copy-button svg { width: 17px; height: 17px; stroke: currentColor; stroke-width: 2; fill: none; }
     .copy-button.copied { border-color: var(--ok); color: var(--ok); }
@@ -1101,7 +1104,7 @@ pub async fn page() -> Html<&'static str> {
             <div class="player-config-card" data-youtube-mode="browser">
               <h3>YouTube via OBS Browser Source</h3>
               <p>Use quando quiser tocar dentro do OBS. Adicione a fonte <code>http://127.0.0.1:7384/player</code>, marque <code>Controlar audio via OBS</code> e monitore o áudio pelo mixer do OBS.</p>
-              <div class="endpoint-row with-action"><span>Player OBS</span><code>http://127.0.0.1:7384/player</code><button class="secondary icon-button copy-button" type="button" data-copy-value="http://127.0.0.1:7384/player" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button><a class="secondary" href="/player" target="_blank" rel="noreferrer">Abrir</a></div>
+              <div class="endpoint-row with-action"><span>Player OBS</span><code>http://127.0.0.1:7384/player</code><button class="secondary icon-button copy-button" type="button" data-copy-value="http://127.0.0.1:7384/player" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
             </div>
           </div>
         </section>
@@ -1307,35 +1310,27 @@ pub async fn page() -> Html<&'static str> {
     <div class="tab" id="guide-tab">
       <div class="grid-main">
         <section>
-          <h2>Passo a passo</h2>
+          <h2>Guia rápido</h2>
           <div class="endpoints">
-            <div class="endpoint-row"><span>1. Configure Twitch</span><a href="https://dev.twitch.tv/console/apps" target="_blank" rel="noreferrer">Abrir Twitch</a></div>
-            <p class="endpoint-description">Crie um app Public, use o redirect abaixo, cole o Client ID no Setup e clique em Conectar bot.</p>
+            <div class="endpoint-row with-action"><span>Guia completo</span><code>https://github.com/heyleao/song-request-linux/blob/main/docs/SETUP.md</code><button class="secondary icon-button copy-button" type="button" data-copy-value="https://github.com/heyleao/song-request-linux/blob/main/docs/SETUP.md" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
+            <div class="endpoint-row with-action"><span>1. Twitch Console</span><code>https://dev.twitch.tv/console/apps</code><button class="secondary icon-button copy-button" type="button" data-copy-value="https://dev.twitch.tv/console/apps" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
             <div class="endpoint-row with-action"><span>Redirect Twitch</span><code>https://localhost:7443/auth/twitch/callback</code><button class="secondary icon-button copy-button" type="button" data-copy-value="https://localhost:7443/auth/twitch/callback" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
-            <div class="endpoint-row"><span>2. Configure Spotify</span><a href="https://developer.spotify.com/dashboard" target="_blank" rel="noreferrer">Abrir Spotify</a></div>
-            <p class="endpoint-description">Crie um app, use o redirect abaixo, cole o Client ID no Setup e clique em Login Spotify.</p>
+            <div class="endpoint-row with-action"><span>2. Spotify Dashboard</span><code>https://developer.spotify.com/dashboard</code><button class="secondary icon-button copy-button" type="button" data-copy-value="https://developer.spotify.com/dashboard" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
             <div class="endpoint-row with-action"><span>Redirect Spotify</span><code>http://127.0.0.1:7384/auth/spotify/callback</code><button class="secondary icon-button copy-button" type="button" data-copy-value="http://127.0.0.1:7384/auth/spotify/callback" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
-            <div class="endpoint-row"><span>3. Configure YouTube</span><a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noreferrer">Abrir Google</a></div>
-            <p class="endpoint-description">Ative YouTube Data API v3, crie uma API Key e cole no Setup.</p>
-            <p class="endpoint-description"><strong>Escolha o player no Setup:</strong> Pear Desktop ou Browser Source OBS. Use apenas um modo por vez.</p>
-            <div class="endpoint-row"><span>Guia completo</span><a href="https://github.com/heyleao/song-request-linux/blob/main/docs/SETUP.md" target="_blank" rel="noreferrer">Abrir guia</a></div>
+            <div class="endpoint-row with-action"><span>3. Google API Key</span><code>https://console.cloud.google.com/apis/credentials</code><button class="secondary icon-button copy-button" type="button" data-copy-value="https://console.cloud.google.com/apis/credentials" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
+            <div class="endpoint-row guide-note"><span>4. Setup</span><code>Escolha Spotify, Pear ou OBS Browser. Use um provider por vez.</code></div>
           </div>
         </section>
         <section>
-          <h2>OBS</h2>
+          <h2>OBS e players</h2>
           <div class="endpoints">
-            <div class="endpoint-row with-action"><span>Dashboard</span><code>http://127.0.0.1:7384/</code><button class="secondary icon-button copy-button" type="button" data-copy-value="http://127.0.0.1:7384/" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button><a class="secondary" href="/" target="_blank" rel="noreferrer">Abrir</a></div>
-            <div class="endpoint-row with-action"><span>Overlay pronto</span><code id="guide-overlay-url">http://127.0.0.1:7384/overlay?max=48&width=520&size=24&lines=1</code><button class="secondary icon-button copy-button" type="button" data-copy-target="guide-overlay-url" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button><a class="secondary" id="guide-overlay-open" href="/overlay?max=48&width=520&size=24&lines=1" target="_blank" rel="noreferrer">Abrir</a></div>
-            <p class="endpoint-description">No OBS, adicione como Browser Source para mostrar a musica atual.</p>
-            <div class="obs-size-grid" aria-label="Tamanho recomendado para a Browser Source do overlay">
-              <div class="obs-size-card"><strong>620 px</strong><span>Largura da fonte no OBS</span></div>
-              <div class="obs-size-card"><strong id="guide-overlay-height">120 px</strong><span>Altura da fonte no OBS</span></div>
-            </div>
-            <p class="endpoint-description">Use 2 linhas quando o nome da musica for maior. O parametro <code>width=520</code> limita o texto dentro do overlay.</p>
-            <div class="endpoint-row with-action"><span>Player YouTube OBS</span><code>http://127.0.0.1:7384/player</code><button class="secondary icon-button copy-button" type="button" data-copy-value="http://127.0.0.1:7384/player" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button><a class="secondary" href="/player" target="_blank" rel="noreferrer">Abrir</a></div>
-            <p class="endpoint-description"><strong>Browser Source OBS:</strong> adicione a URL acima como Browser Source, marque <code>Controlar audio via OBS</code> e, nas propriedades avancadas de audio, use <code>Monitorar e enviar saida</code>. O volume fica no mixer do OBS.</p>
+            <div class="endpoint-row with-action"><span>Dashboard local</span><code>http://127.0.0.1:7384/</code><button class="secondary icon-button copy-button" type="button" data-copy-value="http://127.0.0.1:7384/" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
+            <div class="endpoint-row with-action"><span>Overlay OBS</span><code id="guide-overlay-url">http://127.0.0.1:7384/overlay?max=48&width=520&size=24&lines=1</code><button class="secondary icon-button copy-button" type="button" data-copy-target="guide-overlay-url" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
+            <div class="endpoint-row guide-note"><span>Tamanho overlay</span><code>620 px de largura x <span id="guide-overlay-height">120 px</span> de altura</code></div>
+            <div class="endpoint-row with-action"><span>Player OBS Browser</span><code>http://127.0.0.1:7384/player</code><button class="secondary icon-button copy-button" type="button" data-copy-value="http://127.0.0.1:7384/player" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
+            <div class="endpoint-row guide-note"><span>Audio OBS Browser</span><code>Controlar audio via OBS + Monitorar e enviar saida</code></div>
             <div class="endpoint-row with-action"><span>Pear API</span><code>http://127.0.0.1:26538/api/v1</code><button class="secondary icon-button copy-button" type="button" data-copy-value="http://127.0.0.1:26538/api/v1" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
-            <p class="endpoint-description"><strong>Pear Desktop:</strong> nao use a fonte <code>/player</code>. Abra o Pear, ative o plugin <code>API Server</code> na porta <code>26538</code> e deixe a Pear API salva no Setup.</p>
+            <div class="endpoint-row guide-note"><span>Pear Desktop</span><code>Ative o plugin API Server na porta 26538.</code></div>
           </div>
         </section>
         <section>
@@ -1345,7 +1340,6 @@ pub async fn page() -> Html<&'static str> {
           </div>
           <div class="endpoints">
             <div class="endpoint-row with-action"><span>Instalar</span><code>./scripts/install-user-friendly --with-pear</code><button class="secondary icon-button copy-button" type="button" data-copy-value="./scripts/install-user-friendly --with-pear" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
-            <div class="endpoint-row with-action"><span>Abrir</span><code>./scripts/song-request-linux-open</code><button class="secondary icon-button copy-button" type="button" data-copy-value="./scripts/song-request-linux-open" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
             <div class="endpoint-row with-action"><span>Fechar</span><code>./scripts/song-request-linux-stop</code><button class="secondary icon-button copy-button" type="button" data-copy-value="./scripts/song-request-linux-stop" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
             <div class="endpoint-row with-action"><span>Atualizar manual</span><code>./scripts/update-from-github --restart</code><button class="secondary icon-button copy-button" type="button" data-copy-value="./scripts/update-from-github --restart" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
             <div class="endpoint-row with-action"><span>Remover app</span><code>./scripts/uninstall-user</code><button class="secondary icon-button copy-button" type="button" data-copy-value="./scripts/uninstall-user" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
@@ -1495,6 +1489,25 @@ pub async fn page() -> Html<&'static str> {
       'Salvar': 'Save',
       'Logs em tempo real': 'Real-time logs',
       'Guia rápido': 'Quick guide',
+      'Guia completo': 'Complete guide',
+      '1. Twitch Console': '1. Twitch Console',
+      'Redirect Twitch': 'Twitch redirect',
+      '2. Spotify Dashboard': '2. Spotify Dashboard',
+      'Redirect Spotify': 'Spotify redirect',
+      '3. Google API Key': '3. Google API Key',
+      '4. Setup': '4. Setup',
+      'Escolha Spotify, Pear ou OBS Browser. Use um provider por vez.': 'Choose Spotify, Pear, or OBS Browser. Use one provider at a time.',
+      'OBS e players': 'OBS and players',
+      'Dashboard local': 'Local dashboard',
+      'Overlay OBS': 'OBS overlay',
+      'Tamanho overlay': 'Overlay size',
+      '620 px de largura x': '620 px wide x',
+      'de altura': 'high',
+      'Player OBS Browser': 'OBS Browser player',
+      'Audio OBS Browser': 'OBS Browser audio',
+      'Controlar audio via OBS + Monitorar e enviar saida': 'Control audio via OBS + Monitor and Output',
+      'Pear Desktop': 'Pear Desktop',
+      'Ative o plugin API Server na porta 26538.': 'Enable the API Server plugin on port 26538.',
       'Copiar': 'Copy',
       'Instalar e atualizar': 'Install and update',
       'Atualizar pelo GitHub': 'Update from GitHub',
