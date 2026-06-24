@@ -300,6 +300,17 @@ async fn remove_last_request_reply(state: &AppState, requester: String) -> Strin
 }
 
 async fn skip_reply(state: &AppState, requester: String) -> String {
+    if matches!(current_provider(state), MusicProvider::Youtube)
+        && matches!(state.config.youtube.playback, YoutubePlayback::Pear)
+    {
+        let message = match crate::pear::next(&state.config).await {
+            Ok(()) => format!("@{requester} pulei no Pear."),
+            Err(error) => format!("@{requester} nao consegui pular no Pear: {error}"),
+        };
+        state.record_event("player", message.clone()).await;
+        return message;
+    }
+
     if let Some(message) =
         spotify_playback_reply(state, requester.clone(), PlaybackAction::Next).await
     {
@@ -335,6 +346,26 @@ fn help_commands(settings: &crate::commands::CommandSettings) -> Vec<String> {
 }
 
 async fn playback_reply(state: &AppState, requester: String, action: PlaybackAction) -> String {
+    if matches!(current_provider(state), MusicProvider::Youtube)
+        && matches!(state.config.youtube.playback, YoutubePlayback::Pear)
+    {
+        let result = match action {
+            PlaybackAction::Play => crate::pear::play(&state.config).await,
+            PlaybackAction::Pause => crate::pear::pause(&state.config).await,
+            PlaybackAction::Next => crate::pear::next(&state.config).await,
+        };
+        let message = match result {
+            Ok(()) => match action {
+                PlaybackAction::Play => format!("@{requester} Pear retomado."),
+                PlaybackAction::Pause => format!("@{requester} Pear pausado."),
+                PlaybackAction::Next => format!("@{requester} pulei no Pear."),
+            },
+            Err(error) => format!("@{requester} nao consegui controlar o Pear: {error}"),
+        };
+        state.record_event("player", message.clone()).await;
+        return message;
+    }
+
     let message = spotify_playback_reply(state, requester, action)
         .await
         .unwrap_or_else(|| "Spotify nao conectado.".to_string());
@@ -431,7 +462,7 @@ async fn volume_reply(state: &AppState, requester: String, level: Option<u8>) ->
             }
 
             if !changed.is_empty() {
-                let message = format!("@{requester} volume ajustado para {level}%.");
+                let message = format!("@{requester} volume ajustado: {}.", changed.join(", "));
                 state.record_event("volume", message.clone()).await;
                 if !errors.is_empty() {
                     state
@@ -467,7 +498,7 @@ async fn set_spotify_volume(state: &AppState, level: u8) -> Option<Result<u8>> {
 
 async fn current_volume_reply(state: &AppState) -> String {
     if matches!(
-        (state.config.default_provider, state.config.youtube.playback),
+        (current_provider(state), state.config.youtube.playback),
         (MusicProvider::Youtube, YoutubePlayback::Pear)
     ) {
         return match crate::pear::current_volume(&state.config).await {
@@ -489,6 +520,10 @@ async fn current_volume_reply(state: &AppState) -> String {
         Ok(None) => "Nao encontrei um device Spotify ativo para ler o volume.".to_string(),
         Err(error) => format!("Nao consegui ler o volume Spotify: {error}"),
     }
+}
+
+fn current_provider(state: &AppState) -> MusicProvider {
+    config::UiConfigView::load(&state.config.paths).default_provider
 }
 
 fn access_denied_reply(
