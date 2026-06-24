@@ -225,6 +225,9 @@ YouTube. Se usa Pear, normalmente nao precisa dessa fonte.
 
 ## Comandos
 
+![Configuracao avancada de comandos e limites](docs/images/advanced-setup.png)
+
+
 Padrao para todos:
 
 ```text

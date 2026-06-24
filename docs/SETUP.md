@@ -245,6 +245,8 @@ Controle para mod/streamer:
 
 Na configuracao voce pode trocar os comandos e escolher quem pode usar cada um.
 
+![Configuracao avancada de comandos e limites](images/advanced-setup.png)
+
 Cargos reconhecidos:
 
 ```text

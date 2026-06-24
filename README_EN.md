@@ -140,6 +140,9 @@ The app sends requests to Pear's queue. Pear is an external app; if it is closed
 
 ## Chat Commands
 
+![Advanced command and limit setup](docs/images/advanced-setup.png)
+
+
 Default commands:
 
 ```text

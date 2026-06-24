@@ -237,6 +237,8 @@ Moderator/streamer controls:
 
 In setup, you can change commands and choose who can use each one.
 
+![Advanced command and limit setup](images/advanced-setup.png)
+
 Recognized roles:
 
 ```text
