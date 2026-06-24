@@ -60,12 +60,12 @@ HELP
 done
 
 mkdir -p "$LOG_DIR"
+: >"$LOG_FILE"
 write_status "running" "Atualizacao em andamento. O app pode reiniciar em alguns segundos."
 
 {
   echo "== Song Request Linux Update =="
-  date -Is
-  echo "Modo: instalacao local"
+  echo "Data: $(date -Is)"
 } >>"$LOG_FILE"
 
 update_git_repo() {
@@ -90,10 +90,11 @@ update_git_repo() {
   fi
 
   if (( STOP_BEFORE )); then
-    ./scripts/song-request-linux-stop >>"$LOG_FILE" 2>&1 || true
+    ./scripts/song-request-linux-stop >/dev/null 2>&1 || true
   fi
 
-  git fetch --prune >>"$LOG_FILE" 2>&1
+  echo "Modo: repositorio Git" >>"$LOG_FILE"
+  git fetch --prune >/dev/null 2>&1
   branch="$(git branch --show-current)"
   if [[ -z "$branch" ]]; then
     echo "ERRO: repo esta em detached HEAD. Atualize manualmente." | tee -a "$LOG_FILE" >&2
@@ -102,22 +103,27 @@ update_git_repo() {
 
   upstream="$(git rev-parse --abbrev-ref --symbolic-full-name "@{u}" 2>/dev/null || true)"
   if [[ -n "$upstream" ]]; then
-    git pull --ff-only >>"$LOG_FILE" 2>&1
+    git pull --ff-only >/dev/null 2>&1
   else
-    git pull --ff-only origin "$branch" >>"$LOG_FILE" 2>&1
+    git pull --ff-only origin "$branch" >/dev/null 2>&1
   fi
+  echo "Download: OK" >>"$LOG_FILE"
 
   after_rev="$(git rev-parse --short HEAD)"
-  cargo build --release >>"$LOG_FILE" 2>&1
-  ./scripts/install-desktop-entry >>"$LOG_FILE" 2>&1
+  cargo build --release >/dev/null 2>&1
+  echo "Build: OK" >>"$LOG_FILE"
+  ./scripts/install-desktop-entry >/dev/null 2>&1
+  echo "Instalacao: OK" >>"$LOG_FILE"
 
   if (( START_AFTER )); then
-    ./scripts/song-request-linux-open >>"$LOG_FILE" 2>&1 &
+    (cd "$HOME" && "$APP_DIR/scripts/song-request-linux-open" >/dev/null 2>&1 &)
   fi
 
   if [[ -n "$before_rev" && "$before_rev" != "$after_rev" ]]; then
+    echo "Resultado: atualizado com sucesso $before_rev -> $after_rev" >>"$LOG_FILE"
     write_status "updated" "Atualizado com sucesso: baixou $before_rev -> $after_rev." "$before_rev" "$after_rev"
   else
+    echo "Resultado: ja estava atualizado ($after_rev)" >>"$LOG_FILE"
     write_status "up_to_date" "Ja estava atualizado. Commit atual: $after_rev." "$before_rev" "$after_rev"
   fi
 }
@@ -153,9 +159,12 @@ update_portable_release() {
   after_rev="$tag"
   tmp="$(mktemp -d "${TMPDIR:-/tmp}/song-request-linux-update.XXXXXX")"
   archive="$tmp/update.tar.gz"
-  echo "Baixando pacote da release $tag..." >>"$LOG_FILE"
-  curl -fsSL "$url" -o "$archive" 2>>"$LOG_FILE"
-  tar -xzf "$archive" -C "$tmp"
+  echo "Modo: instalacao local" >>"$LOG_FILE"
+  echo "Release: $tag" >>"$LOG_FILE"
+  curl -fsSL "$url" -o "$archive" >/dev/null 2>&1
+  echo "Download: OK" >>"$LOG_FILE"
+  tar -xzf "$archive" -C "$tmp" >/dev/null 2>&1
+  echo "Extracao: OK" >>"$LOG_FILE"
   new_dir="$(find "$tmp" -maxdepth 1 -type d -name 'song-request-linux-*-linux-*' | head -1)"
   if [[ -z "$new_dir" || ! -x "$new_dir/scripts/install-desktop-entry" ]]; then
     echo "ERRO: pacote baixado nao contem instalador valido." | tee -a "$LOG_FILE" >&2
@@ -163,15 +172,17 @@ update_portable_release() {
   fi
 
   if (( STOP_BEFORE )); then
-    "$APP_DIR/scripts/song-request-linux-stop" >>"$LOG_FILE" 2>&1 || true
+    "$APP_DIR/scripts/song-request-linux-stop" >/dev/null 2>&1 || true
   fi
 
-  "$new_dir/scripts/install-desktop-entry" >>"$LOG_FILE" 2>&1
+  "$new_dir/scripts/install-desktop-entry" >/dev/null 2>&1
+  echo "Instalacao: OK" >>"$LOG_FILE"
 
   if (( START_AFTER )); then
-    "$PORTABLE_APP_DIR/scripts/song-request-linux-open" >>"$LOG_FILE" 2>&1 &
+    (cd "$HOME" && "$PORTABLE_APP_DIR/scripts/song-request-linux-open" >/dev/null 2>&1 &)
   fi
 
+  echo "Resultado: atualizado com sucesso para $tag" >>"$LOG_FILE"
   write_status "updated" "Atualizado com sucesso para $tag." "$before_rev" "$after_rev"
 }
 
