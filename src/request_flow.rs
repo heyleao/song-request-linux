@@ -182,7 +182,7 @@ mod tests {
                 youtube_allow_non_music: false,
                 command_settings: None,
                 queue_limits: Some(crate::config::QueueLimitConfig {
-                    viewer: 1,
+                    follower: 1,
                     subscriber: 2,
                     vip: 3,
                     moderator: 10,

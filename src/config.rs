@@ -94,7 +94,8 @@ pub struct UiConfigView {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(default)]
 pub struct QueueLimitConfig {
-    pub viewer: u16,
+    #[serde(alias = "viewer")]
+    pub follower: u16,
     #[serde(default = "default_subscriber_queue_limit")]
     pub subscriber: u16,
     pub vip: u16,
@@ -109,7 +110,7 @@ fn default_subscriber_queue_limit() -> u16 {
 impl Default for QueueLimitConfig {
     fn default() -> Self {
         Self {
-            viewer: 1,
+            follower: 1,
             subscriber: 2,
             vip: 3,
             moderator: 10,
@@ -121,7 +122,7 @@ impl Default for QueueLimitConfig {
 impl QueueLimitConfig {
     pub fn limit_for(&self, role: ChatUserRole) -> u16 {
         match role {
-            ChatUserRole::Viewer => self.viewer,
+            ChatUserRole::Viewer | ChatUserRole::Follower => self.follower,
             ChatUserRole::Subscriber => self.subscriber,
             ChatUserRole::Vip => self.vip,
             ChatUserRole::Moderator => self.moderator,
@@ -404,7 +405,7 @@ pub fn command_settings(paths: &AppPaths) -> CommandSettings {
 }
 
 fn normalize_queue_limits(mut limits: QueueLimitConfig) -> QueueLimitConfig {
-    limits.viewer = limits.viewer.min(100);
+    limits.follower = limits.follower.min(100);
     limits.subscriber = limits.subscriber.min(100);
     limits.vip = limits.vip.min(100);
     limits.moderator = limits.moderator.min(100);

@@ -48,7 +48,8 @@ pub enum ChatCommand {
 #[serde(rename_all = "snake_case")]
 pub enum CommandAccess {
     #[default]
-    Everyone,
+    #[serde(alias = "everyone", alias = "viewer")]
+    Follower,
     Subscriber,
     Vip,
     Moderator,
@@ -60,6 +61,7 @@ pub enum CommandAccess {
 pub enum ChatUserRole {
     #[default]
     Viewer,
+    Follower,
     Subscriber,
     Vip,
     Moderator,
@@ -133,18 +135,18 @@ impl Default for CommandAliases {
 impl Default for CommandAccessConfig {
     fn default() -> Self {
         Self {
-            song_request: CommandAccess::Everyone,
-            current_song: CommandAccess::Everyone,
-            queue: CommandAccess::Everyone,
-            remove: CommandAccess::Everyone,
+            song_request: CommandAccess::Follower,
+            current_song: CommandAccess::Follower,
+            queue: CommandAccess::Follower,
+            remove: CommandAccess::Follower,
             skip: CommandAccess::Moderator,
             play: CommandAccess::Moderator,
             pause: CommandAccess::Moderator,
             next: CommandAccess::Moderator,
             playback: CommandAccess::Moderator,
-            volume_read: CommandAccess::Everyone,
+            volume_read: CommandAccess::Follower,
             volume_set: CommandAccess::Moderator,
-            help: CommandAccess::Everyone,
+            help: CommandAccess::Follower,
         }
     }
 }
@@ -370,7 +372,7 @@ impl ChatUserRole {
         } else if tags.split(';').any(|tag| tag == "subscriber=1") {
             Self::Subscriber
         } else {
-            Self::Viewer
+            Self::Follower
         };
 
         if tags.split(';').any(|tag| tag == "vip=1" || tag == "vip") {
@@ -391,6 +393,9 @@ impl ChatUserRole {
                 if badge.starts_with("vip/") {
                     role = role.max(Self::Vip);
                 }
+                if badge.starts_with("follower/") {
+                    role = role.max(Self::Follower);
+                }
             }
         }
 
@@ -399,7 +404,7 @@ impl ChatUserRole {
 
     fn allows(self, access: CommandAccess) -> bool {
         match access {
-            CommandAccess::Everyone => true,
+            CommandAccess::Follower => self >= Self::Follower,
             CommandAccess::Subscriber => self >= Self::Subscriber,
             CommandAccess::Vip => self >= Self::Vip,
             CommandAccess::Moderator => self >= Self::Moderator,
@@ -442,7 +447,7 @@ mod tests {
             requester: "bruno".to_string(),
             message: "!sr daft punk one more time".to_string(),
             is_moderator: false,
-            role: ChatUserRole::Viewer,
+            role: ChatUserRole::Follower,
         });
 
         assert_eq!(
@@ -452,7 +457,7 @@ mod tests {
                     requester: "bruno".to_string(),
                     query: "daft punk one more time".to_string()
                 },
-                role: ChatUserRole::Viewer
+                role: ChatUserRole::Follower
             }
         );
     }
@@ -482,7 +487,7 @@ mod tests {
             requester: "viewer".to_string(),
             message: "!fila".to_string(),
             is_moderator: false,
-            role: ChatUserRole::Viewer,
+            role: ChatUserRole::Follower,
         });
 
         assert_eq!(command, ChatCommand::Queue);
@@ -494,7 +499,7 @@ mod tests {
             requester: "viewer".to_string(),
             message: "!vol".to_string(),
             is_moderator: false,
-            role: ChatUserRole::Viewer,
+            role: ChatUserRole::Follower,
         });
         let write = parse(ChatCommandInput {
             requester: "mod".to_string(),
@@ -581,7 +586,7 @@ mod tests {
             requester: "viewer".to_string(),
             message: "!remove".to_string(),
             is_moderator: false,
-            role: ChatUserRole::Viewer,
+            role: ChatUserRole::Follower,
         });
 
         assert_eq!(
@@ -711,7 +716,7 @@ mod tests {
                 requester: "viewer".to_string(),
                 message: "!ssr scatman".to_string(),
                 is_moderator: false,
-                role: ChatUserRole::Viewer,
+                role: ChatUserRole::Follower,
             },
             &settings,
         );
@@ -723,7 +728,7 @@ mod tests {
                     requester: "viewer".to_string(),
                     query: "scatman".to_string()
                 },
-                role: ChatUserRole::Viewer
+                role: ChatUserRole::Follower
             }
         );
     }

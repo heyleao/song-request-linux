@@ -895,8 +895,8 @@ fn access_denied_message(
     required: crate::commands::CommandAccess,
 ) -> String {
     match required {
-        crate::commands::CommandAccess::Everyone => {
-            format!("@{requester} {command} esta liberado para todos.")
+        crate::commands::CommandAccess::Follower => {
+            format!("@{requester} {command} precisa seguir o canal.")
         }
         crate::commands::CommandAccess::Subscriber => {
             format!("@{requester} {command} precisa de sub, VIP, moderador ou streamer.")

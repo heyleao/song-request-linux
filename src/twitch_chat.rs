@@ -614,8 +614,8 @@ fn access_denied_reply(
     required: crate::commands::CommandAccess,
 ) -> String {
     match required {
-        crate::commands::CommandAccess::Everyone => {
-            format!("@{requester} {command} esta liberado para todos.")
+        crate::commands::CommandAccess::Follower => {
+            format!("@{requester} {command} precisa seguir o canal.")
         }
         crate::commands::CommandAccess::Subscriber => {
             format!("@{requester} {command} precisa de sub, VIP, moderador ou streamer.")
@@ -703,6 +703,14 @@ mod tests {
         let message = Privmsg::parse(line).expect("privmsg");
 
         assert_eq!(message.role, ChatUserRole::Subscriber);
+    }
+
+    #[test]
+    fn parses_plain_privmsg_as_follower() {
+        let line = "@badge-info=;badges=;color=#fff;mod=0 :viewer!viewer@viewer.tmi.twitch.tv PRIVMSG #heyleao :!sr spiders";
+        let message = Privmsg::parse(line).expect("privmsg");
+
+        assert_eq!(message.role, ChatUserRole::Follower);
     }
 
     #[test]

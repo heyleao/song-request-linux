@@ -1201,8 +1201,8 @@ pub async fn page() -> Html<&'static str> {
             <section class="setup-card full">
               <h2>Limites de pedidos por cargo</h2>
               <div class="form-grid compact">
-                <label>Limite viewer
-                  <input id="setup-limit-viewer" type="number" inputmode="numeric" min="0" max="100" step="1" value="1">
+                <label>Limite follower
+                  <input id="setup-limit-follower" type="number" inputmode="numeric" min="0" max="100" step="1" value="1">
                 </label>
                 <label>Limite subscriber
                   <input id="setup-limit-subscriber" type="number" inputmode="numeric" min="0" max="100" step="1" value="2">
@@ -1418,7 +1418,7 @@ pub async fn page() -> Html<&'static str> {
 
     function queueLimitsFromForm() {
       return {
-        viewer: numberFromInput('setup-limit-viewer', 1),
+        follower: numberFromInput('setup-limit-follower', 1),
         subscriber: numberFromInput('setup-limit-subscriber', 2),
         vip: numberFromInput('setup-limit-vip', 3),
         moderator: numberFromInput('setup-limit-moderator', 10),
@@ -1477,19 +1477,19 @@ pub async fn page() -> Html<&'static str> {
       $('setup-cmd-next').value = aliasesToText(aliases.next || ['!next', '!pular']);
       $('setup-cmd-volume').value = aliasesToText(aliases.volume || ['!vol', '!volume']);
       $('setup-cmd-help').value = aliasesToText(aliases.help || ['!commands', '!comandos', '!help']);
-      $('setup-access-song-request').value = access.song_request || 'everyone';
-      $('setup-access-current-song').value = access.current_song || 'everyone';
-      $('setup-access-queue').value = access.queue || 'everyone';
-      $('setup-access-remove').value = access.remove || 'everyone';
+      $('setup-access-song-request').value = access.song_request || 'follower';
+      $('setup-access-current-song').value = access.current_song || 'follower';
+      $('setup-access-queue').value = access.queue || 'follower';
+      $('setup-access-remove').value = access.remove || 'follower';
       $('setup-access-skip').value = access.skip || 'moderator';
       $('setup-access-play').value = access.play || legacyPlayback;
       $('setup-access-pause').value = access.pause || legacyPlayback;
       $('setup-access-next').value = access.next || legacyPlayback;
-      $('setup-access-volume-read').value = access.volume_read || 'everyone';
+      $('setup-access-volume-read').value = access.volume_read || 'follower';
       $('setup-access-volume-set').value = access.volume_set || 'moderator';
-      $('setup-access-help').value = access.help || 'everyone';
+      $('setup-access-help').value = access.help || 'follower';
       const limits = config.queue_limits || {};
-      $('setup-limit-viewer').value = limits.viewer ?? 1;
+      $('setup-limit-follower').value = limits.follower ?? 1;
       $('setup-limit-subscriber').value = limits.subscriber ?? 2;
       $('setup-limit-vip').value = limits.vip ?? 3;
       $('setup-limit-moderator').value = limits.moderator ?? 10;
@@ -1498,7 +1498,7 @@ pub async fn page() -> Html<&'static str> {
 
     function fillPermissionSelects() {
       const labels = [
-        ['everyone', 'Viewer / todos'],
+        ['follower', 'Follower'],
         ['subscriber', 'Subscriber / sub'],
         ['vip', 'VIP'],
         ['moderator', 'Moderador'],
@@ -1711,7 +1711,7 @@ pub async fn page() -> Html<&'static str> {
       if (access === 'moderator') return 'moderador';
       if (access === 'vip') return 'VIP';
       if (access === 'subscriber') return 'subscriber / sub';
-      return 'viewer / todos';
+      return 'follower';
     }
 
     function fillSpotifyPlaylistOptions(playlists, selectedId = '') {
@@ -1787,7 +1787,7 @@ pub async fn page() -> Html<&'static str> {
       `).join('');
       const limits = config.queue_limits || {};
       const limitHtml = `
-        <div class="diagnostic-row"><span>Limites da fila</span><code>viewer ${limits.viewer ?? 1} · sub ${limits.subscriber ?? 2} · VIP ${limits.vip ?? 3} · mod ${limits.moderator ?? 10} · streamer ${limits.streamer ?? 0}</code></div>
+        <div class="diagnostic-row"><span>Limites da fila</span><code>follower ${limits.follower ?? 1} · sub ${limits.subscriber ?? 2} · VIP ${limits.vip ?? 3} · mod ${limits.moderator ?? 10} · streamer ${limits.streamer ?? 0}</code></div>
       `;
       $('setup-diagnostics').innerHTML = html;
       $('setup-summary').innerHTML = `${html}<div class="divider"></div>${limitHtml}${commandHtml}`;
@@ -1859,9 +1859,10 @@ pub async fn page() -> Html<&'static str> {
       return api('/api/chat-command', {
         method: 'POST',
         body: JSON.stringify({
-          requester: $('requester').value || 'viewer',
+          requester: $('requester').value || 'follower',
           message,
-          is_moderator: isModerator
+          is_moderator: isModerator,
+          role: isModerator ? 'moderator' : 'follower'
         })
       });
     }

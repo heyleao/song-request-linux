@@ -32,8 +32,10 @@ configure o player e adicione o overlay no OBS.
 - Setup guiado para Twitch, Spotify, YouTube/Pear, fila e OBS.
 - Twitch bot com comandos configuraveis.
 - Cargos reconhecidos por tags oficiais da Twitch: streamer, moderator, VIP,
-  subscriber e viewer.
+  subscriber e follower.
 - Limite de pedidos por cargo, com `0` significando sem limite.
+
+Nota sobre follower: o IRC da Twitch nao informa com seguranca se um chatter comum segue o canal. No SRL, chatter comum entra como `Follower`; para garantir que so seguidores possam pedir musica, ative o modo seguidores no chat da Twitch.
 - Um provider ativo por vez: Spotify ou YouTube/Pear.
 - Links do YouTube entram direto como YouTube.
 - Busca de texto usa o provider ativo.
@@ -306,7 +308,7 @@ Simular comando de chat:
 ```bash
 curl -X POST http://127.0.0.1:7384/api/chat-command \
   -H 'content-type: application/json' \
-  -d '{"requester":"viewer","message":"!song"}'
+  -d '{"requester":"follower","message":"!song","role":"follower"}'
 ```
 
 ## Licenca

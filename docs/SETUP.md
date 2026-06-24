@@ -249,11 +249,13 @@ Streamer
 Moderador
 VIP
 Subscriber
-Viewer/Todos
+Follower
 ```
 
 Os cargos vem das tags/badges oficiais da Twitch. Nao precisa uma lista manual
 de mods ou VIPs.
+
+Nota: a Twitch nao envia uma tag confiavel de follower no IRC para todo chatter comum. O SRL trata chatter comum como Follower; para bloquear nao seguidores de verdade, ative o modo seguidores no chat da Twitch.
 
 ## 11. Limites por cargo
 
@@ -262,7 +264,7 @@ Na configuracao avancada, defina quantas musicas cada cargo pode ter pendente.
 Exemplo:
 
 ```text
-Viewer: 1
+Follower: 1
 Subscriber: 3
 VIP: 3
 Moderador: 10
