@@ -282,16 +282,7 @@ async fn remove_last_request_reply(state: &AppState, requester: String) -> Strin
         let mut queue = state.queue.write().await;
         queue.remove_last_by_requester(&requester)
     };
-    if config::queue_persistence_enabled(&state.config.paths) {
-        if let Err(error) = state
-            .queue
-            .read()
-            .await
-            .save(&state.config.paths.queue_file)
-        {
-            state.record_event("error", error.to_string()).await;
-        }
-    }
+    save_queue_if_enabled(state).await;
 
     let message = match removed {
         Some(song) => {
@@ -313,6 +304,12 @@ async fn remove_last_request_reply(state: &AppState, requester: String) -> Strin
 }
 
 async fn skip_reply(state: &AppState, requester: String) -> String {
+    if is_youtube_browser_mode(state) {
+        let message = local_browser_skip_reply(state, &requester).await;
+        state.record_event("player", message.clone()).await;
+        return message;
+    }
+
     if matches!(current_provider(state), MusicProvider::Youtube)
         && matches!(state.config.youtube.playback, YoutubePlayback::Pear)
     {
@@ -329,6 +326,7 @@ async fn skip_reply(state: &AppState, requester: String) -> String {
     }
 
     let current_song = state.queue.write().await.skip();
+    save_queue_if_enabled(state).await;
     let message = match current_song {
         Some(song) => format!(
             "@{requester} skip feito. Agora: {}",
@@ -381,6 +379,17 @@ fn help_commands(settings: &crate::commands::CommandSettings) -> Vec<String> {
 }
 
 async fn playback_reply(state: &AppState, requester: String, action: PlaybackAction) -> String {
+    if is_youtube_browser_mode(state) {
+        let message = match action {
+            PlaybackAction::Next => local_browser_skip_reply(state, &requester).await,
+            PlaybackAction::Play | PlaybackAction::Pause => {
+                local_browser_playback_reply(state, &requester, action)
+            }
+        };
+        state.record_event("player", message.clone()).await;
+        return message;
+    }
+
     if matches!(current_provider(state), MusicProvider::Youtube)
         && matches!(state.config.youtube.playback, YoutubePlayback::Pear)
     {
@@ -554,7 +563,10 @@ async fn volume_reply(state: &AppState, requester: String, level: Option<u8>) ->
                     }
                 }
                 (MusicProvider::Youtube, YoutubePlayback::Browser) => {
-                    errors.push("YouTube Browser Source ainda nao aceita controle de volume pelo chat; ajuste o audio no OBS.".to_string());
+                    errors.push(
+                        "No modo OBS Browser, ajuste o volume diretamente no mixer do OBS."
+                            .to_string(),
+                    );
                 }
                 (MusicProvider::Spotify, _) => match set_spotify_volume(state, level).await {
                     Some(Ok(level)) => changed.push(format!("Spotify {level}%")),
@@ -612,6 +624,10 @@ async fn current_volume_reply(state: &AppState) -> String {
         };
     }
 
+    if is_youtube_browser_mode(state) {
+        return "Volume do OBS Browser deve ser ajustado no mixer do OBS.".to_string();
+    }
+
     let mut token_guard = state.spotify_token.write().await;
     let Some(token) = token_guard.as_mut() else {
         return "Spotify nao conectado.".to_string();
@@ -626,6 +642,61 @@ async fn current_volume_reply(state: &AppState) -> String {
 
 fn current_provider(state: &AppState) -> MusicProvider {
     config::UiConfigView::load(&state.config.paths).default_provider
+}
+
+fn is_youtube_browser_mode(state: &AppState) -> bool {
+    matches!(current_provider(state), MusicProvider::Youtube)
+        && matches!(state.config.youtube.playback, YoutubePlayback::Browser)
+}
+
+async fn save_queue_if_enabled(state: &AppState) {
+    if !config::queue_persistence_enabled(&state.config.paths) {
+        return;
+    }
+
+    if let Err(error) = state
+        .queue
+        .read()
+        .await
+        .save(&state.config.paths.queue_file)
+    {
+        state.record_event("error", error.to_string()).await;
+    }
+}
+
+async fn local_browser_skip_reply(state: &AppState, requester: &str) -> String {
+    state.youtube_browser_paused.store(false, Ordering::SeqCst);
+    let current_song = state.queue.write().await.skip();
+    save_queue_if_enabled(state).await;
+
+    match current_song {
+        Some(song) => format!(
+            "@{requester} skip feito. Agora: {}",
+            display::chat_song_title(&song)
+        ),
+        None => format!("@{requester} skip feito. Fila vazia."),
+    }
+}
+
+fn local_browser_playback_reply(
+    state: &AppState,
+    requester: &str,
+    action: PlaybackAction,
+) -> String {
+    match action {
+        PlaybackAction::Play => {
+            state.youtube_browser_paused.store(false, Ordering::SeqCst);
+            format!("@{requester} player OBS retomado.")
+        }
+        PlaybackAction::Pause => {
+            state.youtube_browser_paused.store(true, Ordering::SeqCst);
+            format!("@{requester} player OBS pausado.")
+        }
+        PlaybackAction::Next => {
+            state.youtube_browser_paused.store(false, Ordering::SeqCst);
+            format!("@{requester} pulando player OBS.")
+        }
+    }
 }
 
 fn access_denied_reply(

@@ -133,7 +133,7 @@ Use YouTube/Pear quando quiser tocar pedidos do YouTube.
 Requisitos:
 
 - YouTube Data API v3 ativa.
-- API Key salva no dashboard.
+- Uma ou mais API Keys salvas no dashboard.
 - Pear Desktop aberto se o modo escolhido for Pear.
 - Plugin `API Server` do Pear ativo.
 
@@ -145,9 +145,14 @@ Authorization: No Authorization
 API: http://127.0.0.1:26538/api/v1
 ```
 
-O app envia pedidos para a fila do Pear. O Pear e um app externo; se ele estiver
-fechado ou com API desligada, o pedido pode entrar na fila do SRL, mas nao vai
-tocar ate o Pear voltar.
+Busca por texto no YouTube usa YouTube Data API e pode bater limite de quota.
+Cole varias API Keys, uma por linha, para o app tentar a proxima quando uma
+falhar. Links diretos do YouTube dependem menos da API, mas ainda podem usar
+validacao de duracao/categoria.
+
+O app envia pedidos para a fila do Pear quando Pear Desktop e escolhido. O Pear e
+um app externo; se ele estiver fechado ou com API desligada, o pedido pode entrar
+na fila do SRL, mas nao vai tocar ate o Pear voltar.
 
 ## Fila e Fallback
 
@@ -202,6 +207,13 @@ http://127.0.0.1:7384/player
 
 Use o player OBS apenas se voce escolheu `Browser Source OBS` como player do
 YouTube. Se usa Pear, normalmente nao precisa dessa fonte.
+
+Para ouvir essa musica no fone do streamer:
+
+1. Na fonte Browser Source do player, marque `Controlar audio via OBS`.
+2. No Mixer de audio, abra as propriedades avancadas de audio.
+3. Na linha dessa fonte, coloque `Monitorar e enviar saida`.
+4. Ajuste o volume pelo mixer do OBS. O comando `!vol` nao controla o OBS Browser.
 
 ## Comandos
 
@@ -271,30 +283,6 @@ Estado, tokens, logs e fila:
 
 Nao suba tokens, API keys, OAuth codes, `.env`, configs reais exportadas, logs
 privados ou notas internas para o GitHub.
-
-## Desenvolvimento
-
-Rodar direto:
-
-```bash
-cargo run
-```
-
-Checar:
-
-```bash
-cargo fmt
-cargo clippy --all-targets --all-features -- -D warnings
-cargo test
-```
-
-Simular comando de chat:
-
-```bash
-curl -X POST http://127.0.0.1:7384/api/chat-command \
-  -H 'content-type: application/json' \
-  -d '{"requester":"follower","message":"!song","role":"follower"}'
-```
 
 ## Licenca
 

@@ -694,7 +694,11 @@ pub async fn page() -> Html<&'static str> {
     }
     .diagnostic-row code, .endpoint-row code { text-align: right; }
     .endpoint-row a { font-weight: 800; text-decoration: none; }
-    .endpoint-row.with-action { grid-template-columns: minmax(160px, .8fr) minmax(220px, 1fr) auto; }
+    .endpoint-row.with-action { grid-template-columns: minmax(110px, .45fr) minmax(0, 1fr) 36px auto; }
+    .endpoint-row.with-action a.secondary { min-width: 58px; min-height: 34px; padding: 6px 8px; }
+    .copy-button { min-height: 34px; }
+    .copy-button svg { width: 17px; height: 17px; stroke: currentColor; stroke-width: 2; fill: none; }
+    .copy-button.copied { border-color: var(--ok); color: var(--ok); }
     .obs-size-grid {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -862,7 +866,7 @@ pub async fn page() -> Html<&'static str> {
             </div>
             <div class="provider-options">
               <div class="provider-option" id="provider-spotify"><strong>Spotify</strong></div>
-              <div class="provider-option" id="provider-youtube"><strong>YouTube/Pear</strong></div>
+              <div class="provider-option" id="provider-youtube"><strong>YouTube</strong></div>
             </div>
             <div class="provider-exclusive-note">Escolha um modo por live.</div>
           </section>
@@ -954,7 +958,7 @@ pub async fn page() -> Html<&'static str> {
           <div>
             <h2>Configuração para iniciar a live</h2>
             <p id="setup-provider-help">Siga os passos em ordem. Preencha, conecte as contas e clique em Salvar.</p>
-            <p class="field-note"><strong>Escolha um modo por live:</strong> Spotify ou YouTube/Pear. Integração mista fica para planejamento futuro.</p>
+            <p class="field-note"><strong>Escolha um modo por live:</strong> Spotify ou YouTube. Depois escolha se o YouTube toca pelo OBS Browser ou pelo Pear.</p>
             <p class="field-note">Provider atual: <strong id="setup-active-provider">verificando</strong></p>
           </div>
           <div class="requirement-list" id="setup-provider-requirements"></div>
@@ -1038,13 +1042,13 @@ pub async fn page() -> Html<&'static str> {
             <div class="step-head">
               <div>
                 <h2>YouTube: links e pedidos do YouTube</h2>
-                <p class="step-copy">Opcional. Use Pear Desktop para tocar YouTube de forma mais estável.</p>
+                <p class="step-copy">Escolha onde o YouTube vai tocar: OBS Browser Source ou Pear Desktop.</p>
               </div>
               <a class="setup-inline-link" href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noreferrer">Criar API Key</a>
             </div>
             <div class="setup-quick-list">
               <span>Ative YouTube Data API v3 no Google Cloud.</span>
-              <span>No Pear, ligue o API Server na porta 26538.</span>
+              <span>Se escolher Pear, ligue o API Server na porta 26538.</span>
               <span>Use limite de tempo para evitar vídeos longos na fila.</span>
             </div>
             <div class="form-grid">
@@ -1057,8 +1061,9 @@ pub async fn page() -> Html<&'static str> {
               <label>Pear API
                 <input id="setup-pear-base-url" autocomplete="off" placeholder="http://127.0.0.1:26538/api/v1">
               </label>
-              <label class="full">YouTube API Key
-                <input id="setup-youtube-api-key" autocomplete="off" placeholder="deixe vazio para manter a chave atual">
+              <label class="full">YouTube API Keys
+                <textarea id="setup-youtube-api-key" rows="4" autocomplete="off" placeholder="uma chave por linha; deixe vazio para manter as chaves atuais"></textarea>
+                <span class="field-note">Busca por texto e validação usam YouTube Data API e podem bater limite. Links diretos do YouTube usam menos API. Para mais margem, crie várias API Keys no Google Cloud e cole uma por linha.</span>
               </label>
               <label>Máximo do vídeo em segundos
                 <input id="setup-youtube-max-duration" type="number" inputmode="numeric" min="30" max="86400" step="30" value="360">
@@ -1273,10 +1278,10 @@ pub async fn page() -> Html<&'static str> {
           <div class="endpoints">
             <div class="endpoint-row"><span>1. Configure Twitch</span><a href="https://dev.twitch.tv/console/apps" target="_blank" rel="noreferrer">Abrir Twitch</a></div>
             <p class="endpoint-description">Crie um app Public, use o redirect abaixo, cole o Client ID no Setup e clique em Conectar bot.</p>
-            <div class="endpoint-row"><span>Redirect Twitch</span><code>https://localhost:7443/auth/twitch/callback</code></div>
+            <div class="endpoint-row with-action"><span>Redirect Twitch</span><code>https://localhost:7443/auth/twitch/callback</code><button class="secondary icon-button copy-button" type="button" data-copy-value="https://localhost:7443/auth/twitch/callback" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
             <div class="endpoint-row"><span>2. Configure Spotify</span><a href="https://developer.spotify.com/dashboard" target="_blank" rel="noreferrer">Abrir Spotify</a></div>
             <p class="endpoint-description">Crie um app, use o redirect abaixo, cole o Client ID no Setup e clique em Login Spotify.</p>
-            <div class="endpoint-row"><span>Redirect Spotify</span><code>http://127.0.0.1:7384/auth/spotify/callback</code></div>
+            <div class="endpoint-row with-action"><span>Redirect Spotify</span><code>http://127.0.0.1:7384/auth/spotify/callback</code><button class="secondary icon-button copy-button" type="button" data-copy-value="http://127.0.0.1:7384/auth/spotify/callback" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
             <div class="endpoint-row"><span>3. Configure YouTube</span><a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noreferrer">Abrir Google</a></div>
             <p class="endpoint-description">Ative YouTube Data API v3, crie uma API Key e cole no Setup.</p>
             <div class="endpoint-row"><span>Guia completo</span><a href="https://github.com/heyleao/song-request-linux/blob/main/docs/SETUP.md" target="_blank" rel="noreferrer">Abrir guia</a></div>
@@ -1285,17 +1290,17 @@ pub async fn page() -> Html<&'static str> {
         <section>
           <h2>OBS</h2>
           <div class="endpoints">
-            <div class="endpoint-row with-action"><span>Dashboard</span><code>http://127.0.0.1:7384/</code><a class="secondary" href="/" target="_blank" rel="noreferrer">Abrir</a></div>
-            <div class="endpoint-row with-action"><span>Overlay pronto</span><code id="guide-overlay-url">http://127.0.0.1:7384/overlay?max=48&width=520&size=24&lines=1</code><a class="secondary" id="guide-overlay-open" href="/overlay?max=48&width=520&size=24&lines=1" target="_blank" rel="noreferrer">Abrir</a></div>
+            <div class="endpoint-row with-action"><span>Dashboard</span><code>http://127.0.0.1:7384/</code><button class="secondary icon-button copy-button" type="button" data-copy-value="http://127.0.0.1:7384/" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button><a class="secondary" href="/" target="_blank" rel="noreferrer">Abrir</a></div>
+            <div class="endpoint-row with-action"><span>Overlay pronto</span><code id="guide-overlay-url">http://127.0.0.1:7384/overlay?max=48&width=520&size=24&lines=1</code><button class="secondary icon-button copy-button" type="button" data-copy-target="guide-overlay-url" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button><a class="secondary" id="guide-overlay-open" href="/overlay?max=48&width=520&size=24&lines=1" target="_blank" rel="noreferrer">Abrir</a></div>
             <p class="endpoint-description">No OBS, adicione como Browser Source para mostrar a musica atual.</p>
             <div class="obs-size-grid" aria-label="Tamanho recomendado para a Browser Source do overlay">
               <div class="obs-size-card"><strong>620 px</strong><span>Largura da fonte no OBS</span></div>
               <div class="obs-size-card"><strong id="guide-overlay-height">120 px</strong><span>Altura da fonte no OBS</span></div>
             </div>
             <p class="endpoint-description">Use 2 linhas quando o nome da musica for maior. O parametro <code>width=520</code> limita o texto dentro do overlay.</p>
-            <div class="endpoint-row with-action"><span>Player YouTube</span><code>http://127.0.0.1:7384/player</code><a class="secondary" href="/player" target="_blank" rel="noreferrer">Abrir</a></div>
+            <div class="endpoint-row with-action"><span>Player YouTube</span><code>http://127.0.0.1:7384/player</code><button class="secondary icon-button copy-button" type="button" data-copy-value="http://127.0.0.1:7384/player" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button><a class="secondary" href="/player" target="_blank" rel="noreferrer">Abrir</a></div>
             <p class="endpoint-description">Use so se o YouTube estiver em Browser Source OBS. Se usar Pear Desktop, nao precisa.</p>
-            <div class="endpoint-row"><span>Pear API</span><code>http://127.0.0.1:26538/api/v1</code></div>
+            <div class="endpoint-row with-action"><span>Pear API</span><code>http://127.0.0.1:26538/api/v1</code><button class="secondary icon-button copy-button" type="button" data-copy-value="http://127.0.0.1:26538/api/v1" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
           </div>
         </section>
         <section>
@@ -1304,11 +1309,11 @@ pub async fn page() -> Html<&'static str> {
             <button class="secondary" id="update-app" type="button">Atualizar pelo GitHub</button>
           </div>
           <div class="endpoints">
-            <div class="endpoint-row"><span>Instalar</span><code>./scripts/install-user-friendly --with-pear</code></div>
-            <div class="endpoint-row"><span>Abrir</span><code>./scripts/song-request-linux-open</code></div>
-            <div class="endpoint-row"><span>Fechar</span><code>./scripts/song-request-linux-stop</code></div>
-            <div class="endpoint-row"><span>Atualizar manual</span><code>./scripts/update-from-github --restart</code></div>
-            <div class="endpoint-row"><span>Remover app</span><code>./scripts/uninstall-user</code></div>
+            <div class="endpoint-row with-action"><span>Instalar</span><code>./scripts/install-user-friendly --with-pear</code><button class="secondary icon-button copy-button" type="button" data-copy-value="./scripts/install-user-friendly --with-pear" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
+            <div class="endpoint-row with-action"><span>Abrir</span><code>./scripts/song-request-linux-open</code><button class="secondary icon-button copy-button" type="button" data-copy-value="./scripts/song-request-linux-open" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
+            <div class="endpoint-row with-action"><span>Fechar</span><code>./scripts/song-request-linux-stop</code><button class="secondary icon-button copy-button" type="button" data-copy-value="./scripts/song-request-linux-stop" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
+            <div class="endpoint-row with-action"><span>Atualizar manual</span><code>./scripts/update-from-github --restart</code><button class="secondary icon-button copy-button" type="button" data-copy-value="./scripts/update-from-github --restart" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
+            <div class="endpoint-row with-action"><span>Remover app</span><code>./scripts/uninstall-user</code><button class="secondary icon-button copy-button" type="button" data-copy-value="./scripts/uninstall-user" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
           </div>
           <p class="hint">Atualizar preserva configuracao, tokens e logs. A fila so volta se a persistencia da fila estiver ligada.</p>
           <div class="message" id="update-message"></div>
@@ -1376,7 +1381,7 @@ pub async fn page() -> Html<&'static str> {
       'Configuração para iniciar a live': 'Setup to start the stream',
       'Siga os passos em ordem. Preencha, conecte as contas e clique em Salvar.': 'Follow the steps in order. Fill in the fields, connect accounts, and click Save.',
       'Escolha um modo por live:': 'Choose one mode per stream:',
-      'Spotify ou YouTube/Pear. Integração mista fica para planejamento futuro.': 'Spotify or YouTube/Pear. Mixed mode is planned for later.',
+      'Spotify ou YouTube. Depois escolha se o YouTube toca pelo OBS Browser ou pelo Pear.': 'Spotify or YouTube. Then choose whether YouTube plays through OBS Browser or Pear.',
       'Provider atual:': 'Current provider:',
       'Twitch: ligar o bot ao chat': 'Twitch: connect the bot to chat',
       'Use a conta do bot aqui. Ela vai ler o chat e responder aos comandos.': 'Use the bot account here. It reads chat and responds to commands.',
@@ -1397,11 +1402,11 @@ pub async fn page() -> Html<&'static str> {
       'Carregar playlists': 'Load playlists',
       'Salvar fallback': 'Save fallback',
       'YouTube: links e pedidos do YouTube': 'YouTube: links and YouTube requests',
-      'Opcional. Use Pear Desktop para tocar YouTube de forma mais estável.': 'Optional. Use Pear Desktop for more stable YouTube playback.',
+      'Escolha onde o YouTube vai tocar: OBS Browser Source ou Pear Desktop.': 'Choose where YouTube plays: OBS Browser Source or Pear Desktop.',
       'Criar API Key': 'Create API key',
       'Player YouTube': 'YouTube player',
       'Pear API': 'Pear API',
-      'YouTube API Key': 'YouTube API key',
+      'YouTube API Keys': 'YouTube API keys',
       'Máximo do vídeo em segundos': 'Max video length in seconds',
       'Aceitar vídeo fora da categoria Música': 'Accept videos outside the Music category',
       'Live: comportamento da fila': 'Stream: queue behavior',
@@ -1814,7 +1819,7 @@ pub async fn page() -> Html<&'static str> {
             : connections.spotify.product_check_error
               ? 'Nao consegui validar o plano. Clique em Login Spotify para conceder o escopo user-read-private.'
               : 'Plano ainda nao validado. Clique em Login Spotify se esta mensagem continuar aparecendo.';
-        $('setup-provider-help').textContent = 'Modo Spotify ativo: pedidos por texto entram no Spotify. YouTube/Pear fica parado até você trocar o provider.';
+        $('setup-provider-help').textContent = 'Modo Spotify ativo: pedidos por texto entram no Spotify. YouTube fica parado até você trocar o provider.';
         $('setup-provider-requirements').innerHTML = [
           requirementRow(
             connections.spotify.client_id_configured ? 'ok' : 'bad',
@@ -1837,13 +1842,13 @@ pub async fn page() -> Html<&'static str> {
 
       const pearMode = config.youtube_playback === 'pear';
       $('setup-provider-help').textContent = pearMode
-        ? 'Modo YouTube/Pear ativo: pedidos entram no YouTube e tocam pelo Pear Desktop. Spotify fica fora da fila até você trocar o provider.'
-        : 'Modo YouTube ativo: pedidos entram no YouTube e tocam pela fonte Browser Source do OBS. Spotify fica fora da fila até você trocar o provider.';
+        ? 'Modo YouTube ativo: pedidos entram no YouTube e tocam pelo Pear Desktop. Spotify fica fora da fila até você trocar o provider.'
+        : 'Modo YouTube ativo: pedidos entram no YouTube e tocam pelo OBS Browser Source. Spotify fica fora da fila até você trocar o provider.';
       $('setup-provider-requirements').innerHTML = [
         requirementRow(
           config.youtube_api_key_configured ? 'ok' : 'bad',
-          'YouTube API Key',
-          config.youtube_api_key_configured ? 'API Key salva para busca por texto.' : 'Preencha a API Key no card YouTube para buscar música por nome.'
+          'YouTube API Keys',
+          config.youtube_api_key_configured ? `${config.youtube_api_key_count || 1} chave(s) salvas para busca por texto.` : 'Preencha ao menos uma API Key para buscar música por nome.'
         ),
         requirementRow(
           pearMode ? pear.reachable ? 'ok' : 'bad' : 'ok',
@@ -2005,7 +2010,7 @@ pub async fn page() -> Html<&'static str> {
       const rows = [
         ['Bot Twitch', twitchReady ? 'configurado' : 'não configurado'],
         ['Spotify', spotifyReady ? 'conectado' : spotifyConfigured ? 'login pendente' : 'client id pendente'],
-        ['YouTube', `${config.youtube_playback === 'pear' ? 'Pear Desktop' : 'Browser Source'} - ${config.youtube_api_key_configured ? 'api key configurada' : 'api key pendente'}`],
+        ['YouTube', `${config.youtube_playback === 'pear' ? 'Pear Desktop' : 'Browser Source'} - ${config.youtube_api_key_configured ? `${config.youtube_api_key_count || 1} api key(s)` : 'api key pendente'}`],
         ['Pear Desktop', pear.configured ? pear.reachable ? 'conectado' : 'não encontrado' : 'desativado'],
         ['Pear atual', pear.now_playing || '-'],
         ['Logs', diagnostics.storage.log_dir.exists ? 'ok' : 'pendente']
@@ -2215,6 +2220,44 @@ pub async fn page() -> Html<&'static str> {
         }
       }
     }
+
+    async function copyToClipboard(value) {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(value);
+        return;
+      }
+      const textarea = document.createElement('textarea');
+      textarea.value = value;
+      textarea.setAttribute('readonly', '');
+      textarea.style.position = 'fixed';
+      textarea.style.left = '-9999px';
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      textarea.remove();
+    }
+
+    document.addEventListener('click', async (event) => {
+      const button = event.target.closest('.copy-button');
+      if (!button) return;
+      const targetId = button.dataset.copyTarget;
+      const target = targetId ? document.getElementById(targetId) : null;
+      const value = (target ? target.textContent : button.dataset.copyValue || '').trim();
+      if (!value) return;
+      try {
+        await copyToClipboard(value);
+        button.classList.add('copied');
+        button.title = 'Copiado';
+        button.setAttribute('aria-label', 'Copiado');
+        setTimeout(() => {
+          button.classList.remove('copied');
+          button.title = 'Copiar';
+          button.setAttribute('aria-label', 'Copiar');
+        }, 1200);
+      } catch (error) {
+        button.title = 'Nao foi possivel copiar';
+      }
+    });
 
     $('volume-down').addEventListener('click', () => adjustVolume(-5));
     $('volume-up').addEventListener('click', () => adjustVolume(5));

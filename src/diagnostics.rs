@@ -69,7 +69,7 @@ impl DiagnosticsResponse {
                     authenticated: false,
                 },
                 youtube: IntegrationStatus {
-                    configured: config.youtube.api_key.is_some(),
+                    configured: !config.youtube.api_keys.is_empty(),
                     authenticated: false,
                 },
             },

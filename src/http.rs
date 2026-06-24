@@ -497,6 +497,11 @@ async fn youtube_player_start(
     Ok(Json(YoutubePlayerResponse {
         current_song,
         waiting_for_spotify: None,
+        paused: state.youtube_browser_paused.load(Ordering::SeqCst),
+        volume: state
+            .youtube_browser_volume
+            .load(Ordering::SeqCst)
+            .clamp(1, 100),
     }))
 }
 
@@ -545,6 +550,11 @@ async fn youtube_player_finish(
     Ok(Json(YoutubePlayerResponse {
         current_song,
         waiting_for_spotify: None,
+        paused: state.youtube_browser_paused.load(Ordering::SeqCst),
+        volume: state
+            .youtube_browser_volume
+            .load(Ordering::SeqCst)
+            .clamp(1, 100),
     }))
 }
 
@@ -652,6 +662,12 @@ async fn remove_last_request_message(state: &AppState, requester: String) -> Str
 }
 
 async fn skip_message(state: &AppState, requester: String) -> String {
+    if is_youtube_browser_mode(state) {
+        let message = local_browser_skip_message(state, &requester).await;
+        state.record_event("player", message.clone()).await;
+        return message;
+    }
+
     if matches!(current_provider(state), MusicProvider::Youtube)
         && matches!(state.config.youtube.playback, YoutubePlayback::Pear)
     {
@@ -723,6 +739,17 @@ fn help_commands(settings: &crate::commands::CommandSettings) -> Vec<String> {
 }
 
 async fn playback_message(state: &AppState, requester: String, action: PlaybackAction) -> String {
+    if is_youtube_browser_mode(state) {
+        let message = match action {
+            PlaybackAction::Next => local_browser_skip_message(state, &requester).await,
+            PlaybackAction::Play | PlaybackAction::Pause => {
+                local_browser_playback_message(state, &requester, action)
+            }
+        };
+        state.record_event("player", message.clone()).await;
+        return message;
+    }
+
     if matches!(current_provider(state), MusicProvider::Youtube)
         && matches!(state.config.youtube.playback, YoutubePlayback::Pear)
     {
@@ -787,7 +814,10 @@ async fn volume_message(state: &AppState, requester: String, level: Option<u8>) 
                     }
                 }
                 (MusicProvider::Youtube, YoutubePlayback::Browser) => {
-                    errors.push("YouTube Browser Source ainda nao aceita controle de volume pelo dashboard; ajuste o audio no OBS.".to_string());
+                    errors.push(
+                        "No modo OBS Browser, ajuste o volume diretamente no mixer do OBS."
+                            .to_string(),
+                    );
                 }
                 (MusicProvider::Spotify, _) => match set_spotify_volume(state, level).await {
                     Some(Ok(level)) => changed.push(format!("Spotify {level}%")),
@@ -858,6 +888,15 @@ async fn read_volume(state: &AppState) -> VolumeResponse {
                 muted: false,
                 message: format!("Nao consegui ler o volume Pear/YouTube: {error}"),
             },
+        };
+    }
+
+    if is_youtube_browser_mode(state) {
+        return VolumeResponse {
+            target: "browser",
+            level: None,
+            muted: false,
+            message: "Volume do OBS Browser deve ser ajustado no mixer do OBS.".to_string(),
         };
     }
 
@@ -979,6 +1018,48 @@ async fn effective_queue_view(state: &AppState) -> QueueView {
 
 fn current_provider(state: &AppState) -> MusicProvider {
     config::UiConfigView::load(&state.config.paths).default_provider
+}
+
+fn is_youtube_browser_mode(state: &AppState) -> bool {
+    matches!(current_provider(state), MusicProvider::Youtube)
+        && matches!(state.config.youtube.playback, YoutubePlayback::Browser)
+}
+
+async fn local_browser_skip_message(state: &AppState, requester: &str) -> String {
+    state.youtube_browser_paused.store(false, Ordering::SeqCst);
+    let current_song = state.queue.write().await.skip();
+    if let Err(error) = save_current_queue_state(state).await {
+        state.record_event("error", error.message).await;
+    }
+
+    match current_song {
+        Some(song) => format!(
+            "@{requester} skip feito. Agora: {}",
+            display::chat_song_title(&song)
+        ),
+        None => format!("@{requester} skip feito. Fila vazia."),
+    }
+}
+
+fn local_browser_playback_message(
+    state: &AppState,
+    requester: &str,
+    action: PlaybackAction,
+) -> String {
+    match action {
+        PlaybackAction::Play => {
+            state.youtube_browser_paused.store(false, Ordering::SeqCst);
+            format!("@{requester} player OBS retomado.")
+        }
+        PlaybackAction::Pause => {
+            state.youtube_browser_paused.store(true, Ordering::SeqCst);
+            format!("@{requester} player OBS pausado.")
+        }
+        PlaybackAction::Next => {
+            state.youtube_browser_paused.store(false, Ordering::SeqCst);
+            format!("@{requester} pulando player OBS.")
+        }
+    }
 }
 
 async fn merge_pear_and_app_queue(state: &AppState) -> QueueView {
@@ -1221,6 +1302,8 @@ async fn youtube_player_response(state: &AppState) -> YoutubePlayerResponse {
         return YoutubePlayerResponse {
             current_song: None,
             waiting_for_spotify: None,
+            paused: false,
+            volume: 100,
         };
     }
 
@@ -1230,6 +1313,11 @@ async fn youtube_player_response(state: &AppState) -> YoutubePlayerResponse {
         return YoutubePlayerResponse {
             current_song: None,
             waiting_for_spotify: None,
+            paused: state.youtube_browser_paused.load(Ordering::SeqCst),
+            volume: state
+                .youtube_browser_volume
+                .load(Ordering::SeqCst)
+                .clamp(1, 100),
         };
     }
 
@@ -1241,6 +1329,11 @@ async fn youtube_player_response(state: &AppState) -> YoutubePlayerResponse {
             current_song
         },
         waiting_for_spotify,
+        paused: state.youtube_browser_paused.load(Ordering::SeqCst),
+        volume: state
+            .youtube_browser_volume
+            .load(Ordering::SeqCst)
+            .clamp(1, 100),
     }
 }
 
@@ -1498,6 +1591,8 @@ struct VolumeResponse {
 struct YoutubePlayerResponse {
     current_song: Option<YoutubePlayerSong>,
     waiting_for_spotify: Option<String>,
+    paused: bool,
+    volume: u8,
 }
 
 #[derive(Debug, Deserialize)]
@@ -1661,6 +1756,32 @@ mod tests {
             .expect("response");
 
         assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn youtube_player_returns_current_youtube_song() {
+        let mut config = AppConfig::from_env().expect("config");
+        config.youtube.playback = YoutubePlayback::Browser;
+        let state = AppState::new(config);
+        state.queue.write().await.clear();
+        state.queue.write().await.add_resolved(SongRequest {
+            id: 0,
+            requester: "viewer".to_string(),
+            query: "https://youtu.be/dQw4w9WgXcQ".to_string(),
+            source: RequestSource::Youtube {
+                video_id: "dQw4w9WgXcQ".to_string(),
+            },
+            title: "Never Gonna Give You Up".to_string(),
+            artist: "Rick Astley".to_string(),
+        });
+
+        let response = youtube_player_response(&state).await;
+
+        assert_eq!(
+            response.current_song.map(|song| song.video_id),
+            Some("dQw4w9WgXcQ".to_string())
+        );
+        assert_eq!(response.waiting_for_spotify, None);
     }
 
     #[tokio::test]

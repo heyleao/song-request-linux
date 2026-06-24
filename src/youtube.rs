@@ -121,70 +121,100 @@ pub async fn search_and_validate(config: &AppConfig, query: &str) -> Result<Yout
 }
 
 async fn search_videos(config: &AppConfig, query: &str) -> Result<Vec<String>> {
-    let api_key = youtube_api_key(config)?;
-    let response = Client::new()
-        .get(format!("{API_URL}/search"))
-        .query(&[
-            ("part", "snippet"),
-            ("type", "video"),
-            ("maxResults", "5"),
-            ("q", query.trim()),
-            ("key", api_key),
-        ])
-        .send()
-        .await
-        .context("failed to search YouTube videos")?;
+    let api_keys = youtube_api_keys(config)?;
+    let client = Client::new();
+    let mut last_error = None;
 
-    let status = response.status();
-    if !status.is_success() {
-        let body = response.text().await.unwrap_or_default();
-        bail!("YouTube search failed with {status}: {body}");
+    for (index, api_key) in api_keys.iter().enumerate() {
+        let response = client
+            .get(format!("{API_URL}/search"))
+            .query(&[
+                ("part", "snippet"),
+                ("type", "video"),
+                ("maxResults", "5"),
+                ("q", query.trim()),
+                ("key", api_key.as_str()),
+            ])
+            .send()
+            .await
+            .context("failed to search YouTube videos")?;
+
+        let status = response.status();
+        if !status.is_success() {
+            let body = response.text().await.unwrap_or_default();
+            last_error = Some(anyhow!("YouTube search failed with {status}: {body}"));
+            debug!(
+                key_index = index + 1,
+                total_keys = api_keys.len(),
+                "youtube search key failed; trying next key"
+            );
+            continue;
+        }
+
+        let video_ids = response
+            .json::<SearchResponse>()
+            .await
+            .context("failed to decode YouTube search response")?
+            .items
+            .into_iter()
+            .filter_map(|item| item.id.video_id)
+            .filter(|video_id| is_valid_video_id(video_id))
+            .collect::<Vec<_>>();
+
+        if video_ids.is_empty() {
+            bail!("Nenhum video YouTube encontrado para {}", query.trim());
+        }
+
+        return Ok(video_ids);
     }
 
-    let video_ids = response
-        .json::<SearchResponse>()
-        .await
-        .context("failed to decode YouTube search response")?
-        .items
-        .into_iter()
-        .filter_map(|item| item.id.video_id)
-        .filter(|video_id| is_valid_video_id(video_id))
-        .collect::<Vec<_>>();
-
-    if video_ids.is_empty() {
-        bail!("Nenhum video YouTube encontrado para {}", query.trim());
-    }
-
-    Ok(video_ids)
+    Err(last_error.unwrap_or_else(|| anyhow!("YouTube API key nao configurada")))
 }
 
 async fn fetch_video_metadata(config: &AppConfig, video_id: &str) -> Result<YoutubeVideoMetadata> {
-    let api_key = youtube_api_key(config)?;
-    let response = Client::new()
-        .get(format!("{API_URL}/videos"))
-        .query(&[
-            ("part", "snippet,contentDetails"),
-            ("id", video_id),
-            ("key", api_key),
-        ])
-        .send()
-        .await
-        .context("failed to fetch YouTube video metadata")?;
+    let api_keys = youtube_api_keys(config)?;
+    let client = Client::new();
+    let mut last_error = None;
 
-    let status = response.status();
-    if !status.is_success() {
-        let body = response.text().await.unwrap_or_default();
-        bail!("YouTube metadata failed with {status}: {body}");
+    let mut item = None;
+    for (index, api_key) in api_keys.iter().enumerate() {
+        let response = client
+            .get(format!("{API_URL}/videos"))
+            .query(&[
+                ("part", "snippet,contentDetails"),
+                ("id", video_id),
+                ("key", api_key.as_str()),
+            ])
+            .send()
+            .await
+            .context("failed to fetch YouTube video metadata")?;
+
+        let status = response.status();
+        if !status.is_success() {
+            let body = response.text().await.unwrap_or_default();
+            last_error = Some(anyhow!("YouTube metadata failed with {status}: {body}"));
+            debug!(
+                key_index = index + 1,
+                total_keys = api_keys.len(),
+                "youtube metadata key failed; trying next key"
+            );
+            continue;
+        }
+
+        item = Some(
+            response
+                .json::<VideosResponse>()
+                .await
+                .context("failed to decode YouTube metadata response")?
+                .items
+                .into_iter()
+                .next()
+                .ok_or_else(|| anyhow!("Video YouTube nao encontrado ou indisponivel"))?,
+        );
+        break;
     }
-
-    let item = response
-        .json::<VideosResponse>()
-        .await
-        .context("failed to decode YouTube metadata response")?
-        .items
-        .into_iter()
-        .next()
-        .ok_or_else(|| anyhow!("Video YouTube nao encontrado ou indisponivel"))?;
+    let item = item
+        .ok_or_else(|| last_error.unwrap_or_else(|| anyhow!("YouTube API key nao configurada")))?;
     let duration_seconds =
         parse_iso8601_duration(&item.content_details.duration).ok_or_else(|| {
             anyhow!(
@@ -202,12 +232,21 @@ async fn fetch_video_metadata(config: &AppConfig, video_id: &str) -> Result<Yout
     })
 }
 
-fn youtube_api_key(config: &AppConfig) -> Result<&str> {
-    config
-        .youtube
-        .api_key
-        .as_deref()
-        .context("YouTube API key nao configurada; configure para validar duracao/categoria")
+fn youtube_api_keys(config: &AppConfig) -> Result<Vec<String>> {
+    if config.youtube.api_keys.is_empty() {
+        return config
+            .youtube
+            .api_key
+            .iter()
+            .cloned()
+            .collect::<Vec<_>>()
+            .into_iter()
+            .next()
+            .map(|key| vec![key])
+            .context("YouTube API key nao configurada; configure para validar duracao/categoria");
+    }
+
+    Ok(config.youtube.api_keys.clone())
 }
 
 fn parse_iso8601_duration(value: &str) -> Option<u64> {

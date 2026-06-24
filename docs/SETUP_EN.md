@@ -146,8 +146,13 @@ Skip this if you only use Spotify.
 2. Create or choose a project.
 3. Enable `YouTube Data API v3`.
 4. Create an `API Key`.
-5. Paste the key in Song Request Linux.
-6. Save.
+5. Optional: create more API keys in the same project or separate projects for more quota headroom.
+6. Paste the keys in Song Request Linux, one per line.
+7. Save.
+
+Text search uses the YouTube Data API and can hit quota limits. When multiple
+keys are saved, the app tries the next key if one fails. Direct YouTube links are
+the lighter path for exact requests.
 
 ### Pear Desktop
 
@@ -193,6 +198,14 @@ http://127.0.0.1:7384/player
 ```
 
 Use this only if YouTube playback is set to `Browser Source OBS`. If you use Pear, you normally do not need it.
+
+To let the streamer hear Browser Source music:
+
+1. Open the properties for the `http://127.0.0.1:7384/player` source.
+2. Enable `Control audio via OBS`.
+3. In the Audio Mixer, open `Advanced Audio Properties`.
+4. Set this source to `Monitor and Output`.
+5. Adjust volume in the OBS mixer. The `!vol` command does not control OBS Browser audio.
 
 ## 10. Chat Commands
 

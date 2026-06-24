@@ -59,7 +59,7 @@ pub async fn page() -> Html<&'static str> {
 	      audio.load();
 	    }
 
-	    async function loadSong(song, reason) {
+	    async function loadSong(song, reason, shouldPlay = true) {
 	      if (activeSongId !== song.id) {
 	        retryAttempts = 0;
 	      }
@@ -79,10 +79,15 @@ pub async fn page() -> Html<&'static str> {
 	      });
 	      audio.src = audioData.audio_url;
 	      audio.load();
-	      await audio.play();
+	      if (shouldPlay) {
+	        await audio.play();
+	        await recordPlayerEvent(`tocando YouTube: ${song.title}`);
+	      } else {
+	        audio.pause();
+	        await recordPlayerEvent(`YouTube carregado pausado: ${song.title}`);
+	      }
 	      retryAttempts = 0;
 	      setStatus(song.title, `${song.artist} - pedido por ${song.requester}`);
-	      await recordPlayerEvent(`tocando YouTube: ${song.title}`);
 	    }
 
 	    function scheduleRetry(reason) {
@@ -110,6 +115,9 @@ pub async fn page() -> Html<&'static str> {
           loading = false;
           return;
         }
+        const volume = Math.max(1, Math.min(100, Number(data.volume || 100))) / 100;
+        if (audio.volume !== volume) audio.volume = volume;
+        const shouldPause = data.paused === true;
 	        const song = data.current_song;
 	        if (!song) {
 	          resetAudioState();
@@ -119,7 +127,10 @@ pub async fn page() -> Html<&'static str> {
 	        }
 	
 	        if (song.id !== activeSongId || song.video_id !== activeVideoId) {
-	          await loadSong(song, 'Resolvendo audio');
+	          await loadSong(song, 'Resolvendo audio', !shouldPause);
+	        } else if (shouldPause) {
+	          if (!audio.paused) audio.pause();
+	          setStatus(song.title, `${song.artist} - pausado`);
 	        } else if (audio.paused && !audio.ended) {
 	          try {
 	            await audio.play();

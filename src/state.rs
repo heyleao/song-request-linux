@@ -1,6 +1,9 @@
 use std::{
     collections::VecDeque,
-    sync::{atomic::AtomicBool, Arc},
+    sync::{
+        atomic::{AtomicBool, AtomicU8},
+        Arc,
+    },
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -21,6 +24,8 @@ pub struct AppState {
     pub spotify_token: Arc<RwLock<Option<SpotifyToken>>>,
     pub twitch_bot_running: Arc<AtomicBool>,
     pub youtube_player_paused_spotify: Arc<AtomicBool>,
+    pub youtube_browser_paused: Arc<AtomicBool>,
+    pub youtube_browser_volume: Arc<AtomicU8>,
     pub spotify_fallback_started: Arc<AtomicBool>,
     pub pear_idle_stopped: Arc<AtomicBool>,
     pub youtube_active_pear_video_id: Arc<Mutex<Option<String>>>,
@@ -85,6 +90,8 @@ impl AppState {
             spotify_auth: Arc::new(RwLock::new(None)),
             twitch_bot_running: Arc::new(AtomicBool::new(false)),
             youtube_player_paused_spotify: Arc::new(AtomicBool::new(false)),
+            youtube_browser_paused: Arc::new(AtomicBool::new(false)),
+            youtube_browser_volume: Arc::new(AtomicU8::new(100)),
             spotify_fallback_started: Arc::new(AtomicBool::new(false)),
             pear_idle_stopped: Arc::new(AtomicBool::new(false)),
             youtube_active_pear_video_id: Arc::new(Mutex::new(None)),

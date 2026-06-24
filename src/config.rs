@@ -51,6 +51,7 @@ pub struct UserConfig {
 pub struct UserSecrets {
     pub twitch_bot_oauth_token: Option<String>,
     pub youtube_api_key: Option<String>,
+    pub youtube_api_keys: Vec<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -86,6 +87,7 @@ pub struct UiConfigView {
     pub twitch_channel: Option<String>,
     pub twitch_bot_token_configured: bool,
     pub youtube_api_key_configured: bool,
+    pub youtube_api_key_count: usize,
     pub youtube_max_duration_seconds: u64,
     pub youtube_allow_non_music: bool,
     pub command_settings: CommandSettings,
@@ -175,6 +177,7 @@ pub struct SpotifyConfig {
 #[derive(Clone, Debug, Serialize)]
 pub struct YoutubeConfig {
     pub api_key: Option<String>,
+    pub api_keys: Vec<String>,
     pub playback: YoutubePlayback,
     pub pear_base_url: String,
     pub max_duration_seconds: u64,
@@ -296,9 +299,11 @@ impl YoutubeConfig {
             .or_else(|| user_config.pear_base_url.clone())
             .unwrap_or_else(default_pear_base_url);
 
+        let api_keys = youtube_api_keys_from_sources(user_secrets);
+
         Self {
-            api_key: clean_optional_env("YOUTUBE_API_KEY")
-                .or_else(|| user_secrets.youtube_api_key.clone()),
+            api_key: api_keys.first().cloned(),
+            api_keys,
             playback,
             pear_base_url,
             max_duration_seconds,
@@ -368,7 +373,8 @@ impl UiConfigView {
             twitch_bot_username: user_config.twitch_bot_username,
             twitch_channel: user_config.twitch_channel,
             twitch_bot_token_configured: user_secrets.twitch_bot_oauth_token.is_some(),
-            youtube_api_key_configured: user_secrets.youtube_api_key.is_some(),
+            youtube_api_key_configured: !normalized_youtube_api_keys(&user_secrets).is_empty(),
+            youtube_api_key_count: normalized_youtube_api_keys(&user_secrets).len(),
             youtube_max_duration_seconds: user_config.youtube_max_duration_seconds,
             youtube_allow_non_music: user_config.youtube_allow_non_music,
             command_settings: user_config.command_settings.clone(),
@@ -410,11 +416,17 @@ pub fn save_ui_config(paths: &AppPaths, input: UiConfigInput) -> Result<UiConfig
         queue_limits: normalize_queue_limits(input.queue_limits.unwrap_or_default()),
         overlay: input.overlay.unwrap_or_default().normalized(),
     };
+    let incoming_youtube_keys = clean_api_keys_from_input(input.youtube_api_key);
+    let saved_youtube_keys = if incoming_youtube_keys.is_empty() {
+        normalized_youtube_api_keys(&existing_secrets)
+    } else {
+        incoming_youtube_keys
+    };
     let user_secrets = UserSecrets {
         twitch_bot_oauth_token: clean_optional_value(input.twitch_bot_oauth_token)
             .or(existing_secrets.twitch_bot_oauth_token),
-        youtube_api_key: clean_optional_value(input.youtube_api_key)
-            .or(existing_secrets.youtube_api_key),
+        youtube_api_key: saved_youtube_keys.first().cloned(),
+        youtube_api_keys: saved_youtube_keys,
     };
 
     fs::write(
@@ -432,6 +444,59 @@ pub fn command_settings(paths: &AppPaths) -> CommandSettings {
     load_user_config_from_paths(paths)
         .map(|config| normalize_command_settings(config.command_settings))
         .unwrap_or_default()
+}
+
+fn youtube_api_keys_from_sources(user_secrets: &UserSecrets) -> Vec<String> {
+    let env_keys = clean_optional_env("YOUTUBE_API_KEYS")
+        .map(|value| clean_api_keys(&value))
+        .unwrap_or_default();
+    if !env_keys.is_empty() {
+        return env_keys;
+    }
+
+    if let Some(env_key) = clean_optional_env("YOUTUBE_API_KEY") {
+        return clean_api_keys(&env_key);
+    }
+
+    normalized_youtube_api_keys(user_secrets)
+}
+
+fn normalized_youtube_api_keys(user_secrets: &UserSecrets) -> Vec<String> {
+    let mut keys = Vec::new();
+    if let Some(key) = &user_secrets.youtube_api_key {
+        keys.extend(clean_api_keys(key));
+    }
+    for key in &user_secrets.youtube_api_keys {
+        keys.extend(clean_api_keys(key));
+    }
+    dedupe_api_keys(keys)
+}
+
+fn clean_api_keys_from_input(value: Option<String>) -> Vec<String> {
+    value
+        .map(|value| clean_api_keys(&value))
+        .unwrap_or_default()
+}
+
+fn clean_api_keys(value: &str) -> Vec<String> {
+    dedupe_api_keys(
+        value
+            .split(['\n', '\r', ',', ';'])
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(ToOwned::to_owned)
+            .collect(),
+    )
+}
+
+fn dedupe_api_keys(values: Vec<String>) -> Vec<String> {
+    let mut keys = Vec::new();
+    for value in values {
+        if !keys.iter().any(|key: &String| key == &value) {
+            keys.push(value);
+        }
+    }
+    keys
 }
 
 fn sanitize_overlay_label(value: &str) -> String {
