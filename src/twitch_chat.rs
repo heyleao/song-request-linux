@@ -449,6 +449,12 @@ async fn current_song_reply(state: &AppState) -> String {
 }
 
 async fn queue_reply(state: &AppState) -> String {
+    if matches!(current_provider(state), MusicProvider::Youtube)
+        && matches!(state.config.youtube.playback, YoutubePlayback::Pear)
+    {
+        return pear_queue_reply(state).await;
+    }
+
     if let Some(snapshot) = spotify_queue_snapshot(state).await {
         if snapshot.upcoming.is_empty() {
             return snapshot
@@ -460,6 +466,49 @@ async fn queue_reply(state: &AppState) -> String {
         return format!("Proximas: {}", snapshot.upcoming.join(" | "));
     }
 
+    app_queue_reply(state).await
+}
+
+async fn pear_queue_reply(state: &AppState) -> String {
+    match crate::pear::queue_display_items(&state.config).await {
+        Ok(items) if !items.is_empty() => {
+            let selected = items.iter().position(|item| item.selected);
+            let current = selected
+                .and_then(|index| items.get(index))
+                .map(pear_queue_item_label);
+            let start = selected.map_or(0, |index| index.saturating_add(1));
+            let upcoming = items
+                .iter()
+                .skip(start)
+                .take(5)
+                .map(pear_queue_item_label)
+                .collect::<Vec<_>>();
+
+            match (current, upcoming.is_empty()) {
+                (Some(current), false) => {
+                    format!(
+                        "Pear tocando: {current}. Proximas: {}",
+                        upcoming.join(" | ")
+                    )
+                }
+                (Some(current), true) => format!("Pear tocando: {current}. Sem proximas no Pear."),
+                (None, false) => format!("Pear proximas: {}", upcoming.join(" | ")),
+                (None, true) => app_queue_reply(state).await,
+            }
+        }
+        Ok(_) => app_queue_reply(state).await,
+        Err(error) => format!("Nao consegui ler a fila do Pear: {error}"),
+    }
+}
+
+fn pear_queue_item_label(item: &crate::pear::PearQueueDisplayItem) -> String {
+    match &item.artist {
+        Some(artist) if !artist.trim().is_empty() => format!("{} - {}", artist, item.title),
+        _ => item.title.clone(),
+    }
+}
+
+async fn app_queue_reply(state: &AppState) -> String {
     let queue = state.queue.read().await.view();
     if queue.queue.is_empty() {
         return "Fila vazia.".to_string();

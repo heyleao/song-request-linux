@@ -52,7 +52,16 @@ struct PearQueueInfo {
 struct PearQueueItem {
     index: usize,
     video_id: Option<String>,
+    title: Option<String>,
+    artist: Option<String>,
     selected: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PearQueueDisplayItem {
+    pub title: String,
+    pub artist: Option<String>,
+    pub selected: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -188,6 +197,21 @@ pub async fn skip_next(config: &AppConfig) -> Result<PearSkipOutcome> {
     }
 
     Ok(PearSkipOutcome::new(before, after, false))
+}
+
+pub async fn queue_display_items(config: &AppConfig) -> Result<Vec<PearQueueDisplayItem>> {
+    Ok(queue_items(config)
+        .await?
+        .into_iter()
+        .filter_map(|item| {
+            let title = item.title.or(item.video_id)?;
+            Some(PearQueueDisplayItem {
+                title,
+                artist: item.artist,
+                selected: item.selected,
+            })
+        })
+        .collect())
 }
 
 pub async fn clear_queue(config: &AppConfig) -> Result<()> {
@@ -341,6 +365,8 @@ async fn queue_items(config: &AppConfig) -> Result<Vec<PearQueueItem>> {
         .map(|(index, item)| PearQueueItem {
             index,
             video_id: extract_queue_video_id(item),
+            title: extract_queue_title(item),
+            artist: extract_queue_artist(item),
             selected: extract_queue_selected(item),
         })
         .collect())
@@ -466,6 +492,40 @@ fn extract_queue_video_id(item: &Value) -> Option<String> {
         .map(ToString::to_string)
 }
 
+fn extract_queue_title(item: &Value) -> Option<String> {
+    extract_runs_text(
+        item.pointer("/title/runs")
+            .or_else(|| item.pointer("/playlistPanelVideoRenderer/title/runs")),
+    )
+}
+
+fn extract_queue_artist(item: &Value) -> Option<String> {
+    item.pointer("/artist")
+        .and_then(Value::as_str)
+        .filter(|value| !value.trim().is_empty())
+        .map(ToString::to_string)
+        .or_else(|| {
+            item.pointer("/playlistPanelVideoRenderer/longBylineText/runs/0/text")
+                .and_then(Value::as_str)
+                .filter(|value| !value.trim().is_empty())
+                .map(ToString::to_string)
+        })
+}
+
+fn extract_runs_text(runs: Option<&Value>) -> Option<String> {
+    let text = runs?
+        .as_array()?
+        .iter()
+        .filter_map(|run| run.pointer("/text").and_then(Value::as_str))
+        .collect::<String>();
+    let text = text.trim();
+    if text.is_empty() {
+        None
+    } else {
+        Some(text.to_string())
+    }
+}
+
 fn extract_queue_selected(item: &Value) -> bool {
     item.pointer("/selected")
         .or_else(|| item.pointer("/playlistPanelVideoRenderer/selected"))
@@ -527,6 +587,7 @@ mod tests {
             Some("Ph8Qt3DHVwo")
         );
         assert!(extract_queue_selected(&item));
+        assert_eq!(extract_queue_title(&item).as_deref(), Some("ATWA"));
     }
 
     #[test]
