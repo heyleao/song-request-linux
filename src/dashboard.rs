@@ -1885,6 +1885,17 @@ pub async fn page() -> Html<&'static str> {
       element.classList.toggle('error', isError);
     }
 
+    async function refreshUpdateStatus(showEmpty = false) {
+      try {
+        const status = await api('/api/update/status');
+        if (!showEmpty && (!status || status.status === 'none')) return;
+        const isError = status.status === 'failed' || status.status === 'unknown';
+        setMessage('update-message', status.message || 'Status de atualizacao indisponivel.', isError);
+      } catch (_) {
+        if (showEmpty) setMessage('update-message', 'Nao foi possivel ler o status da atualizacao.', true);
+      }
+    }
+
     function setSetupDirty(value, reason = '') {
       setupDirty = Boolean(value);
       document.body.classList.toggle('setup-dirty', setupDirty);
@@ -2463,6 +2474,8 @@ pub async fn page() -> Html<&'static str> {
           headers: { 'x-song-request-action': 'update' }
         });
         setMessage('update-message', result.message || 'Atualização iniciada.');
+        localStorage.setItem('song-request-linux-update-pending', '1');
+        setTimeout(() => refreshUpdateStatus(false), 8000);
       } catch (error) {
         $('update-app').disabled = false;
         setMessage('update-message', error.message, true);
@@ -2494,6 +2507,8 @@ pub async fn page() -> Html<&'static str> {
     });
 
     markActiveInstance();
+    refreshUpdateStatus(localStorage.getItem('song-request-linux-update-pending') === '1')
+      .finally(() => localStorage.removeItem('song-request-linux-update-pending'));
     refresh();
     setInterval(refresh, 2500);
   </script>

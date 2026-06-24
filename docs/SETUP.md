@@ -185,6 +185,18 @@ http://127.0.0.1:26538/api/v1
 Se o Pear estiver fechado, a musica pode entrar na fila do app, mas nao vai tocar
 ate o Pear abrir e a API estar ativa.
 
+## Atualizar o app
+
+Use `Atualizar pelo GitHub` no painel. O navegador chama o backend local, que
+baixa o GitHub, recompila e reinicia o app. Depois do reinicio, o painel mostra
+se atualizou ou se ja estava na ultima versao.
+
+Se o painel nao abrir, use o comando manual:
+
+```bash
+./scripts/update-from-github --restart
+```
+
 ## 9. OBS
 
 Adicione uma `Browser Source` para o overlay.

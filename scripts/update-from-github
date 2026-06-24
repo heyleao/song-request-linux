@@ -2,10 +2,41 @@
 set -euo pipefail
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-LOG_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/song-request-linux/logs"
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/song-request-linux"
+LOG_DIR="$STATE_DIR/logs"
 LOG_FILE="$LOG_DIR/update.log"
+STATUS_FILE="$STATE_DIR/update-status.json"
 START_AFTER=0
 STOP_BEFORE=1
+before_rev=""
+after_rev=""
+
+json_escape() {
+  printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
+}
+
+write_status() {
+  local status="$1"
+  local message="$2"
+  local before="${3:-$before_rev}"
+  local after="${4:-$after_rev}"
+  local timestamp
+  timestamp="$(date -Is)"
+  mkdir -p "$STATE_DIR"
+  printf '{"status":"%s","message":"%s","before":"%s","after":"%s","timestamp":"%s"}\n' \
+    "$(json_escape "$status")" \
+    "$(json_escape "$message")" \
+    "$(json_escape "$before")" \
+    "$(json_escape "$after")" \
+    "$(json_escape "$timestamp")" >"$STATUS_FILE"
+}
+
+on_error() {
+  local exit_code=$?
+  write_status "failed" "Atualizacao falhou. Abra os logs em ~/.local/state/song-request-linux/logs/update.log."
+  exit "$exit_code"
+}
+trap on_error ERR
 
 for arg in "$@"; do
   case "$arg" in
@@ -26,6 +57,7 @@ HELP
 done
 
 mkdir -p "$LOG_DIR"
+write_status "running" "Atualizacao em andamento. O app pode reiniciar em alguns segundos."
 
 {
   echo "== Song Request Linux Update =="
@@ -44,6 +76,9 @@ if ! command -v cargo >/dev/null 2>&1; then
 fi
 
 cd "$APP_DIR"
+
+before_rev="$(git rev-parse --short HEAD 2>/dev/null || true)"
+after_rev="$before_rev"
 
 if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   echo "ERRO: este diretorio nao e um repo git." | tee -a "$LOG_FILE" >&2
@@ -75,6 +110,8 @@ else
   git pull --ff-only origin "$branch" >>"$LOG_FILE" 2>&1
 fi
 
+after_rev="$(git rev-parse --short HEAD)"
+
 cargo build --release >>"$LOG_FILE" 2>&1
 ./scripts/install-desktop-entry >>"$LOG_FILE" 2>&1
 
@@ -82,4 +119,13 @@ if (( START_AFTER )); then
   ./scripts/song-request-linux-open >>"$LOG_FILE" 2>&1 &
 fi
 
-echo "Atualizacao concluida." | tee -a "$LOG_FILE"
+if [[ -n "$before_rev" && "$before_rev" != "$after_rev" ]]; then
+  message="Atualizado com sucesso: baixou $before_rev -> $after_rev."
+  status="updated"
+else
+  message="Ja estava atualizado. Commit atual: $after_rev."
+  status="up_to_date"
+fi
+
+write_status "$status" "$message" "$before_rev" "$after_rev"
+echo "$message" | tee -a "$LOG_FILE"

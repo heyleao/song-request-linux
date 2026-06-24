@@ -39,6 +39,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/events", get(events))
         .route("/api/diagnostics", get(diagnostics))
         .route("/api/update", post(update_from_github))
+        .route("/api/update/status", get(update_status))
         .route("/api/config", get(get_config).post(save_config))
         .route("/api/connections/status", get(connections_status))
         .route("/api/connections/spotify/start", post(spotify_start))
@@ -164,6 +165,28 @@ async fn update_from_github(headers: HeaderMap) -> Result<Json<UpdateResponse>, 
         status: "updating",
         message: "Atualizacao iniciada. O app vai reiniciar em alguns segundos.",
     }))
+}
+
+async fn update_status(State(state): State<AppState>) -> Json<UpdateStatusResponse> {
+    let path = state.config.paths.state_dir.join("update-status.json");
+    let status = match tokio::fs::read_to_string(path).await {
+        Ok(contents) => serde_json::from_str(&contents).unwrap_or_else(|_| UpdateStatusResponse {
+            status: "unknown".to_string(),
+            message: "Nao foi possivel ler o status da ultima atualizacao.".to_string(),
+            before: String::new(),
+            after: String::new(),
+            timestamp: String::new(),
+        }),
+        Err(_) => UpdateStatusResponse {
+            status: "none".to_string(),
+            message: "Nenhuma atualizacao executada por este painel ainda.".to_string(),
+            before: String::new(),
+            after: String::new(),
+            timestamp: String::new(),
+        },
+    };
+
+    Json(status)
 }
 
 async fn events(State(state): State<AppState>) -> Json<Vec<crate::state::AppEvent>> {
@@ -1649,6 +1672,15 @@ struct ShutdownResponse {
 struct UpdateResponse {
     status: &'static str,
     message: &'static str,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct UpdateStatusResponse {
+    status: String,
+    message: String,
+    before: String,
+    after: String,
+    timestamp: String,
 }
 
 #[derive(Debug, Serialize)]

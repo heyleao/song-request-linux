@@ -180,6 +180,18 @@ http://127.0.0.1:26538/api/v1
 
 If Pear is closed, the song may enter SRL's queue but will not play until Pear is open and the API is active.
 
+## Updating the App
+
+Use `Update from GitHub` in the dashboard. The browser calls the local backend,
+which downloads from GitHub, rebuilds, and restarts the app. After restart, the
+dashboard tells you whether it updated or was already on the latest version.
+
+If the dashboard does not open, use the manual command:
+
+```bash
+./scripts/update-from-github --restart
+```
+
 ## 9. OBS
 
 Add a Browser Source for the overlay.

@@ -51,6 +51,12 @@ Parar:
 
 Atualizar pelo GitHub:
 
+Use o botao `Atualizar pelo GitHub` no painel. Ele chama o backend local,
+baixa o GitHub, recompila e reinicia o app. Ao voltar, o painel informa se
+baixou uma versao nova ou se ja estava atualizado.
+
+Se o painel nao abrir, rode manualmente:
+
 ```bash
 ./scripts/update-from-github --restart
 ```
