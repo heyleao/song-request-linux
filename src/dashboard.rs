@@ -111,7 +111,7 @@ pub async fn page() -> Html<&'static str> {
       gap: 18px;
     }
     .nav-section { display: grid; gap: 7px; }
-    .top-status, .tabs, .actions, .toolbar, .inline-status, .provider-options {
+    .top-status, .tabs, .actions, .actions-inline, .toolbar, .inline-status, .provider-options {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
@@ -672,6 +672,11 @@ pub async fn page() -> Html<&'static str> {
       align-items: stretch;
     }
     .queue, .events, .diagnostics, .endpoints { display: grid; gap: 8px; }
+    .grid-logs .events {
+      max-height: min(68vh, 720px);
+      overflow: auto;
+      padding-right: 4px;
+    }
     .queue-item, .event-row { display: grid; gap: 4px; overflow-wrap: anywhere; }
     .queue-item {
       grid-template-columns: minmax(0, 1fr) auto;
@@ -1296,9 +1301,14 @@ pub async fn page() -> Html<&'static str> {
         <section>
           <div class="toolbar">
             <h2>Logs em tempo real</h2>
-            <button class="secondary" id="refresh-events" type="button">Atualizar</button>
+            <div class="actions-inline">
+              <button class="secondary" id="refresh-events" type="button">Atualizar</button>
+              <button class="danger" id="clear-events" type="button">Apagar logs</button>
+            </div>
           </div>
+          <p class="hint" id="events-limit-label">Mostrando os 30 eventos mais recentes.</p>
           <div class="events" id="events"></div>
+          <div class="message" id="events-message"></div>
         </section>
         <section>
           <h2>Diagnóstico</h2>
@@ -1488,6 +1498,8 @@ pub async fn page() -> Html<&'static str> {
       'Limite streamer': 'Streamer limit',
       'Salvar': 'Save',
       'Logs em tempo real': 'Real-time logs',
+      'Apagar logs': 'Clear logs',
+      'Mostrando os 30 eventos mais recentes.': 'Showing the 30 most recent events.',
       'Guia rápido': 'Quick guide',
       'Guia completo': 'Complete guide',
       '1. Twitch Console': '1. Twitch Console',
@@ -2030,9 +2042,14 @@ pub async fn page() -> Html<&'static str> {
     }
 
     function renderEvents(events) {
+      const visibleLimit = 30;
+      const visibleEvents = events.slice(0, visibleLimit);
       $('event-count').textContent = events.length;
-      const html = events.length
-        ? events.map((event) => `
+      $('events-limit-label').textContent = events.length > visibleLimit
+        ? `Mostrando ${visibleLimit} de ${events.length} eventos mais recentes.`
+        : `Mostrando ${events.length} evento(s).`;
+      const html = visibleEvents.length
+        ? visibleEvents.map((event) => `
             <div class="event-row ${escapeHtml(event.kind)}">
               <strong>${escapeHtml(event.kind)}</strong>
               <span>${escapeHtml(event.message)}</span>
@@ -2406,6 +2423,15 @@ pub async fn page() -> Html<&'static str> {
     $('refresh-queue').addEventListener('click', refresh);
     $('refresh-events').addEventListener('click', refresh);
     $('refresh-events-preview').addEventListener('click', refresh);
+    $('clear-events').addEventListener('click', async () => {
+      try {
+        await api('/api/events', { method: 'DELETE' });
+        setMessage('events-message', 'Logs apagados.');
+        await refresh();
+      } catch (error) {
+        setMessage('events-message', error.message, true);
+      }
+    });
     $('clear-queue').addEventListener('click', async () => {
       try {
         await api('/api/queue', { method: 'DELETE' });

@@ -135,6 +135,10 @@ impl EventLog {
     pub fn recent(&self, limit: usize) -> Vec<AppEvent> {
         self.events.iter().take(limit).cloned().collect()
     }
+
+    pub fn clear(&mut self) {
+        self.events.clear();
+    }
 }
 
 fn unix_now() -> u64 {

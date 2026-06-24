@@ -36,7 +36,7 @@ pub fn router(state: AppState) -> Router {
         .route("/favicon.png", get(logo_srl))
         .route("/api/shutdown", post(shutdown))
         .route("/api/status", get(status))
-        .route("/api/events", get(events))
+        .route("/api/events", get(events).delete(clear_events))
         .route("/api/diagnostics", get(diagnostics))
         .route("/api/update", post(update_from_github))
         .route("/api/update/status", get(update_status))
@@ -191,6 +191,12 @@ async fn update_status(State(state): State<AppState>) -> Json<UpdateStatusRespon
 
 async fn events(State(state): State<AppState>) -> Json<Vec<crate::state::AppEvent>> {
     Json(state.events.read().await.recent(80))
+}
+
+async fn clear_events(State(state): State<AppState>) -> Json<ClearEventsResponse> {
+    state.events.write().await.clear();
+
+    Json(ClearEventsResponse { status: "cleared" })
 }
 
 async fn get_config(State(state): State<AppState>) -> Json<config::UiConfigView> {
@@ -1669,6 +1675,11 @@ impl YoutubePlayerSong {
 
 #[derive(Debug, Serialize)]
 struct ShutdownResponse {
+    status: &'static str,
+}
+
+#[derive(Debug, Serialize)]
+struct ClearEventsResponse {
     status: &'static str,
 }
 
