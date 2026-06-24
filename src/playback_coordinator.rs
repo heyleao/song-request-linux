@@ -5,7 +5,7 @@ use tokio::time::{interval, sleep};
 use crate::{
     config::{self, YoutubePlayback},
     display, pear,
-    song_requests::{RequestSource, SongRequest},
+    song_requests::{MusicProvider, RequestSource, SongRequest},
     spotify,
     state::AppState,
 };
@@ -25,6 +25,7 @@ pub fn spawn(state: AppState) {
 }
 
 async fn coordinate_once(state: &AppState) {
+    let ui_config = config::UiConfigView::load(&state.config.paths);
     if has_local_requests(state).await {
         state
             .spotify_fallback_started
@@ -32,7 +33,15 @@ async fn coordinate_once(state: &AppState) {
         state.pear_idle_stopped.store(false, Ordering::SeqCst);
     }
 
-    if matches!(state.config.youtube.playback, YoutubePlayback::Pear) {
+    if !matches!(ui_config.default_provider, MusicProvider::Spotify) {
+        state
+            .spotify_fallback_started
+            .store(false, Ordering::SeqCst);
+    }
+
+    if matches!(ui_config.default_provider, MusicProvider::Youtube)
+        && matches!(ui_config.youtube_playback, YoutubePlayback::Pear)
+    {
         coordinate_pear_once(state).await;
         return;
     }
@@ -514,9 +523,15 @@ async fn has_local_requests(state: &AppState) -> bool {
 }
 
 async fn start_spotify_fallback_if_idle(state: &AppState) {
-    if !config::UiConfigView::load(&state.config.paths).spotify_fallback_enabled
-        || has_local_requests(state).await
-    {
+    let ui_config = config::UiConfigView::load(&state.config.paths);
+    if !matches!(ui_config.default_provider, MusicProvider::Spotify) {
+        state
+            .spotify_fallback_started
+            .store(false, Ordering::SeqCst);
+        return;
+    }
+
+    if !ui_config.spotify_fallback_enabled || has_local_requests(state).await {
         return;
     }
 
@@ -592,15 +607,14 @@ async fn start_spotify_fallback_if_idle(state: &AppState) {
                 .await;
         }
         Err(error) => {
-            state
-                .spotify_fallback_started
-                .store(false, Ordering::SeqCst);
-            state
-                .record_event(
-                    "error",
-                    format!("Nao consegui iniciar fallback Spotify: {error}"),
-                )
-                .await;
+            if !state.spotify_fallback_started.swap(true, Ordering::SeqCst) {
+                state
+                    .record_event(
+                        "error",
+                        format!("Nao consegui iniciar fallback Spotify: {error}"),
+                    )
+                    .await;
+            }
         }
     }
 }
