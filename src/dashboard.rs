@@ -1831,12 +1831,12 @@ pub async fn page() -> Html<&'static str> {
         } else if (mode === 'youtube_pear') {
           $('setup-provider-requirements').innerHTML = [
             requirementRow('warn', 'YouTube API para busca', 'Necessária para pedidos por nome. Links diretos do YouTube usam menos API.'),
-            requirementRow('warn', 'Playback Pear Desktop', 'Abra o Pear, faça login no Pear/YouTube se necessário e ative o API Server na porta 26538.')
+            requirementRow(diagnostics.runtime?.pear?.available ? 'ok' : 'warn', 'Playback Pear Desktop', diagnostics.runtime?.pear?.available ? 'Pear Desktop encontrado. Confira se o API Server esta ativo na porta 26538.' : 'Abra o Pear, faça login no Pear/YouTube se necessário e ative o API Server na porta 26538.')
           ].join('');
         } else {
           $('setup-provider-requirements').innerHTML = [
             requirementRow('warn', 'YouTube API para busca', 'Necessária para pedidos por nome. Links diretos do YouTube usam menos API.'),
-            requirementRow('warn', 'Playback OBS Browser', 'Adicione http://127.0.0.1:7384/player como Browser Source e monitore o áudio no OBS.')
+            requirementRow(diagnostics.runtime?.yt_dlp?.available ? 'ok' : 'bad', 'yt-dlp para OBS Browser', diagnostics.runtime?.yt_dlp?.available ? 'yt-dlp encontrado. O player /player consegue resolver audio do YouTube.' : 'Instale yt-dlp para o modo YouTube/OBS Browser tocar audio no /player.')
           ].join('');
         }
       }
@@ -1915,7 +1915,7 @@ pub async fn page() -> Html<&'static str> {
       `;
     }
 
-    function renderProviderRequirements(config, connections, pear) {
+    function renderProviderRequirements(config, connections, pear, diagnostics = {}) {
       const mode = operationModeFromConfig(config);
       const provider = operationModeLabel(mode);
       $('setup-active-provider').textContent = provider;
@@ -1965,11 +1965,11 @@ pub async fn page() -> Html<&'static str> {
             : 'Preencha ao menos uma API Key para buscar música por nome. Link direto do YouTube ainda é o caminho mais leve.'
         ),
         requirementRow(
-          pearMode ? pear.reachable ? 'ok' : 'bad' : 'ok',
-          pearMode ? 'Playback Pear Desktop' : 'Playback OBS Browser',
+          pearMode ? pear.reachable ? 'ok' : 'bad' : diagnostics.runtime?.yt_dlp?.available ? 'ok' : 'bad',
+          pearMode ? 'Playback Pear Desktop' : 'yt-dlp para OBS Browser',
           pearMode
             ? pear.reachable ? 'Pear respondeu na API local. Login Google/YouTube fica dentro do Pear, não na API Key do SRL.' : 'Abra o Pear Desktop e confira o plugin API Server na porta 26538.'
-            : 'Adicione http://127.0.0.1:7384/player como fonte de navegador no OBS e monitore o áudio pelo OBS.'
+            : diagnostics.runtime?.yt_dlp?.available ? 'yt-dlp encontrado. O player /player consegue resolver audio do YouTube.' : 'Instale yt-dlp para o modo YouTube/OBS Browser tocar audio no /player.'
         ),
         requirementRow(
           'warn',
@@ -2130,7 +2130,7 @@ pub async fn page() -> Html<&'static str> {
       $('youtube-dot').className = stateClass(youtubeReady, config.default_provider !== 'youtube' || config.youtube_api_key_configured || config.youtube_playback === 'pear');
       const mode = operationModeFromConfig(config);
       paintOperationMode(mode);
-      renderProviderRequirements(config, connections, pear);
+      renderProviderRequirements(config, connections, pear, diagnostics);
       renderSpotifyFallback(connections, config);
 
       const rows = [
@@ -2139,7 +2139,10 @@ pub async fn page() -> Html<&'static str> {
         ['YouTube', config.default_provider === 'youtube' ? `${config.youtube_playback === 'pear' ? 'Pear Desktop' : 'OBS Browser'} - ${config.youtube_api_key_configured ? `${config.youtube_api_key_count || 1} api key(s)` : 'api key pendente'}` : 'inativo'],
         ['Pear Desktop', pear.configured ? pear.reachable ? 'conectado' : 'não encontrado' : 'desativado'],
         ['Pear atual', pear.now_playing || '-'],
-        ['Logs', diagnostics.storage.log_dir.exists ? 'ok' : 'pendente']
+        ['Logs', diagnostics.storage.log_dir.exists ? 'ok' : 'pendente'],
+        ['Runtime', diagnostics.runtime?.setsid?.available ? 'launcher ok' : 'setsid ausente'],
+        ['OBS Browser', diagnostics.runtime?.yt_dlp?.available ? 'yt-dlp ok' : 'yt-dlp pendente'],
+        ['Pear Desktop', diagnostics.runtime?.pear?.available ? 'app encontrado' : 'opcional ausente']
       ];
       const html = rows.map(([label, value]) => `
         <div class="diagnostic-row"><span>${escapeHtml(label)}</span><code>${escapeHtml(value)}</code></div>

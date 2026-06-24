@@ -29,7 +29,27 @@ configure o player e adicione o overlay no OBS.
 
 ## Instalar
 
-No CachyOS/Arch, use o instalador amigavel:
+### Pacote tar.gz
+
+O pacote `.tar.gz` ja traz o binario compilado. O usuario comum nao precisa instalar Rust, Cargo ou Git.
+
+```bash
+tar -xzf song-request-linux-0.1.5-linux-x86_64.tar.gz
+cd song-request-linux-0.1.5-linux-x86_64
+./scripts/check-runtime-prereqs
+./scripts/install-desktop-entry
+./scripts/song-request-linux-open
+```
+
+Pre-requisitos opcionais por modo:
+
+- `Spotify`: app Spotify aberto no PC e conta Premium.
+- `YouTube/Pear`: Pear Desktop instalado, aberto e com API Server ativo.
+- `YouTube/OBS`: `yt-dlp` instalado para o player `/player` resolver audio do YouTube.
+
+### CachyOS/Arch via Git
+
+Use o instalador amigavel se quiser atualizar direto pelo GitHub:
 
 ```bash
 git clone https://github.com/heyleao/song-request-linux.git

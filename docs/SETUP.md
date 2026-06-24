@@ -7,7 +7,25 @@ Faca um passo por vez.
 
 ## 1. Instalar e abrir
 
-No CachyOS/Arch:
+Pacote `.tar.gz`:
+
+```bash
+tar -xzf song-request-linux-0.1.5-linux-x86_64.tar.gz
+cd song-request-linux-0.1.5-linux-x86_64
+./scripts/check-runtime-prereqs
+./scripts/install-desktop-entry
+./scripts/song-request-linux-open
+```
+
+O pacote ja traz o app compilado. Rust, Cargo e Git so sao necessarios para instalacao via repositorio.
+
+Opcionais por modo:
+
+- Spotify: app Spotify aberto no PC e conta Premium.
+- YouTube/Pear: Pear Desktop aberto com API Server ativo.
+- YouTube/OBS: `yt-dlp` instalado para tocar audio no `/player`.
+
+No CachyOS/Arch via Git:
 
 ```bash
 git clone https://github.com/heyleao/song-request-linux.git

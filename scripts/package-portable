@@ -65,6 +65,7 @@ rm -rf "$stage" "$archive" "$archive.sha256"
 mkdir -p "$stage/bin" "$stage/scripts" "$stage/assets" "$stage/docs/images"
 
 install -m 0755 "$bin" "$stage/bin/song-request-linux"
+install -m 0755 scripts/check-runtime-prereqs "$stage/scripts/check-runtime-prereqs"
 install -m 0755 scripts/song-request-linux-open "$stage/scripts/song-request-linux-open"
 install -m 0755 scripts/song-request-linux-stop "$stage/scripts/song-request-linux-stop"
 install -m 0755 scripts/install-desktop-entry "$stage/scripts/install-desktop-entry"

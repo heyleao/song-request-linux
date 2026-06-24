@@ -4,7 +4,25 @@ This is the short recipe to get Song Request Linux ready for a stream. Do one st
 
 ## 1. Install and Open
 
-On CachyOS/Arch:
+`.tar.gz` package:
+
+```bash
+tar -xzf song-request-linux-0.1.5-linux-x86_64.tar.gz
+cd song-request-linux-0.1.5-linux-x86_64
+./scripts/check-runtime-prereqs
+./scripts/install-desktop-entry
+./scripts/song-request-linux-open
+```
+
+The package already includes the compiled app. Rust, Cargo, and Git are only needed for repository installs.
+
+Optional by mode:
+
+- Spotify: Spotify app open on the stream PC and a Premium account.
+- YouTube/Pear: Pear Desktop open with API Server enabled.
+- YouTube/OBS: `yt-dlp` installed so `/player` can resolve YouTube audio.
+
+On CachyOS/Arch via Git:
 
 ```bash
 git clone https://github.com/heyleao/song-request-linux.git

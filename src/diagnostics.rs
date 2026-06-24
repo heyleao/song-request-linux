@@ -1,3 +1,5 @@
+use std::{env, path::Path};
+
 use serde::Serialize;
 
 use crate::config::AppConfig;
@@ -8,6 +10,7 @@ pub struct DiagnosticsResponse {
     pub storage: StorageDiagnostics,
     pub secrets: SecretsDiagnostics,
     pub integrations: IntegrationDiagnostics,
+    pub runtime: RuntimeDiagnostics,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -35,6 +38,22 @@ pub struct IntegrationDiagnostics {
     pub twitch: IntegrationStatus,
     pub spotify: IntegrationStatus,
     pub youtube: IntegrationStatus,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct RuntimeDiagnostics {
+    pub setsid: CommandCheck,
+    pub curl: CommandCheck,
+    pub xdg_open: CommandCheck,
+    pub ss: CommandCheck,
+    pub yt_dlp: CommandCheck,
+    pub pear: CommandCheck,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct CommandCheck {
+    pub command: &'static str,
+    pub available: bool,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -73,8 +92,39 @@ impl DiagnosticsResponse {
                     authenticated: false,
                 },
             },
+            runtime: RuntimeDiagnostics {
+                setsid: CommandCheck::new("setsid"),
+                curl: CommandCheck::new("curl"),
+                xdg_open: CommandCheck::new("xdg-open"),
+                ss: CommandCheck::new("ss"),
+                yt_dlp: CommandCheck::new("yt-dlp"),
+                pear: CommandCheck {
+                    command: "pear/pear-desktop",
+                    available: command_exists("pear") || command_exists("pear-desktop"),
+                },
+            },
         }
     }
+}
+
+impl CommandCheck {
+    fn new(command: &'static str) -> Self {
+        Self {
+            command,
+            available: command_exists(command),
+        }
+    }
+}
+
+fn command_exists(command: &str) -> bool {
+    let Some(paths) = env::var_os("PATH") else {
+        return false;
+    };
+
+    env::split_paths(&paths).any(|path| {
+        let candidate = path.join(command);
+        Path::new(&candidate).is_file()
+    })
 }
 
 impl PathCheck {

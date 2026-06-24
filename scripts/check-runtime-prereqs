@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+BIN="$APP_DIR/bin/song-request-linux"
+[[ -x "$BIN" ]] || BIN="$APP_DIR/target/release/song-request-linux"
+
+errors=0
+warns=0
+
+ok() { printf 'OK     %s\n' "$1"; }
+warn() { printf 'AVISO  %s\n' "$1"; warns=$((warns + 1)); }
+fail() { printf 'FALTA  %s\n' "$1"; errors=$((errors + 1)); }
+need_cmd() {
+  if command -v "$1" >/dev/null 2>&1; then ok "$2"; else fail "$2"; fi
+}
+want_cmd() {
+  if command -v "$1" >/dev/null 2>&1; then ok "$2"; else warn "$2"; fi
+}
+
+printf '== Song Request Linux pre-flight ==\n'
+printf 'Pasta: %s\n' "$APP_DIR"
+
+arch="$(uname -m 2>/dev/null || echo unknown)"
+case "$arch" in
+  x86_64|amd64) ok "Arquitetura x86_64" ;;
+  *) warn "Arquitetura detectada: $arch. Use pacote gerado para esta arquitetura." ;;
+esac
+
+if [[ -x "$BIN" ]]; then
+  ok "Binario encontrado: $BIN"
+  if command -v ldd >/dev/null 2>&1; then
+    if ldd "$BIN" 2>/dev/null | grep -q 'not found'; then
+      fail "Biblioteca dinamica ausente para o binario"
+      ldd "$BIN" | grep 'not found' || true
+    else
+      ok "Bibliotecas do binario resolvidas"
+    fi
+  else
+    warn "ldd nao encontrado; nao consegui validar bibliotecas dinamicas"
+  fi
+elif [[ -d "$APP_DIR/.git" ]] && command -v cargo >/dev/null 2>&1; then
+  ok "Binario ainda nao existe, mas cargo esta disponivel para compilar instalacao via repositorio"
+else
+  fail "Binario nao encontrado. No pacote tar.gz ele deve estar em bin/song-request-linux."
+fi
+
+need_cmd setsid "setsid para iniciar o app em segundo plano"
+want_cmd xdg-open "xdg-open para abrir o navegador automaticamente"
+want_cmd curl "curl para healthcheck e encerramento amigavel"
+want_cmd ss "ss para detectar porta 7384 ja em uso"
+
+if command -v yt-dlp >/dev/null 2>&1; then
+  ok "yt-dlp para YouTube via OBS Browser"
+else
+  warn "yt-dlp ausente. Necessario apenas para YouTube via OBS Browser (/player)."
+fi
+
+if command -v pear >/dev/null 2>&1 || command -v pear-desktop >/dev/null 2>&1; then
+  ok "Pear Desktop encontrado"
+else
+  warn "Pear Desktop nao encontrado no PATH. Necessario apenas para YouTube via Pear."
+fi
+
+if [[ -d "$APP_DIR/.git" ]]; then
+  want_cmd git "git para atualizar pelo GitHub"
+  want_cmd cargo "cargo/rust para recompilar instalacao via repositorio"
+else
+  warn "Pacote portatil sem .git: atualize baixando um tar.gz novo. O botao de update pelo GitHub e para instalacao via repositorio."
+fi
+
+printf '\nResumo: %s erro(s), %s aviso(s).\n' "$errors" "$warns"
+if (( errors > 0 )); then
+  exit 1
+fi

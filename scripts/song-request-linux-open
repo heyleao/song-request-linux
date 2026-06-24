@@ -9,17 +9,32 @@ URL="http://127.0.0.1:7384/"
 
 mkdir -p "$LOG_DIR"
 
+open_dashboard() {
+  if command -v xdg-open >/dev/null 2>&1; then
+    xdg-open "$URL" >/dev/null 2>&1 || true
+  else
+    echo "Abra no navegador: $URL"
+  fi
+}
+
+if [[ -x "$APP_DIR/scripts/check-runtime-prereqs" ]]; then
+  "$APP_DIR/scripts/check-runtime-prereqs" >>"$LOG_FILE" 2>&1 || {
+    echo "Pre-requisitos obrigatorios ausentes. Veja $LOG_FILE" >&2
+    exit 1
+  }
+fi
+
 is_running() {
   [[ -f "$PID_FILE" ]] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null
 }
 
 if is_running; then
-  xdg-open "$URL" >/dev/null 2>&1 || true
+  open_dashboard
   exit 0
 fi
 
-if ss -ltn 'sport = :7384' | grep -q ':7384'; then
-  xdg-open "$URL" >/dev/null 2>&1 || true
+if command -v ss >/dev/null 2>&1 && ss -ltn 'sport = :7384' | grep -q ':7384'; then
+  open_dashboard
   exit 0
 fi
 
@@ -43,13 +58,19 @@ fi
 setsid "$BIN" >>"$LOG_FILE" 2>&1 < /dev/null &
 echo "$!" >"$PID_FILE"
 
-for _ in {1..50}; do
-  if curl -fsS "http://127.0.0.1:7384/health" >/dev/null 2>&1; then
-    xdg-open "$URL" >/dev/null 2>&1 || true
-    exit 0
-  fi
-  sleep 0.1
-done
+if command -v curl >/dev/null 2>&1; then
+  for _ in {1..50}; do
+    if curl -fsS "http://127.0.0.1:7384/health" >/dev/null 2>&1; then
+      open_dashboard
+      exit 0
+    fi
+    sleep 0.1
+  done
 
-echo "Song Request Linux iniciou, mas o health check nao respondeu. Veja $LOG_FILE" >&2
-exit 1
+  echo "Song Request Linux iniciou, mas o health check nao respondeu. Veja $LOG_FILE" >&2
+  exit 1
+fi
+
+sleep 1
+open_dashboard
+echo "curl nao encontrado; healthcheck pulado. Se nao abrir, veja $LOG_FILE"
