@@ -779,13 +779,35 @@ pub async fn page() -> Html<&'static str> {
     .update-notice strong { color: var(--warn); text-transform: uppercase; font-size: 11px; }
     .top-update-button { display: none; min-height: 30px; padding: 5px 10px; }
     .top-update-button.visible { display: inline-flex; }
+    .update-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 80;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+      background: rgba(5, 9, 14, .72);
+      backdrop-filter: blur(8px);
+    }
+    .update-overlay[hidden] { display: none; }
+    .update-dialog {
+      width: min(620px, 100%);
+      border: 1px solid rgba(90, 169, 255, .28);
+      border-radius: 10px;
+      background: #111820;
+      box-shadow: 0 24px 80px rgba(0, 0, 0, .42);
+      padding: 18px;
+      display: grid;
+      gap: 14px;
+    }
+    .update-dialog h2 { margin: 0; font-size: 22px; }
+    .update-dialog p { margin: 0; color: var(--muted); line-height: 1.45; }
     .update-progress {
       display: none;
-      height: 8px;
+      height: 10px;
       overflow: hidden;
       border-radius: 999px;
       background: rgba(154, 166, 181, .16);
-      margin-top: 10px;
     }
     .update-progress.visible { display: block; }
     .update-progress-bar {
@@ -794,6 +816,23 @@ pub async fn page() -> Html<&'static str> {
       border-radius: inherit;
       background: linear-gradient(90deg, var(--action), var(--ok));
       animation: update-progress-move 1.1s ease-in-out infinite;
+    }
+    .update-panel {
+      display: none;
+      max-height: 240px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #0b1117;
+      padding: 12px;
+    }
+    .update-panel.visible { display: block; }
+    .update-panel pre {
+      margin: 0;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      color: var(--soft);
+      font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     }
     @keyframes update-progress-move {
       0% { transform: translateX(-110%); }
@@ -879,6 +918,21 @@ pub async fn page() -> Html<&'static str> {
     <div class="unsaved-actions">
       <button id="global-save-setup" type="button">Salvar configuração</button>
       <button class="secondary" id="discard-setup" type="button">Descartar</button>
+    </div>
+  </div>
+  <div class="update-overlay" id="update-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="update-overlay-title">
+    <div class="update-dialog">
+      <div>
+        <h2 id="update-overlay-title">Atualizando SRL</h2>
+        <p id="update-overlay-message">Baixando e aplicando atualização.</p>
+      </div>
+      <div class="update-progress" id="update-progress" aria-hidden="true"><div class="update-progress-bar"></div></div>
+      <div class="actions">
+        <button class="secondary" id="update-cancel" type="button">Cancelar</button>
+        <button class="secondary" id="update-log-toggle" type="button">Log</button>
+      </div>
+      <div class="update-panel" id="update-log-panel"><pre id="update-log-text">Aguardando log...</pre></div>
+      <div class="update-panel" id="update-changelog-panel"><pre id="update-changelog-text">Changelog indisponível.</pre></div>
     </div>
   </div>
   <div class="app-shell">
@@ -1386,7 +1440,6 @@ pub async fn page() -> Html<&'static str> {
             <div class="endpoint-row with-action"><span>Remover app</span><code>./scripts/uninstall-user</code><button class="secondary icon-button copy-button" type="button" data-copy-value="./scripts/uninstall-user" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
           </div>
           <p class="hint">Atualizar preserva configuracao, tokens e logs. A fila so volta se a persistencia da fila estiver ligada.</p>
-          <div class="update-progress" id="update-progress" aria-hidden="true"><div class="update-progress-bar"></div></div>
           <div class="message" id="update-message"></div>
         </section>
       </div>
@@ -1399,6 +1452,8 @@ pub async fn page() -> Html<&'static str> {
     const $ = (id) => document.getElementById(id);
     let setupDirty = false;
     let lastConfig = null;
+    let latestUpdate = null;
+    let updateStatusTimer = null;
     let desiredVolume = null;
     let volumeTimer = null;
     let volumeInFlight = false;
@@ -2045,13 +2100,43 @@ pub async fn page() -> Html<&'static str> {
     }
 
     function setUpdateProgress(active) {
-      $('update-progress')?.classList.toggle('visible', Boolean(active));
-      $('update-progress')?.setAttribute('aria-hidden', active ? 'false' : 'true');
+      const running = Boolean(active);
+      $('update-overlay').hidden = !running;
+      $('update-progress')?.classList.toggle('visible', running);
+      $('update-progress')?.setAttribute('aria-hidden', running ? 'false' : 'true');
+      $('update-cancel').textContent = running ? 'Cancelar' : 'Fechar';
+    }
+
+    function showUpdateOverlay(message = '') {
+      $('update-overlay').hidden = false;
+      if (message) $('update-overlay-message').textContent = message;
+      renderUpdateChangelog();
+    }
+
+    function renderUpdateChangelog() {
+      const text = latestUpdate?.changelog?.trim() || 'Changelog indisponível.';
+      $('update-changelog-text').textContent = text;
+    }
+
+    function setUpdateLog(text) {
+      $('update-log-text').textContent = text?.trim() || 'Log ainda não disponível.';
+    }
+
+    function stopUpdatePolling() {
+      if (updateStatusTimer) clearInterval(updateStatusTimer);
+      updateStatusTimer = null;
+    }
+
+    function startUpdatePolling() {
+      stopUpdatePolling();
+      updateStatusTimer = setInterval(() => refreshUpdateStatus(false), 2500);
     }
 
     function renderLatestUpdate(update) {
       const notice = $('update-notice');
       const text = $('update-notice-text');
+      latestUpdate = update;
+      renderUpdateChangelog();
       const button = $('update-app');
       if (!notice || !text || !update) return;
       const available = Boolean(update.update_available);
@@ -2082,9 +2167,19 @@ pub async fn page() -> Html<&'static str> {
         if (!showEmpty && (!status || status.status === 'none')) return;
         const isRunning = status.status === 'running';
         const isError = status.status === 'failed' || status.status === 'unknown';
+        setUpdateLog(status.log_tail || '');
         setUpdateProgress(isRunning);
+        if (isRunning) {
+          showUpdateOverlay(status.message || 'Atualizacao em andamento.');
+          startUpdatePolling();
+        } else if (status.status !== 'none') {
+          stopUpdatePolling();
+          showUpdateOverlay(status.message || 'Atualizacao finalizada.');
+          $('update-overlay-title').textContent = isError ? 'Atualização falhou' : 'Atualização finalizada';
+          $('update-changelog-panel').classList.add('visible');
+          localStorage.removeItem('song-request-linux-update-pending');
+        }
         setMessage('update-message', status.message || 'Status de atualizacao indisponivel.', isError);
-        if (!isRunning && status.status !== 'none') localStorage.removeItem('song-request-linux-update-pending');
       } catch (_) {
         if (showEmpty) setMessage('update-message', 'Nao foi possivel ler o status da atualizacao.', true);
       }
@@ -2680,7 +2775,12 @@ pub async fn page() -> Html<&'static str> {
     $('update-app')?.addEventListener('click', async () => {
       try {
         $('update-app').disabled = true;
+        $('update-overlay-title').textContent = 'Atualizando SRL';
+        $('update-log-panel').classList.remove('visible');
+        $('update-changelog-panel').classList.remove('visible');
+        setUpdateLog('Iniciando atualização...');
         setUpdateProgress(true);
+        showUpdateOverlay('Baixando e aplicando atualização. O app pode reiniciar automaticamente.');
         setMessage('update-message', 'Atualizacao em andamento. Pode fechar esta pagina; o app vai reiniciar e abrir novamente quando terminar.');
         const result = await api('/api/update', {
           method: 'POST',
@@ -2688,13 +2788,29 @@ pub async fn page() -> Html<&'static str> {
         });
         setMessage('update-message', result.message || 'Atualizacao iniciada. Pode fechar esta pagina; o app vai abrir novamente.');
         localStorage.setItem('song-request-linux-update-pending', '1');
-        setTimeout(() => refreshUpdateStatus(false), 2500);
+        startUpdatePolling();
+        setTimeout(() => refreshUpdateStatus(false), 1200);
         setTimeout(() => refreshUpdateStatus(false), 8000);
       } catch (error) {
         $('update-app').disabled = false;
         setUpdateProgress(false);
+        showUpdateOverlay(error.message);
+        $('update-overlay-title').textContent = 'Atualização falhou';
+        $('update-changelog-panel').classList.add('visible');
         setMessage('update-message', error.message, true);
       }
+    });
+
+    $('update-cancel')?.addEventListener('click', () => {
+      stopUpdatePolling();
+      localStorage.removeItem('song-request-linux-update-pending');
+      $('update-overlay').hidden = true;
+      setUpdateProgress(false);
+    });
+
+    $('update-log-toggle')?.addEventListener('click', () => {
+      $('update-log-panel').classList.toggle('visible');
+      $('update-changelog-panel').classList.toggle('visible');
     });
 
     $('instance-takeover').addEventListener('click', () => {

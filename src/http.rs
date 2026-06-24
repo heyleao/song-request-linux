@@ -221,18 +221,21 @@ async fn update_latest() -> Result<Json<UpdateLatestResponse>, ApiError> {
         release_url: release.html_url,
         update_available,
         message,
+        changelog: release.body.unwrap_or_default(),
     }))
 }
 
 async fn update_status(State(state): State<AppState>) -> Json<UpdateStatusResponse> {
     let path = state.config.paths.state_dir.join("update-status.json");
-    let status = match tokio::fs::read_to_string(path).await {
+    let log_path = state.config.paths.log_dir.join("update.log");
+    let mut status = match tokio::fs::read_to_string(path).await {
         Ok(contents) => serde_json::from_str(&contents).unwrap_or_else(|_| UpdateStatusResponse {
             status: "unknown".to_string(),
             message: "Nao foi possivel ler o status da ultima atualizacao.".to_string(),
             before: String::new(),
             after: String::new(),
             timestamp: String::new(),
+            log_tail: String::new(),
         }),
         Err(_) => UpdateStatusResponse {
             status: "none".to_string(),
@@ -240,10 +243,25 @@ async fn update_status(State(state): State<AppState>) -> Json<UpdateStatusRespon
             before: String::new(),
             after: String::new(),
             timestamp: String::new(),
+            log_tail: String::new(),
         },
     };
+    status.log_tail = read_update_log_tail(&log_path).await;
 
     Json(status)
+}
+
+async fn read_update_log_tail(path: &std::path::Path) -> String {
+    match tokio::fs::read_to_string(path).await {
+        Ok(contents) => {
+            let lines: Vec<&str> = contents.lines().rev().take(80).collect();
+            lines.into_iter().rev().collect::<Vec<_>>().join(
+                "
+",
+            )
+        }
+        Err(_) => String::new(),
+    }
 }
 
 async fn events(State(state): State<AppState>) -> Json<Vec<crate::state::AppEvent>> {
@@ -1671,6 +1689,7 @@ async fn not_found() -> impl IntoResponse {
 struct GithubReleaseResponse {
     tag_name: String,
     html_url: String,
+    body: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -1681,6 +1700,7 @@ struct UpdateLatestResponse {
     release_url: String,
     update_available: bool,
     message: String,
+    changelog: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -1784,13 +1804,15 @@ struct UpdateResponse {
     message: &'static str,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize)]
+#[serde(default)]
 struct UpdateStatusResponse {
     status: String,
     message: String,
     before: String,
     after: String,
     timestamp: String,
+    log_tail: String,
 }
 
 #[derive(Debug, Serialize)]

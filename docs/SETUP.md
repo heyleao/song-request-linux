@@ -10,8 +10,8 @@ Faca um passo por vez.
 Pacote `.tar.gz`:
 
 ```bash
-tar -xzf song-request-linux-0.1.9-linux-x86_64.tar.gz
-cd song-request-linux-0.1.9-linux-x86_64
+tar -xzf song-request-linux-0.1.10-linux-x86_64.tar.gz
+cd song-request-linux-0.1.10-linux-x86_64
 ./scripts/check-runtime-prereqs
 ./scripts/install-desktop-entry
 ./scripts/song-request-linux-open
@@ -47,7 +47,7 @@ http://127.0.0.1:7384/
 
 ### Windows experimental
 
-1. Baixe `song-request-linux-0.1.9-windows-x86_64.zip`.
+1. Baixe `song-request-linux-0.1.10-windows-x86_64.zip`.
 2. Extraia o `.zip`.
 3. Dê dois cliques em `Start-SongRequestLinux.cmd`.
 4. O painel abre em `http://127.0.0.1:7384/`.
