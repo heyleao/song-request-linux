@@ -3,7 +3,9 @@ use anyhow::{anyhow, bail, Context, Result};
 use crate::{
     commands::ChatUserRole,
     config,
-    song_requests::{MusicProvider, RequestSource, SongRequest, SongRequestInput},
+    song_requests::{
+        MusicProvider, RequestSource, SongRequest, SongRequestInput, YoutubeRequestPlayback,
+    },
     spotify,
     state::AppState,
     youtube,
@@ -25,7 +27,7 @@ pub async fn add_request_for_role(
 async fn add_request_unchecked(state: &AppState, input: SongRequestInput) -> Result<SongRequest> {
     let default_provider = config::UiConfigView::load(&state.config.paths).default_provider;
 
-    if let RequestSource::Youtube { video_id } =
+    if let RequestSource::Youtube { video_id, .. } =
         RequestSource::from_query_public(&input.query, default_provider)
     {
         if matches!(default_provider, MusicProvider::Spotify) {
@@ -87,12 +89,22 @@ async fn add_youtube_url_request(
         id: 0,
         requester: input.requester.trim().to_string(),
         query: input.query.trim().to_string(),
-        source: RequestSource::Youtube { video_id },
+        source: RequestSource::Youtube {
+            video_id,
+            playback: Some(current_youtube_request_playback(state)),
+        },
         title,
         artist,
     };
 
     add_resolved_and_persist(state, request).await
+}
+
+fn current_youtube_request_playback(state: &AppState) -> YoutubeRequestPlayback {
+    match config::UiConfigView::load(&state.config.paths).youtube_playback {
+        config::YoutubePlayback::Pear => YoutubeRequestPlayback::Pear,
+        config::YoutubePlayback::Browser => YoutubeRequestPlayback::Browser,
+    }
 }
 
 async fn add_youtube_search_request(
@@ -106,6 +118,7 @@ async fn add_youtube_search_request(
         query: input.query.trim().to_string(),
         source: RequestSource::Youtube {
             video_id: metadata.video_id,
+            playback: Some(current_youtube_request_playback(state)),
         },
         title: metadata.title,
         artist: metadata.channel_title,

@@ -175,6 +175,7 @@ mod tests {
             query: "test".to_string(),
             source: RequestSource::Youtube {
                 video_id: "abc123".to_string(),
+                playback: None,
             },
             title: "Breaking the Habit (Official Music Video) [HD UPGRADE] – Linkin Park"
                 .to_string(),

@@ -12,7 +12,7 @@ use crate::{
     commands::{parse_chat_command, ChatCommand, ChatCommandInput, ChatUserRole, PlaybackAction},
     config::{self, TwitchBotSecrets, YoutubePlayback},
     display, request_flow,
-    song_requests::MusicProvider,
+    song_requests::{MusicProvider, QueueView, RequestSource, SongRequest, YoutubeRequestPlayback},
     state::AppState,
 };
 
@@ -462,7 +462,7 @@ async fn current_song_reply(state: &AppState) -> String {
         MusicProvider::Youtube => {}
     }
 
-    let queue = state.queue.read().await.view();
+    let queue = active_app_queue_view(state).await;
     match queue.current_song {
         Some(song) => format!(
             "Tocando agora: {} - pedido por {}",
@@ -536,7 +536,7 @@ fn pear_queue_item_label(item: &crate::pear::PearQueueDisplayItem) -> String {
 }
 
 async fn app_queue_reply(state: &AppState) -> String {
-    let queue = state.queue.read().await.view();
+    let queue = active_app_queue_view(state).await;
     let current = queue.current_song.map(|song| {
         format!(
             "Tocando agora: {} por {}",
@@ -701,6 +701,74 @@ async fn current_volume_reply(state: &AppState) -> String {
     }
 }
 
+async fn active_app_queue_view(state: &AppState) -> QueueView {
+    match current_provider(state) {
+        MusicProvider::Spotify => {
+            filtered_app_queue_view(state, MusicProvider::Spotify, None).await
+        }
+        MusicProvider::Youtube => {
+            let playback = match current_youtube_playback(state) {
+                YoutubePlayback::Pear => YoutubeRequestPlayback::Pear,
+                YoutubePlayback::Browser => YoutubeRequestPlayback::Browser,
+            };
+            filtered_app_queue_view(state, MusicProvider::Youtube, Some(playback)).await
+        }
+    }
+}
+
+async fn filtered_app_queue_view(
+    state: &AppState,
+    provider: MusicProvider,
+    playback: Option<YoutubeRequestPlayback>,
+) -> QueueView {
+    let view = state.queue.read().await.view();
+    let mut requests = Vec::new();
+    if let Some(song) = view.current_song {
+        requests.push(song);
+    }
+    requests.extend(view.queue);
+    let mut requests = requests
+        .into_iter()
+        .filter(|song| request_matches_stream(song, provider, playback))
+        .collect::<Vec<_>>();
+    let current_song = requests.first().cloned();
+    if current_song.is_some() {
+        requests.remove(0);
+    }
+    QueueView {
+        current_song,
+        queue_length: requests.len(),
+        queue: requests,
+        persistence: None,
+    }
+}
+
+fn request_matches_stream(
+    song: &SongRequest,
+    provider: MusicProvider,
+    playback: Option<YoutubeRequestPlayback>,
+) -> bool {
+    match provider {
+        MusicProvider::Spotify => matches!(
+            song.source,
+            RequestSource::Spotify { .. }
+                | RequestSource::Search {
+                    provider: MusicProvider::Spotify
+                }
+        ),
+        MusicProvider::Youtube => match (&song.source, playback) {
+            (
+                RequestSource::Youtube {
+                    playback: Some(source_playback),
+                    ..
+                },
+                Some(active_playback),
+            ) => *source_playback == active_playback,
+            _ => false,
+        },
+    }
+}
+
 fn current_provider(state: &AppState) -> MusicProvider {
     config::UiConfigView::load(&state.config.paths).default_provider
 }
@@ -731,8 +799,30 @@ async fn save_queue_if_enabled(state: &AppState) {
 
 async fn local_browser_skip_reply(state: &AppState, requester: &str) -> String {
     state.youtube_browser_paused.store(false, Ordering::SeqCst);
-    let current_song = state.queue.write().await.skip();
-    save_queue_if_enabled(state).await;
+    let current_id = filtered_app_queue_view(
+        state,
+        MusicProvider::Youtube,
+        Some(YoutubeRequestPlayback::Browser),
+    )
+    .await
+    .current_song
+    .map(|song| song.id);
+
+    let current_song = if let Some(id) = current_id {
+        let mut queue = state.queue.write().await;
+        queue.remove_by_id(id);
+        drop(queue);
+        save_queue_if_enabled(state).await;
+        filtered_app_queue_view(
+            state,
+            MusicProvider::Youtube,
+            Some(YoutubeRequestPlayback::Browser),
+        )
+        .await
+        .current_song
+    } else {
+        None
+    };
 
     match current_song {
         Some(song) => format!(
@@ -845,7 +935,37 @@ mod tests {
 
     #[tokio::test]
     async fn app_queue_reply_shows_current_and_upcoming_requests() {
-        let config = crate::config::AppConfig::from_env().expect("config");
+        let mut config = crate::config::AppConfig::from_env().expect("config");
+        let unique = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("time")
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("song-request-linux-twitch-{unique}"));
+        config.paths.config_dir = root.join("config");
+        config.paths.state_dir = root.join("state");
+        config.paths.queue_file = config.paths.state_dir.join("queue.json");
+        crate::config::save_ui_config(
+            &config.paths,
+            crate::config::UiConfigInput {
+                default_provider: MusicProvider::Youtube,
+                youtube_playback: YoutubePlayback::Browser,
+                pear_base_url: None,
+                spotify_client_id: None,
+                spotify_fallback_enabled: false,
+                queue_persistence_enabled: false,
+                twitch_client_id: None,
+                twitch_bot_username: None,
+                twitch_channel: None,
+                twitch_bot_oauth_token: None,
+                youtube_api_key: None,
+                youtube_max_duration_seconds: Some(360),
+                youtube_allow_non_music: false,
+                command_settings: None,
+                queue_limits: Some(crate::config::QueueLimitConfig::default()),
+                overlay: None,
+            },
+        )
+        .expect("save config");
         let state = AppState::new(config);
         state.queue.write().await.clear();
         state
@@ -858,6 +978,7 @@ mod tests {
                 query: "https://youtu.be/current".to_string(),
                 source: crate::song_requests::RequestSource::Youtube {
                     video_id: "current".to_string(),
+                    playback: Some(crate::song_requests::YoutubeRequestPlayback::Browser),
                 },
                 title: "Current Song".to_string(),
                 artist: "Current Artist".to_string(),
@@ -872,6 +993,7 @@ mod tests {
                 query: "https://youtu.be/next".to_string(),
                 source: crate::song_requests::RequestSource::Youtube {
                     video_id: "next".to_string(),
+                    playback: Some(crate::song_requests::YoutubeRequestPlayback::Browser),
                 },
                 title: "Next Song".to_string(),
                 artist: "Next Artist".to_string(),

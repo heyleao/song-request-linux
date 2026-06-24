@@ -1354,7 +1354,7 @@ dependencies = [
 
 [[package]]
 name = "song-request-linux"
-version = "0.1.18"
+version = "0.1.19"
 dependencies = [
  "anyhow",
  "axum",

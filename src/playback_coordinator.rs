@@ -5,7 +5,7 @@ use tokio::time::{interval, sleep};
 use crate::{
     config::{self, YoutubePlayback},
     display, pear,
-    song_requests::{MusicProvider, RequestSource, SongRequest},
+    song_requests::{MusicProvider, RequestSource, SongRequest, YoutubeRequestPlayback},
     spotify,
     state::AppState,
 };
@@ -165,7 +165,7 @@ async fn coordinate_pear_once(state: &AppState) {
 }
 
 async fn coordinate_active_pear_request(state: &AppState, pending: SongRequest) {
-    let RequestSource::Youtube { video_id } = pending.source.clone() else {
+    let RequestSource::Youtube { video_id, .. } = pending.source.clone() else {
         return;
     };
 
@@ -199,7 +199,7 @@ async fn coordinate_active_pear_request(state: &AppState, pending: SongRequest) 
 }
 
 async fn start_pear_request(state: &AppState, pending: SongRequest) {
-    let RequestSource::Youtube { video_id } = &pending.source else {
+    let RequestSource::Youtube { video_id, .. } = &pending.source else {
         return;
     };
     let video_id = video_id.clone();
@@ -311,7 +311,7 @@ async fn prime_next_pear_request(state: &AppState, current_id: u64) {
     let Some(next) = next_youtube_after(state, current_id).await else {
         return;
     };
-    let RequestSource::Youtube { video_id } = next.source else {
+    let RequestSource::Youtube { video_id, .. } = next.source else {
         return;
     };
 
@@ -334,6 +334,7 @@ async fn compact_pear_to_app_queue(state: &AppState, current_id: u64) {
     };
     let RequestSource::Youtube {
         video_id: current_video_id,
+        ..
     } = current.source
     else {
         return;
@@ -341,7 +342,7 @@ async fn compact_pear_to_app_queue(state: &AppState, current_id: u64) {
     let next_video_id = next_youtube_after(state, current_id)
         .await
         .and_then(|song| match song.source {
-            RequestSource::Youtube { video_id } => Some(video_id),
+            RequestSource::Youtube { video_id, .. } => Some(video_id),
             _ => None,
         });
 
@@ -361,6 +362,7 @@ async fn compact_pear_to_app_queue(state: &AppState, current_id: u64) {
 async fn wait_for_current_pear_before_request(state: &AppState, pending: &SongRequest) -> bool {
     let RequestSource::Youtube {
         video_id: pending_video_id,
+        ..
     } = &pending.source
     else {
         return false;
@@ -517,13 +519,11 @@ async fn pause_pear_while_waiting_for_spotify(state: &AppState) {
 }
 
 async fn first_pending_youtube(state: &AppState) -> Option<SongRequest> {
-    state
-        .queue
-        .read()
-        .await
-        .view()
-        .current_song
-        .filter(|song| matches!(song.source, RequestSource::Youtube { .. }))
+    let view = state.queue.read().await.view();
+    view.current_song
+        .into_iter()
+        .chain(view.queue)
+        .find(|song| is_youtube_request_for_playback(song, YoutubeRequestPlayback::Pear))
 }
 
 async fn first_pending_spotify(state: &AppState) -> Option<SongRequest> {
@@ -558,7 +558,7 @@ async fn next_youtube_after(state: &AppState, current_id: u64) -> Option<SongReq
         .and_then(|window| {
             window
                 .get(1)
-                .filter(|song| matches!(song.source, RequestSource::Youtube { .. }))
+                .filter(|song| is_youtube_request_for_playback(song, YoutubeRequestPlayback::Pear))
                 .cloned()
         })
 }
@@ -568,7 +568,10 @@ async fn current_youtube_by_id(state: &AppState, current_id: u64) -> Option<Song
     view.current_song
         .into_iter()
         .chain(view.queue)
-        .find(|song| song.id == current_id && matches!(song.source, RequestSource::Youtube { .. }))
+        .find(|song| {
+            song.id == current_id
+                && is_youtube_request_for_playback(song, YoutubeRequestPlayback::Pear)
+        })
 }
 
 async fn has_pending_youtube(state: &AppState) -> bool {
@@ -578,7 +581,17 @@ async fn has_pending_youtube(state: &AppState) -> bool {
         .await
         .view()
         .current_song
-        .is_some_and(|song| matches!(song.source, RequestSource::Youtube { .. }))
+        .is_some_and(|song| is_youtube_request_for_playback(&song, YoutubeRequestPlayback::Pear))
+}
+
+fn is_youtube_request_for_playback(song: &SongRequest, playback: YoutubeRequestPlayback) -> bool {
+    matches!(
+        song.source,
+        RequestSource::Youtube {
+            playback: Some(source_playback),
+            ..
+        } if source_playback == playback
+    )
 }
 
 async fn has_local_requests(state: &AppState) -> bool {
@@ -589,8 +602,17 @@ async fn has_local_requests(state: &AppState) -> bool {
         .chain(view.queue.iter())
         .any(|song| match provider {
             MusicProvider::Spotify => is_spotify_request(song),
-            MusicProvider::Youtube => matches!(song.source, RequestSource::Youtube { .. }),
+            MusicProvider::Youtube => {
+                is_youtube_request_for_playback(song, ui_youtube_playback(state))
+            }
         })
+}
+
+fn ui_youtube_playback(state: &AppState) -> YoutubeRequestPlayback {
+    match config::UiConfigView::load(&state.config.paths).youtube_playback {
+        YoutubePlayback::Pear => YoutubeRequestPlayback::Pear,
+        YoutubePlayback::Browser => YoutubeRequestPlayback::Browser,
+    }
 }
 
 async fn start_spotify_fallback_if_idle(state: &AppState) {
@@ -962,6 +984,7 @@ mod tests {
             query: "https://youtu.be/UFFa0QoHWvE".to_string(),
             source: RequestSource::Youtube {
                 video_id: "UFFa0QoHWvE".to_string(),
+                playback: None,
             },
             title: "Tank!".to_string(),
             artist: "SEATBELTS".to_string(),
@@ -978,7 +1001,6 @@ mod tests {
         });
 
         assert_eq!(first_pending_spotify(&state).await, Some(spotify));
-        assert!(has_local_requests(&state).await);
     }
 
     #[tokio::test]
@@ -994,6 +1016,7 @@ mod tests {
             query: "https://youtu.be/UFFa0QoHWvE".to_string(),
             source: RequestSource::Youtube {
                 video_id: "UFFa0QoHWvE".to_string(),
+                playback: None,
             },
             title: "Tank!".to_string(),
             artist: "Seatbelts".to_string(),

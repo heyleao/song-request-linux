@@ -19,6 +19,7 @@ use crate::{
     display, overlay, pear, player, request_flow,
     song_requests::{
         MusicProvider, QueuePersistence, QueueView, RequestSource, SongRequest, SongRequestInput,
+        YoutubeRequestPlayback,
     },
     spotify,
     state::{AppState, HealthResponse, StatusResponse},
@@ -618,17 +619,29 @@ async fn queue(State(state): State<AppState>) -> Json<QueueView> {
 }
 
 async fn clear_queue(State(state): State<AppState>) -> Result<Json<QueueView>, ApiError> {
+    let ids = active_queue_item_ids(&state).await;
     {
         let mut queue = state.queue.write().await;
-        queue.clear();
+        for id in ids {
+            queue.remove_by_id(id);
+        }
         save_queue_state(&state, &queue)?;
     }
     clear_youtube_state_if_no_pending(&state).await;
-    state.record_event("queue", "fila de pedidos zerada").await;
+    state.record_event("queue", "fila ativa zerada").await;
 
     let mut view = effective_queue_view(&state).await;
     view.persistence = Some(queue_persistence(&state).await);
     Ok(Json(view))
+}
+
+async fn active_queue_item_ids(state: &AppState) -> Vec<u64> {
+    let view = effective_queue_view(state).await;
+    view.current_song
+        .into_iter()
+        .chain(view.queue)
+        .map(|song| song.id)
+        .collect()
 }
 
 async fn remove_queue_item(
@@ -1252,7 +1265,12 @@ async fn effective_queue_view(state: &AppState) -> QueueView {
         return merge_pear_and_app_queue(state).await;
     }
 
-    state.queue.read().await.view()
+    filtered_app_queue_view(
+        state,
+        MusicProvider::Youtube,
+        Some(YoutubeRequestPlayback::Browser),
+    )
+    .await
 }
 
 fn current_provider(state: &AppState) -> MusicProvider {
@@ -1270,10 +1288,29 @@ fn is_youtube_browser_mode(state: &AppState) -> bool {
 
 async fn local_browser_skip_message(state: &AppState, requester: &str) -> String {
     state.youtube_browser_paused.store(false, Ordering::SeqCst);
-    let current_song = state.queue.write().await.skip();
-    if let Err(error) = save_current_queue_state(state).await {
-        state.record_event("error", error.message).await;
-    }
+    let current_id = filtered_app_queue_view(
+        state,
+        MusicProvider::Youtube,
+        Some(YoutubeRequestPlayback::Browser),
+    )
+    .await
+    .current_song
+    .map(|song| song.id);
+
+    let current_song = if let Some(id) = current_id {
+        let mut queue = state.queue.write().await;
+        queue.remove_by_id(id);
+        save_queue_state(state, &queue).ok();
+        filtered_app_queue_view(
+            state,
+            MusicProvider::Youtube,
+            Some(YoutubeRequestPlayback::Browser),
+        )
+        .await
+        .current_song
+    } else {
+        None
+    };
 
     match current_song {
         Some(song) => format!(
@@ -1306,7 +1343,12 @@ fn local_browser_playback_message(
 }
 
 async fn merge_pear_and_app_queue(state: &AppState) -> QueueView {
-    let app_view = state.queue.read().await.view();
+    let app_view = filtered_app_queue_view(
+        state,
+        MusicProvider::Youtube,
+        Some(YoutubeRequestPlayback::Pear),
+    )
+    .await;
     let Some(pear_current) = pear::now_playing_request(&state.config)
         .await
         .ok()
@@ -1347,10 +1389,68 @@ async fn merge_pear_and_app_queue(state: &AppState) -> QueueView {
 
 fn same_youtube_video(left: &SongRequest, right: &SongRequest) -> bool {
     match (&left.source, &right.source) {
-        (RequestSource::Youtube { video_id: left }, RequestSource::Youtube { video_id: right }) => {
-            left == right
-        }
+        (
+            RequestSource::Youtube { video_id: left, .. },
+            RequestSource::Youtube {
+                video_id: right, ..
+            },
+        ) => left == right,
         _ => false,
+    }
+}
+
+async fn filtered_app_queue_view(
+    state: &AppState,
+    provider: MusicProvider,
+    playback: Option<YoutubeRequestPlayback>,
+) -> QueueView {
+    filter_queue_view(state.queue.read().await.view(), provider, playback)
+}
+
+fn filter_queue_view(
+    view: QueueView,
+    provider: MusicProvider,
+    playback: Option<YoutubeRequestPlayback>,
+) -> QueueView {
+    let mut requests = app_pending_requests(view)
+        .into_iter()
+        .filter(|song| request_matches_stream(song, provider, playback))
+        .collect::<Vec<_>>();
+    let current_song = requests.first().cloned();
+    if current_song.is_some() {
+        requests.remove(0);
+    }
+    QueueView {
+        current_song,
+        queue_length: requests.len(),
+        queue: requests,
+        persistence: None,
+    }
+}
+
+fn request_matches_stream(
+    song: &SongRequest,
+    provider: MusicProvider,
+    playback: Option<YoutubeRequestPlayback>,
+) -> bool {
+    match provider {
+        MusicProvider::Spotify => matches!(
+            song.source,
+            RequestSource::Spotify { .. }
+                | RequestSource::Search {
+                    provider: MusicProvider::Spotify
+                }
+        ),
+        MusicProvider::Youtube => match (&song.source, playback) {
+            (
+                RequestSource::Youtube {
+                    playback: Some(source_playback),
+                    ..
+                },
+                Some(active_playback),
+            ) => *source_playback == active_playback,
+            _ => false,
+        },
     }
 }
 
@@ -1372,9 +1472,25 @@ fn save_queue_state(
         .map_err(ApiError::bad_request)
 }
 
+async fn active_persisted_queue_view(state: &AppState) -> QueueView {
+    let ui = config::UiConfigView::load(&state.config.paths);
+    match ui.default_provider {
+        MusicProvider::Spotify => {
+            filtered_app_queue_view(state, MusicProvider::Spotify, None).await
+        }
+        MusicProvider::Youtube => {
+            let playback = match ui.youtube_playback {
+                YoutubePlayback::Pear => YoutubeRequestPlayback::Pear,
+                YoutubePlayback::Browser => YoutubeRequestPlayback::Browser,
+            };
+            filtered_app_queue_view(state, MusicProvider::Youtube, Some(playback)).await
+        }
+    }
+}
+
 async fn queue_persistence(state: &AppState) -> QueuePersistence {
     let enabled = config::queue_persistence_enabled(&state.config.paths);
-    let view = state.queue.read().await.view();
+    let view = active_persisted_queue_view(state).await;
     QueuePersistence {
         enabled,
         exists: state.config.paths.queue_file.exists(),
@@ -1387,7 +1503,7 @@ async fn queue_persistence(state: &AppState) -> QueuePersistence {
 }
 
 async fn merge_spotify_and_app_queue(state: &AppState, mut spotify_view: QueueView) -> QueueView {
-    let app_view = state.queue.read().await.view();
+    let app_view = filtered_app_queue_view(state, MusicProvider::Spotify, None).await;
     let mut app_requests = app_pending_requests(app_view);
 
     if let Some(current) = &spotify_view.current_song {
@@ -1580,23 +1696,25 @@ async fn youtube_player_response(state: &AppState) -> YoutubePlayerResponse {
 }
 
 async fn current_youtube_song(state: &AppState) -> Option<YoutubePlayerSong> {
-    state
-        .queue
-        .read()
-        .await
-        .view()
-        .current_song
-        .and_then(|song| YoutubePlayerSong::from_request(&song))
+    filtered_app_queue_view(
+        state,
+        MusicProvider::Youtube,
+        Some(YoutubeRequestPlayback::Browser),
+    )
+    .await
+    .current_song
+    .and_then(|song| YoutubePlayerSong::from_request(&song))
 }
 
 async fn has_pending_youtube_request(state: &AppState) -> bool {
-    state
-        .queue
-        .read()
-        .await
-        .view()
-        .current_song
-        .is_some_and(|song| matches!(song.source, RequestSource::Youtube { .. }))
+    filtered_app_queue_view(
+        state,
+        MusicProvider::Youtube,
+        Some(YoutubeRequestPlayback::Browser),
+    )
+    .await
+    .current_song
+    .is_some()
 }
 
 async fn clear_youtube_state_if_no_pending(state: &AppState) {
@@ -1919,7 +2037,7 @@ struct YoutubePlayerSong {
 
 impl YoutubePlayerSong {
     fn from_request(song: &SongRequest) -> Option<Self> {
-        let RequestSource::Youtube { video_id } = &song.source else {
+        let RequestSource::Youtube { video_id, .. } = &song.source else {
             return None;
         };
 
@@ -2010,6 +2128,47 @@ mod tests {
     use super::*;
     use crate::config::AppConfig;
 
+    fn isolated_config(
+        name: &str,
+        provider: MusicProvider,
+        playback: YoutubePlayback,
+    ) -> AppConfig {
+        let mut config = AppConfig::from_env().expect("config");
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("time")
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("song-request-linux-http-{name}-{unique}"));
+        config.paths.config_dir = root.join("config");
+        config.paths.state_dir = root.join("state");
+        config.paths.queue_file = config.paths.state_dir.join("queue.json");
+        config.default_provider = provider;
+        config.youtube.playback = playback;
+        crate::config::save_ui_config(
+            &config.paths,
+            crate::config::UiConfigInput {
+                default_provider: provider,
+                youtube_playback: playback,
+                pear_base_url: None,
+                spotify_client_id: None,
+                spotify_fallback_enabled: false,
+                queue_persistence_enabled: false,
+                twitch_client_id: None,
+                twitch_bot_username: None,
+                twitch_channel: None,
+                twitch_bot_oauth_token: None,
+                youtube_api_key: None,
+                youtube_max_duration_seconds: Some(360),
+                youtube_allow_non_music: false,
+                command_settings: None,
+                queue_limits: Some(crate::config::QueueLimitConfig::default()),
+                overlay: None,
+            },
+        )
+        .expect("save config");
+        config
+    }
+
     #[tokio::test]
     async fn health_returns_ok() {
         let config = AppConfig::from_env().expect("config");
@@ -2070,8 +2229,11 @@ mod tests {
 
     #[tokio::test]
     async fn youtube_player_returns_current_youtube_song() {
-        let mut config = AppConfig::from_env().expect("config");
-        config.youtube.playback = YoutubePlayback::Browser;
+        let config = isolated_config(
+            "youtube-player-current",
+            MusicProvider::Youtube,
+            YoutubePlayback::Browser,
+        );
         let state = AppState::new(config);
         state.queue.write().await.clear();
         state.queue.write().await.add_resolved(SongRequest {
@@ -2080,6 +2242,7 @@ mod tests {
             query: "https://youtu.be/dQw4w9WgXcQ".to_string(),
             source: RequestSource::Youtube {
                 video_id: "dQw4w9WgXcQ".to_string(),
+                playback: Some(YoutubeRequestPlayback::Browser),
             },
             title: "Never Gonna Give You Up".to_string(),
             artist: "Rick Astley".to_string(),
@@ -2095,9 +2258,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn youtube_player_respects_current_queue_order() {
-        let mut config = AppConfig::from_env().expect("config");
-        config.youtube.playback = YoutubePlayback::Browser;
+    async fn youtube_player_uses_browser_stream_only() {
+        let config = isolated_config(
+            "youtube-player-stream",
+            MusicProvider::Youtube,
+            YoutubePlayback::Browser,
+        );
         let state = AppState::new(config);
         state.queue.write().await.clear();
         state.queue.write().await.add_resolved(SongRequest {
@@ -2116,6 +2282,7 @@ mod tests {
             query: "https://youtu.be/dQw4w9WgXcQ".to_string(),
             source: RequestSource::Youtube {
                 video_id: "dQw4w9WgXcQ".to_string(),
+                playback: Some(YoutubeRequestPlayback::Browser),
             },
             title: "Never Gonna Give You Up".to_string(),
             artist: "Rick Astley".to_string(),
@@ -2123,13 +2290,20 @@ mod tests {
 
         let response = youtube_player_response(&state).await;
 
-        assert!(response.current_song.is_none());
+        assert_eq!(
+            response.current_song.map(|song| song.video_id),
+            Some("dQw4w9WgXcQ".to_string())
+        );
         assert_eq!(response.waiting_for_spotify, None);
     }
 
     #[tokio::test]
-    async fn merged_queue_prefers_app_requests_over_spotify_upcoming() {
-        let config = AppConfig::from_env().expect("config");
+    async fn spotify_queue_hides_youtube_requests() {
+        let config = isolated_config(
+            "spotify-queue-filter",
+            MusicProvider::Spotify,
+            YoutubePlayback::Browser,
+        );
         let state = AppState::new(config);
         state.queue.write().await.clear();
         state.queue.write().await.add_resolved(SongRequest {
@@ -2138,6 +2312,7 @@ mod tests {
             query: "https://youtu.be/dQw4w9WgXcQ".to_string(),
             source: RequestSource::Youtube {
                 video_id: "dQw4w9WgXcQ".to_string(),
+                playback: Some(YoutubeRequestPlayback::Browser),
             },
             title: "Never Gonna Give You Up".to_string(),
             artist: "Rick Astley".to_string(),
@@ -2158,6 +2333,7 @@ mod tests {
             query: "https://youtu.be/9bZkp7q19f0".to_string(),
             source: RequestSource::Youtube {
                 video_id: "9bZkp7q19f0".to_string(),
+                playback: Some(YoutubeRequestPlayback::Pear),
             },
             title: "Gangnam Style".to_string(),
             artist: "PSY".to_string(),
@@ -2180,18 +2356,80 @@ mod tests {
 
         assert_eq!(
             merged.queue.first().map(|song| song.title.as_str()),
-            Some("Never Gonna Give You Up")
-        );
-        assert_eq!(
-            merged.queue.get(1).map(|song| song.title.as_str()),
             Some("Spiders")
         );
-        assert_eq!(
-            merged.queue.get(2).map(|song| song.title.as_str()),
-            Some("Gangnam Style")
+        assert_eq!(merged.queue.get(1).map(|song| song.title.as_str()), None);
+        assert_eq!(merged.queue_length, 1);
+    }
+
+    #[tokio::test]
+    async fn youtube_queue_filters_pear_and_browser_streams() {
+        let config = isolated_config(
+            "youtube-stream-filter",
+            MusicProvider::Youtube,
+            YoutubePlayback::Browser,
         );
-        assert_eq!(merged.queue.get(3).map(|song| song.title.as_str()), None);
-        assert_eq!(merged.queue_length, 3);
+        let state = AppState::new(config);
+        state.queue.write().await.clear();
+        state.queue.write().await.add_resolved(SongRequest {
+            id: 0,
+            requester: "viewer".to_string(),
+            query: "https://youtu.be/dQw4w9WgXcQ".to_string(),
+            source: RequestSource::Youtube {
+                video_id: "dQw4w9WgXcQ".to_string(),
+                playback: Some(YoutubeRequestPlayback::Browser),
+            },
+            title: "Browser Song".to_string(),
+            artist: "YouTube".to_string(),
+        });
+        state.queue.write().await.add_resolved(SongRequest {
+            id: 0,
+            requester: "viewer".to_string(),
+            query: "https://youtu.be/9bZkp7q19f0".to_string(),
+            source: RequestSource::Youtube {
+                video_id: "9bZkp7q19f0".to_string(),
+                playback: Some(YoutubeRequestPlayback::Pear),
+            },
+            title: "Pear Song".to_string(),
+            artist: "YouTube".to_string(),
+        });
+
+        let browser = effective_queue_view(&state).await;
+        assert_eq!(
+            browser.current_song.map(|song| song.title),
+            Some("Browser Song".to_string())
+        );
+        assert_eq!(browser.queue_length, 0);
+
+        crate::config::save_ui_config(
+            &state.config.paths,
+            crate::config::UiConfigInput {
+                default_provider: MusicProvider::Youtube,
+                youtube_playback: YoutubePlayback::Pear,
+                pear_base_url: None,
+                spotify_client_id: None,
+                spotify_fallback_enabled: false,
+                queue_persistence_enabled: false,
+                twitch_client_id: None,
+                twitch_bot_username: None,
+                twitch_channel: None,
+                twitch_bot_oauth_token: None,
+                youtube_api_key: None,
+                youtube_max_duration_seconds: Some(360),
+                youtube_allow_non_music: false,
+                command_settings: None,
+                queue_limits: Some(crate::config::QueueLimitConfig::default()),
+                overlay: None,
+            },
+        )
+        .expect("save config");
+
+        let pear = effective_queue_view(&state).await;
+        assert_eq!(
+            pear.current_song.map(|song| song.title),
+            Some("Pear Song".to_string())
+        );
+        assert_eq!(pear.queue_length, 0);
     }
 
     #[tokio::test]

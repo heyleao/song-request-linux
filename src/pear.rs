@@ -8,7 +8,7 @@ use tokio::time::sleep;
 
 use crate::{
     config::AppConfig,
-    song_requests::{MusicProvider, RequestSource, SongRequest},
+    song_requests::{MusicProvider, RequestSource, SongRequest, YoutubeRequestPlayback},
 };
 
 #[derive(Clone, Debug, Serialize)]
@@ -526,7 +526,10 @@ impl PearNowPlaying {
             .filter(|artist| !artist.trim().is_empty())
             .unwrap_or_else(|| "YouTube Music".to_string());
         let source = video_id
-            .map(|video_id| RequestSource::Youtube { video_id })
+            .map(|video_id| RequestSource::Youtube {
+                video_id,
+                playback: Some(YoutubeRequestPlayback::Pear),
+            })
             .unwrap_or(RequestSource::Search {
                 provider: MusicProvider::Youtube,
             });

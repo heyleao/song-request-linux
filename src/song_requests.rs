@@ -24,9 +24,24 @@ pub struct SongRequest {
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum RequestSource {
-    Search { provider: MusicProvider },
-    Spotify { uri: String },
-    Youtube { video_id: String },
+    Search {
+        provider: MusicProvider,
+    },
+    Spotify {
+        uri: String,
+    },
+    Youtube {
+        video_id: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        playback: Option<YoutubeRequestPlayback>,
+    },
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum YoutubeRequestPlayback {
+    Pear,
+    Browser,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -219,6 +234,7 @@ impl SongQueue {
             .count()
     }
 
+    #[cfg(test)]
     pub fn clear(&mut self) {
         self.current_song = None;
         self.queue.clear();
@@ -265,6 +281,7 @@ impl RequestSource {
         if let Some(video) = YoutubeVideoRef::parse(query) {
             return Self::Youtube {
                 video_id: video.video_id,
+                playback: None,
             };
         }
 
@@ -340,7 +357,7 @@ fn validate_input(input: &SongRequestInput) -> Result<()> {
 
 fn title_from_source(source: &RequestSource, query: &str) -> String {
     match source {
-        RequestSource::Youtube { video_id } => format!("YouTube video {video_id}"),
+        RequestSource::Youtube { video_id, .. } => format!("YouTube video {video_id}"),
         RequestSource::Spotify { .. } => query.trim().to_string(),
         RequestSource::Search { .. } => query.trim().to_string(),
     }
@@ -475,6 +492,7 @@ mod tests {
             query: "https://youtu.be/dQw4w9WgXcQ".to_string(),
             source: RequestSource::Youtube {
                 video_id: "dQw4w9WgXcQ".to_string(),
+                playback: None,
             },
             title: "Never Gonna Give You Up".to_string(),
             artist: "Rick Astley".to_string(),
@@ -502,6 +520,7 @@ mod tests {
             query: "https://youtu.be/dQw4w9WgXcQ".to_string(),
             source: RequestSource::Youtube {
                 video_id: "dQw4w9WgXcQ".to_string(),
+                playback: None,
             },
             title: "Never Gonna Give You Up".to_string(),
             artist: "Rick Astley".to_string(),
