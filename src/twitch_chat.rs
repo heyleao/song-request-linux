@@ -311,7 +311,7 @@ async fn skip_reply(state: &AppState, requester: String) -> String {
     }
 
     if matches!(current_provider(state), MusicProvider::Youtube)
-        && matches!(state.config.youtube.playback, YoutubePlayback::Pear)
+        && matches!(current_youtube_playback(state), YoutubePlayback::Pear)
     {
         let message = pear_skip_reply(state, &requester).await;
         state.record_event("player", message.clone()).await;
@@ -391,7 +391,7 @@ async fn playback_reply(state: &AppState, requester: String, action: PlaybackAct
     }
 
     if matches!(current_provider(state), MusicProvider::Youtube)
-        && matches!(state.config.youtube.playback, YoutubePlayback::Pear)
+        && matches!(current_youtube_playback(state), YoutubePlayback::Pear)
     {
         let message = match action {
             PlaybackAction::Play => match crate::pear::play(&state.config).await {
@@ -449,7 +449,7 @@ async fn current_song_reply(state: &AppState) -> String {
             }
         }
         MusicProvider::Youtube
-            if matches!(state.config.youtube.playback, YoutubePlayback::Pear) =>
+            if matches!(current_youtube_playback(state), YoutubePlayback::Pear) =>
         {
             if let Ok(Some(song)) = crate::pear::now_playing_request(&state.config).await {
                 return format!(
@@ -475,20 +475,22 @@ async fn current_song_reply(state: &AppState) -> String {
 
 async fn queue_reply(state: &AppState) -> String {
     if matches!(current_provider(state), MusicProvider::Youtube)
-        && matches!(state.config.youtube.playback, YoutubePlayback::Pear)
+        && matches!(current_youtube_playback(state), YoutubePlayback::Pear)
     {
         return pear_queue_reply(state).await;
     }
 
-    if let Some(snapshot) = spotify_queue_snapshot(state).await {
-        if snapshot.upcoming.is_empty() {
-            return snapshot
-                .currently_playing
-                .map(|song| format!("Tocando agora: {song}. Fila vazia."))
-                .unwrap_or_else(|| "Fila vazia.".to_string());
-        }
+    if matches!(current_provider(state), MusicProvider::Spotify) {
+        if let Some(snapshot) = spotify_queue_snapshot(state).await {
+            if snapshot.upcoming.is_empty() {
+                return snapshot
+                    .currently_playing
+                    .map(|song| format!("Tocando agora: {song}. Fila vazia."))
+                    .unwrap_or_else(|| "Fila vazia.".to_string());
+            }
 
-        return format!("Proximas: {}", snapshot.upcoming.join(" | "));
+            return format!("Proximas: {}", snapshot.upcoming.join(" | "));
+        }
     }
 
     app_queue_reply(state).await
@@ -535,17 +537,26 @@ fn pear_queue_item_label(item: &crate::pear::PearQueueDisplayItem) -> String {
 
 async fn app_queue_reply(state: &AppState) -> String {
     let queue = state.queue.read().await.view();
-    if queue.queue.is_empty() {
-        return "Fila vazia.".to_string();
-    }
-
+    let current = queue.current_song.map(|song| {
+        format!(
+            "Tocando agora: {} por {}",
+            display::chat_song_title(&song),
+            song.requester
+        )
+    });
     let upcoming = queue
         .queue
         .into_iter()
         .take(5)
         .map(|song| format!("{} por {}", display::chat_song_title(&song), song.requester))
         .collect::<Vec<_>>();
-    format!("Proximas: {}", upcoming.join(" | "))
+
+    match (current, upcoming.is_empty()) {
+        (Some(current), false) => format!("{current}. Proximas: {}", upcoming.join(" | ")),
+        (Some(current), true) => format!("{current}. Fila vazia."),
+        (None, false) => format!("Proximas: {}", upcoming.join(" | ")),
+        (None, true) => "Fila vazia.".to_string(),
+    }
 }
 
 async fn volume_reply(state: &AppState, requester: String, level: Option<u8>) -> String {
@@ -555,7 +566,7 @@ async fn volume_reply(state: &AppState, requester: String, level: Option<u8>) ->
             let mut changed = Vec::new();
             let mut errors = Vec::new();
 
-            match (current_provider(state), state.config.youtube.playback) {
+            match (current_provider(state), current_youtube_playback(state)) {
                 (MusicProvider::Youtube, YoutubePlayback::Pear) => {
                     match crate::pear::set_volume(&state.config, level).await {
                         Ok(level) => changed.push(format!("Pear/YouTube {level}%")),
@@ -612,7 +623,7 @@ async fn set_spotify_volume(state: &AppState, level: u8) -> Option<Result<u8>> {
 
 async fn current_volume_reply(state: &AppState) -> String {
     if matches!(
-        (current_provider(state), state.config.youtube.playback),
+        (current_provider(state), current_youtube_playback(state)),
         (MusicProvider::Youtube, YoutubePlayback::Pear)
     ) {
         return match crate::pear::current_volume(&state.config).await {
@@ -644,9 +655,13 @@ fn current_provider(state: &AppState) -> MusicProvider {
     config::UiConfigView::load(&state.config.paths).default_provider
 }
 
+fn current_youtube_playback(state: &AppState) -> YoutubePlayback {
+    config::UiConfigView::load(&state.config.paths).youtube_playback
+}
+
 fn is_youtube_browser_mode(state: &AppState) -> bool {
     matches!(current_provider(state), MusicProvider::Youtube)
-        && matches!(state.config.youtube.playback, YoutubePlayback::Browser)
+        && matches!(current_youtube_playback(state), YoutubePlayback::Browser)
 }
 
 async fn save_queue_if_enabled(state: &AppState) {
@@ -777,6 +792,46 @@ fn parse_sender(rest: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn app_queue_reply_shows_current_and_upcoming_requests() {
+        let config = crate::config::AppConfig::from_env().expect("config");
+        let state = AppState::new(config);
+        state.queue.write().await.clear();
+        state
+            .queue
+            .write()
+            .await
+            .add_resolved(crate::song_requests::SongRequest {
+                id: 0,
+                requester: "viewer".to_string(),
+                query: "https://youtu.be/current".to_string(),
+                source: crate::song_requests::RequestSource::Youtube {
+                    video_id: "current".to_string(),
+                },
+                title: "Current Song".to_string(),
+                artist: "Current Artist".to_string(),
+            });
+        state
+            .queue
+            .write()
+            .await
+            .add_resolved(crate::song_requests::SongRequest {
+                id: 0,
+                requester: "mod".to_string(),
+                query: "https://youtu.be/next".to_string(),
+                source: crate::song_requests::RequestSource::Youtube {
+                    video_id: "next".to_string(),
+                },
+                title: "Next Song".to_string(),
+                artist: "Next Artist".to_string(),
+            });
+
+        let reply = app_queue_reply(&state).await;
+
+        assert!(reply.contains("Tocando agora: Current Artist - Current Song por viewer"));
+        assert!(reply.contains("Proximas: Next Artist - Next Song por mod"));
+    }
 
     #[test]
     fn parses_privmsg_with_tags() {

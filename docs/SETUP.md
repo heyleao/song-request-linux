@@ -10,8 +10,8 @@ Faca um passo por vez.
 Pacote `.tar.gz`:
 
 ```bash
-tar -xzf song-request-linux-0.1.5-linux-x86_64.tar.gz
-cd song-request-linux-0.1.5-linux-x86_64
+tar -xzf song-request-linux-0.1.6-linux-x86_64.tar.gz
+cd song-request-linux-0.1.6-linux-x86_64
 ./scripts/check-runtime-prereqs
 ./scripts/install-desktop-entry
 ./scripts/song-request-linux-open

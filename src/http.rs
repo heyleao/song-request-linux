@@ -111,7 +111,7 @@ async fn status(State(state): State<AppState>) -> Json<StatusResponse> {
 
     if response.current_song.is_none()
         && matches!(provider, MusicProvider::Youtube)
-        && matches!(state.config.youtube.playback, YoutubePlayback::Pear)
+        && matches!(current_youtube_playback(&state), YoutubePlayback::Pear)
     {
         if let Ok(song) = pear::now_playing(&state.config).await {
             if !song.is_paused {
@@ -692,7 +692,7 @@ async fn skip_message(state: &AppState, requester: String) -> String {
     }
 
     if matches!(current_provider(state), MusicProvider::Youtube)
-        && matches!(state.config.youtube.playback, YoutubePlayback::Pear)
+        && matches!(current_youtube_playback(state), YoutubePlayback::Pear)
     {
         let message = pear_skip_message(state, &requester).await;
         state.record_event("player", message.clone()).await;
@@ -774,7 +774,7 @@ async fn playback_message(state: &AppState, requester: String, action: PlaybackA
     }
 
     if matches!(current_provider(state), MusicProvider::Youtube)
-        && matches!(state.config.youtube.playback, YoutubePlayback::Pear)
+        && matches!(current_youtube_playback(state), YoutubePlayback::Pear)
     {
         let message = match action {
             PlaybackAction::Play => match pear::play(&state.config).await {
@@ -829,7 +829,7 @@ async fn volume_message(state: &AppState, requester: String, level: Option<u8>) 
             let mut changed = Vec::new();
             let mut errors = Vec::new();
 
-            match (current_provider(state), state.config.youtube.playback) {
+            match (current_provider(state), current_youtube_playback(state)) {
                 (MusicProvider::Youtube, YoutubePlayback::Pear) => {
                     match pear::set_volume(&state.config, level).await {
                         Ok(level) => changed.push(format!("Pear/YouTube {level}%")),
@@ -892,7 +892,7 @@ async fn current_volume_message(state: &AppState) -> String {
 
 async fn read_volume(state: &AppState) -> VolumeResponse {
     if matches!(
-        (current_provider(state), state.config.youtube.playback),
+        (current_provider(state), current_youtube_playback(state)),
         (MusicProvider::Youtube, YoutubePlayback::Pear)
     ) {
         return match pear::current_volume(&state.config).await {
@@ -987,7 +987,7 @@ async fn add_request_to_queue(
         Ok(request) => {
             save_current_queue_state(state).await?;
             if matches!(request.source, RequestSource::Youtube { .. })
-                && matches!(state.config.youtube.playback, YoutubePlayback::Browser)
+                && matches!(current_youtube_playback(state), YoutubePlayback::Browser)
             {
                 arm_youtube_after_current_spotify(state).await;
             }
@@ -1009,7 +1009,7 @@ async fn add_request_to_queue_for_role(
         Ok(request) => {
             save_current_queue_state(state).await?;
             if matches!(request.source, RequestSource::Youtube { .. })
-                && matches!(state.config.youtube.playback, YoutubePlayback::Browser)
+                && matches!(current_youtube_playback(state), YoutubePlayback::Browser)
             {
                 arm_youtube_after_current_spotify(state).await;
             }
@@ -1031,7 +1031,7 @@ async fn effective_queue_view(state: &AppState) -> QueueView {
     }
 
     if matches!(provider, MusicProvider::Youtube)
-        && matches!(state.config.youtube.playback, YoutubePlayback::Pear)
+        && matches!(current_youtube_playback(state), YoutubePlayback::Pear)
     {
         return merge_pear_and_app_queue(state).await;
     }
@@ -1043,9 +1043,13 @@ fn current_provider(state: &AppState) -> MusicProvider {
     config::UiConfigView::load(&state.config.paths).default_provider
 }
 
+fn current_youtube_playback(state: &AppState) -> YoutubePlayback {
+    config::UiConfigView::load(&state.config.paths).youtube_playback
+}
+
 fn is_youtube_browser_mode(state: &AppState) -> bool {
     matches!(current_provider(state), MusicProvider::Youtube)
-        && matches!(state.config.youtube.playback, YoutubePlayback::Browser)
+        && matches!(current_youtube_playback(state), YoutubePlayback::Browser)
 }
 
 async fn local_browser_skip_message(state: &AppState, requester: &str) -> String {
@@ -1321,7 +1325,7 @@ async fn set_volume(
 }
 
 async fn youtube_player_response(state: &AppState) -> YoutubePlayerResponse {
-    if matches!(state.config.youtube.playback, YoutubePlayback::Pear) {
+    if matches!(current_youtube_playback(state), YoutubePlayback::Pear) {
         return YoutubePlayerResponse {
             current_song: None,
             waiting_for_spotify: None,
