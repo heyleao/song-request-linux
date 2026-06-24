@@ -492,6 +492,15 @@ pub async fn page() -> Html<&'static str> {
       min-height: auto;
       accent-color: var(--action);
     }
+    .language-select {
+      width: 72px;
+      min-width: 72px;
+      flex: 0 0 72px;
+      min-height: 34px;
+      padding: 5px 28px 5px 10px;
+      font-size: 13px;
+      font-weight: 800;
+    }
     input:focus, select:focus, button:focus-visible, a:focus-visible {
       outline: 2px solid var(--focus);
       outline-offset: 2px;
@@ -775,8 +784,10 @@ pub async fn page() -> Html<&'static str> {
       .diagnostic-row, .endpoint-row, .endpoint-row.with-action { grid-template-columns: 1fr; }
       .form-grid.compact { grid-template-columns: 1fr; }
       .diagnostic-row code, .endpoint-row code { text-align: left; }
-      .top-status { display: grid; grid-template-columns: 1fr; }
+      .top-status { display: flex; align-items: center; }
       .pill { width: 100%; white-space: normal; justify-content: flex-start; }
+      .language-select { width: 72px; min-width: 72px; flex-basis: 72px; }
+      .top-status > button { width: auto; }
       button, a.button, a.secondary { width: 100%; }
       .actions { align-items: stretch; }
     }
