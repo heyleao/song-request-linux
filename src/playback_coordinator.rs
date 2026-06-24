@@ -29,6 +29,7 @@ async fn coordinate_once(state: &AppState) {
         state
             .spotify_fallback_started
             .store(false, Ordering::SeqCst);
+        state.pear_idle_stopped.store(false, Ordering::SeqCst);
     }
 
     if matches!(state.config.youtube.playback, YoutubePlayback::Pear) {
@@ -663,6 +664,43 @@ async fn finish_pear_request(state: &AppState, id: u64) {
 async fn finish_pear_background(state: &AppState) {
     if state.youtube_player_paused_spotify.load(Ordering::SeqCst) {
         resume_spotify_after_youtube(state).await;
+        state.pear_idle_stopped.store(true, Ordering::SeqCst);
+        return;
+    }
+
+    if state.pear_idle_stopped.swap(true, Ordering::SeqCst) {
+        return;
+    }
+
+    let pear_current = pear::now_playing(&state.config).await.ok();
+    if pear_current.as_ref().is_some_and(|song| !song.is_paused) {
+        if let Err(error) = pear::pause(&state.config).await {
+            state
+                .record_event("error", format!("Nao consegui pausar Pear ocioso: {error}"))
+                .await;
+        }
+    }
+
+    if let Err(error) = pear::clear_queue(&state.config).await {
+        state
+            .record_event(
+                "error",
+                format!("Nao consegui limpar fila interna do Pear ocioso: {error}"),
+            )
+            .await;
+    }
+
+    if let Some(song) = pear_current.and_then(pear::PearNowPlaying::display_name) {
+        state
+            .record_event(
+                "player",
+                format!("Pear pausado sem pedidos pendentes. Ultima musica: {song}"),
+            )
+            .await;
+    } else {
+        state
+            .record_event("player", "Pear pausado sem pedidos pendentes")
+            .await;
     }
 }
 

@@ -438,7 +438,7 @@ impl PearSkipOutcome {
 }
 
 impl PearNowPlaying {
-    fn display_name(self) -> Option<String> {
+    pub(crate) fn display_name(self) -> Option<String> {
         match (self.artist, self.title, self.video_id) {
             (Some(artist), Some(title), _) if !artist.is_empty() && !title.is_empty() => {
                 Some(format!("{artist} - {title}"))
