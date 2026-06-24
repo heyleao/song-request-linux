@@ -450,14 +450,13 @@ pub async fn page() -> Html<&'static str> {
       grid-template-columns: 1fr 1fr;
     }
     .provider-option {
-      min-height: 74px;
+      min-height: 58px;
       border: 1px solid var(--line);
       border-radius: 8px;
       background: var(--surface-2);
-      padding: 10px;
+      padding: 12px;
       display: grid;
       align-content: center;
-      gap: 4px;
       cursor: pointer;
     }
     .provider-option.active {
@@ -465,17 +464,10 @@ pub async fn page() -> Html<&'static str> {
       background: linear-gradient(180deg, rgba(34, 197, 94, .14), rgba(29, 37, 48, 1));
     }
     .provider-option strong { font-size: 15px; }
-    .provider-option span { color: var(--muted); font-size: 12px; line-height: 1.35; }
     .provider-exclusive-note {
-      border: 1px solid rgba(247, 185, 85, .34);
-      border-radius: 8px;
-      background: rgba(247, 185, 85, .08);
-      color: var(--soft);
-      padding: 10px;
-      line-height: 1.4;
+      color: var(--muted);
       font-size: 13px;
     }
-    .provider-exclusive-note strong { color: var(--warn); }
     form { display: grid; gap: 14px; }
     label {
       display: grid;
@@ -854,11 +846,10 @@ pub async fn page() -> Html<&'static str> {
               <span class="pill compact"><span class="dot ok"></span>Modo <strong id="provider-mode">verificando</strong></span>
             </div>
             <div class="provider-options">
-              <div class="provider-option" id="provider-spotify"><strong>Spotify</strong><span>Busca e fila pelo app Spotify.</span></div>
-              <div class="provider-option" id="provider-youtube"><strong>YouTube/Pear</strong><span>Pedidos via YouTube Music ou Browser Source.</span></div>
+              <div class="provider-option" id="provider-spotify"><strong>Spotify</strong></div>
+              <div class="provider-option" id="provider-youtube"><strong>YouTube/Pear</strong></div>
             </div>
-            <div class="provider-exclusive-note"><strong>Modo exclusivo:</strong> escolha Spotify ou YouTube/Pear. O app ainda não usa os dois providers ao mesmo tempo.</div>
-            <div class="hint" id="provider-detail">Carregando modo atual...</div>
+            <div class="provider-exclusive-note">Escolha um modo por live.</div>
           </section>
 
           <section>
@@ -1762,9 +1753,6 @@ pub async fn page() -> Html<&'static str> {
       $('provider-mode').textContent = config.default_provider === 'spotify' ? 'Spotify' : 'YouTube';
       $('provider-spotify').classList.toggle('active', config.default_provider === 'spotify');
       $('provider-youtube').classList.toggle('active', config.default_provider === 'youtube');
-      $('provider-detail').textContent = config.default_provider === 'spotify'
-        ? 'Modo Spotify: todos os pedidos usam Spotify. Para YouTube/Pear, troque o provider.'
-        : 'Modo YouTube/Pear: todos os pedidos usam YouTube. Para Spotify, troque o provider.';
       renderProviderRequirements(config, connections, pear);
       renderSpotifyFallback(connections, config);
 
