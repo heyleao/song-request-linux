@@ -344,6 +344,52 @@ pub async fn page() -> Html<&'static str> {
       max-height: 150px;
       overflow: auto;
     }
+    .setup-save-bar {
+      border-color: rgba(247, 185, 85, .38);
+      box-shadow: 0 18px 42px rgba(0, 0, 0, .28);
+    }
+    .setup-save-bar h2::after {
+      content: " sempre visível";
+      color: var(--warn);
+      font-size: 12px;
+      font-weight: 800;
+      margin-left: 8px;
+    }
+    .unsaved-banner {
+      position: fixed;
+      left: max(18px, env(safe-area-inset-left));
+      right: max(18px, env(safe-area-inset-right));
+      bottom: max(18px, env(safe-area-inset-bottom));
+      z-index: 70;
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      padding: 12px;
+      border: 1px solid rgba(247, 185, 85, .58);
+      border-radius: 8px;
+      background: rgba(16, 23, 32, .98);
+      box-shadow: 0 20px 46px rgba(0, 0, 0, .42);
+      backdrop-filter: blur(14px);
+    }
+    .unsaved-banner[hidden] { display: none; }
+    .unsaved-banner strong { color: var(--warn); }
+    .unsaved-banner p { color: var(--muted); line-height: 1.35; margin-top: 2px; }
+    .unsaved-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+    .tab-button.dirty::after {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--warn);
+      margin-left: auto;
+      box-shadow: 0 0 0 3px rgba(247, 185, 85, .16);
+    }
     .grid-logs {
       display: grid;
       grid-template-columns: minmax(360px, 1fr) minmax(320px, 420px);
@@ -715,6 +761,8 @@ pub async fn page() -> Html<&'static str> {
       .setup-step { grid-template-columns: 1fr; }
       .step-number { width: 34px; height: 34px; }
       .setup-save-bar { grid-template-columns: 1fr; position: static; }
+      .unsaved-banner { grid-template-columns: 1fr; left: 10px; right: 10px; bottom: 10px; }
+      .unsaved-actions { justify-content: stretch; }
       header { align-items: flex-start; }
       .page-title, .top-status { width: 100%; min-width: 0; }
       .top-status { justify-content: flex-start; }
@@ -750,6 +798,16 @@ pub async fn page() -> Html<&'static str> {
       <p class="hint" id="instance-message"></p>
     </div>
   </div>
+  <div class="unsaved-banner" id="unsaved-banner" hidden role="status" aria-live="polite">
+    <div>
+      <strong>Alterações não salvas</strong>
+      <p>Salve a configuração antes de trocar de tela, fechar o app ou iniciar a live.</p>
+    </div>
+    <div class="unsaved-actions">
+      <button id="global-save-setup" type="button">Salvar configuração</button>
+      <button class="secondary" id="discard-setup" type="button">Descartar</button>
+    </div>
+  </div>
   <div class="app-shell">
     <aside class="sidebar">
       <div class="brand">
@@ -761,7 +819,7 @@ pub async fn page() -> Html<&'static str> {
       </div>
       <nav class="tabs" aria-label="Seções">
         <button class="tab-button active" data-tab="operation-tab" type="button"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M4 13h5l2-7 4 14 2-7h3"/></svg></span>Operação</button>
-        <button class="tab-button" data-tab="setup-tab" type="button"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="M19.4 15a1.8 1.8 0 0 0 .36 1.98l.03.03a2 2 0 1 1-2.83 2.83l-.03-.03A1.8 1.8 0 0 0 15 19.4a1.8 1.8 0 0 0-1 .6l-.02.02a2 2 0 1 1-3.96 0L10 20a1.8 1.8 0 0 0-1-.6 1.8 1.8 0 0 0-1.98.36l-.03.03a2 2 0 1 1-2.83-2.83l.03-.03A1.8 1.8 0 0 0 4.6 15a1.8 1.8 0 0 0-.6-1l-.02-.02a2 2 0 1 1 0-3.96L4 10a1.8 1.8 0 0 0 .6-1 1.8 1.8 0 0 0-.36-1.98l-.03-.03a2 2 0 1 1 2.83-2.83l.03.03A1.8 1.8 0 0 0 9 4.6a1.8 1.8 0 0 0 1-.6l.02-.02a2 2 0 1 1 3.96 0L14 4a1.8 1.8 0 0 0 1 .6 1.8 1.8 0 0 0 1.98-.36l.03-.03a2 2 0 1 1 2.83 2.83l-.03.03A1.8 1.8 0 0 0 19.4 9c.22.38.43.61.6 1l.02.02a2 2 0 1 1 0 3.96L20 14a1.8 1.8 0 0 0-.6 1Z"/></svg></span>Configuração</button>
+        <button class="tab-button" data-tab="setup-tab" id="setup-tab-button" type="button"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="M19.4 15a1.8 1.8 0 0 0 .36 1.98l.03.03a2 2 0 1 1-2.83 2.83l-.03-.03A1.8 1.8 0 0 0 15 19.4a1.8 1.8 0 0 0-1 .6l-.02.02a2 2 0 1 1-3.96 0L10 20a1.8 1.8 0 0 0-1-.6 1.8 1.8 0 0 0-1.98.36l-.03.03a2 2 0 1 1-2.83-2.83l.03-.03A1.8 1.8 0 0 0 4.6 15a1.8 1.8 0 0 0-.6-1l-.02-.02a2 2 0 1 1 0-3.96L4 10a1.8 1.8 0 0 0 .6-1 1.8 1.8 0 0 0-.36-1.98l-.03-.03a2 2 0 1 1 2.83-2.83l.03.03A1.8 1.8 0 0 0 9 4.6a1.8 1.8 0 0 0 1-.6l.02-.02a2 2 0 1 1 3.96 0L14 4a1.8 1.8 0 0 0 1 .6 1.8 1.8 0 0 0 1.98-.36l.03-.03a2 2 0 1 1 2.83 2.83l-.03.03A1.8 1.8 0 0 0 19.4 9c.22.38.43.61.6 1l.02.02a2 2 0 1 1 0 3.96L20 14a1.8 1.8 0 0 0-.6 1Z"/></svg></span>Configuração</button>
         <button class="tab-button" data-tab="logs-tab" type="button"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg></span>Logs</button>
         <button class="tab-button" data-tab="guide-tab" type="button"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15Z"/></svg></span>Guia</button>
       </nav>
@@ -1159,13 +1217,13 @@ pub async fn page() -> Html<&'static str> {
           </div>
         </details>
 
-        <section class="setup-save-bar">
+        <section class="setup-save-bar" id="setup-save-bar">
           <div>
-            <h2>Pronto para iniciar?</h2>
-            <p class="field-note">Clique em Salvar. Depois confira a aba Operação e faça um pedido de teste.</p>
+            <h2>Salvar configuração</h2>
+            <p class="field-note" id="setup-save-hint">Sem alterações pendentes. Quando mudar algo, salve antes de sair da tela.</p>
           </div>
           <div class="actions">
-            <button type="submit">Salvar configuração</button>
+            <button id="setup-save-button" type="submit">Salvar configuração</button>
           </div>
           <div class="diagnostics" id="setup-summary"></div>
           <div class="message" id="setup-message"></div>
@@ -1295,7 +1353,11 @@ pub async fn page() -> Html<&'static str> {
       } catch (_) {}
     });
 
-    window.addEventListener('beforeunload', () => {
+    window.addEventListener('beforeunload', (event) => {
+      if (setupDirty) {
+        event.preventDefault();
+        event.returnValue = '';
+      }
       const active = localStorage.getItem(instanceKey);
       if (!active) return;
       try {
@@ -1562,6 +1624,26 @@ pub async fn page() -> Html<&'static str> {
       element.classList.toggle('error', isError);
     }
 
+    function setSetupDirty(value, reason = '') {
+      setupDirty = Boolean(value);
+      document.body.classList.toggle('setup-dirty', setupDirty);
+      $('unsaved-banner').hidden = !setupDirty;
+      $('setup-tab-button')?.classList.toggle('dirty', setupDirty);
+      $('setup-save-bar')?.classList.toggle('dirty', setupDirty);
+      if ($('setup-save-hint')) {
+        $('setup-save-hint').textContent = setupDirty
+          ? (reason || 'Existem alterações pendentes. Clique em Salvar configuração.')
+          : 'Sem alterações pendentes. Quando mudar algo, salve antes de sair da tela.';
+      }
+      if (setupDirty && reason) setMessage('setup-message', reason);
+    }
+
+    async function discardSetupChanges() {
+      setSetupDirty(false);
+      setMessage('setup-message', 'Alterações descartadas.');
+      await refresh();
+    }
+
     function renderEvents(events) {
       $('event-count').textContent = events.length;
       const html = events.length
@@ -1779,13 +1861,23 @@ pub async fn page() -> Html<&'static str> {
       });
     }
 
+    function showTab(tabId, options = {}) {
+      const current = document.querySelector('.tab.active')?.id;
+      if (!options.force && setupDirty && current === 'setup-tab' && tabId !== 'setup-tab') {
+        const leave = window.confirm('Existem alterações não salvas. Sair da configuração sem salvar?');
+        if (!leave) return false;
+      }
+      const button = document.querySelector(`.tab-button[data-tab="${tabId}"]`);
+      if (!button) return false;
+      document.querySelectorAll('.tab-button[data-tab]').forEach((item) => item.classList.remove('active'));
+      document.querySelectorAll('.tab').forEach((item) => item.classList.remove('active'));
+      button.classList.add('active');
+      document.getElementById(tabId).classList.add('active');
+      return true;
+    }
+
     document.querySelectorAll('.tab-button[data-tab]').forEach((button) => {
-      button.addEventListener('click', () => {
-        document.querySelectorAll('.tab-button[data-tab]').forEach((item) => item.classList.remove('active'));
-        document.querySelectorAll('.tab').forEach((item) => item.classList.remove('active'));
-        button.classList.add('active');
-        document.getElementById(button.dataset.tab).classList.add('active');
-      });
+      button.addEventListener('click', () => showTab(button.dataset.tab));
     });
 
     $('request-form').addEventListener('submit', async (event) => {
@@ -1945,68 +2037,62 @@ pub async fn page() -> Html<&'static str> {
         })
       });
       $('setup-youtube-api-key').value = '';
-      setupDirty = false;
+      setSetupDirty(false);
       setMessage('setup-message', message);
       await refresh();
       return result;
     }
 
-    $('setup-form').addEventListener('input', () => {
-      setupDirty = true;
-    });
-
-    $('setup-form').addEventListener('change', () => {
-      setupDirty = true;
-    });
-
-    $('setup-provider').addEventListener('change', async () => {
-      try {
-        await saveSetup(`Provider salvo: ${$('setup-provider').value === 'spotify' ? 'Spotify' : 'YouTube'}.`);
-      } catch (error) {
-        setMessage('setup-message', error.message, true);
+    $('setup-form').addEventListener('input', (event) => {
+      if (event.target.matches('input, select, textarea')) {
+        setSetupDirty(true, 'Alteração pendente. Clique em Salvar configuração.');
       }
     });
 
-    $('setup-spotify-fallback-enabled').addEventListener('change', async () => {
-      try {
-        setSpotifyFallbackControls($('setup-spotify-fallback-enabled').checked);
-        await saveSetup($('setup-spotify-fallback-enabled').checked
-          ? 'Playlist fallback ativada.'
-          : 'Playlist fallback desativada.');
-      } catch (error) {
-        setMessage('setup-message', error.message, true);
-        setSpotifyFallbackControls($('setup-spotify-fallback-enabled').checked);
+    $('setup-form').addEventListener('change', (event) => {
+      if (event.target.matches('input, select, textarea')) {
+        setSetupDirty(true, 'Alteração pendente. Clique em Salvar configuração.');
       }
     });
 
-    $('setup-queue-persistence-enabled').addEventListener('change', async () => {
-      try {
-        await saveSetup($('setup-queue-persistence-enabled').checked
-          ? 'Persistência da fila ativada.'
-          : 'Persistência da fila desativada. A próxima abertura começa com fila vazia.');
-      } catch (error) {
-        setMessage('setup-message', error.message, true);
-      }
+    $('setup-provider').addEventListener('change', () => {
+      setSetupDirty(true, `Provider alterado para ${$('setup-provider').value === 'spotify' ? 'Spotify' : 'YouTube'}. Clique em Salvar configuração.`);
+      updateProviderStepVisibility({ default_provider: $('setup-provider').value });
     });
 
-    $('provider-spotify').addEventListener('click', async () => {
-      try {
-        $('setup-provider').value = 'spotify';
-        setupDirty = true;
-        await saveSetup('Provider salvo: Spotify.');
-      } catch (error) {
-        setMessage('request-message', error.message, true);
-      }
+    $('setup-spotify-fallback-enabled').addEventListener('change', () => {
+      setSpotifyFallbackControls($('setup-spotify-fallback-enabled').checked);
+      setSetupDirty(true, $('setup-spotify-fallback-enabled').checked
+        ? 'Playlist fallback marcada. Clique em Salvar configuração.'
+        : 'Playlist fallback desmarcada. Clique em Salvar configuração.');
     });
 
-    $('provider-youtube').addEventListener('click', async () => {
-      try {
-        $('setup-provider').value = 'youtube';
-        setupDirty = true;
-        await saveSetup('Provider salvo: YouTube.');
-      } catch (error) {
-        setMessage('request-message', error.message, true);
-      }
+    $('setup-queue-persistence-enabled').addEventListener('change', () => {
+      setSetupDirty(true, $('setup-queue-persistence-enabled').checked
+        ? 'Persistência da fila marcada. Clique em Salvar configuração.'
+        : 'Persistência da fila desmarcada. Clique em Salvar configuração.');
+    });
+
+    $('provider-spotify').addEventListener('click', () => {
+      $('setup-provider').value = 'spotify';
+      updateProviderStepVisibility({ default_provider: 'spotify' });
+      setSetupDirty(true, 'Provider alterado para Spotify. Clique em Salvar configuração.');
+      showTab('setup-tab');
+    });
+
+    $('provider-youtube').addEventListener('click', () => {
+      $('setup-provider').value = 'youtube';
+      updateProviderStepVisibility({ default_provider: 'youtube' });
+      setSetupDirty(true, 'Provider alterado para YouTube. Clique em Salvar configuração.');
+      showTab('setup-tab');
+    });
+
+    $('global-save-setup').addEventListener('click', () => {
+      $('setup-form').requestSubmit();
+    });
+
+    $('discard-setup').addEventListener('click', async () => {
+      await discardSetupChanges();
     });
 
     $('setup-form').addEventListener('submit', async (event) => {
