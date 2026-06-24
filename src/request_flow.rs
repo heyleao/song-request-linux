@@ -1,4 +1,4 @@
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, bail, Context, Result};
 
 use crate::{
     commands::ChatUserRole,
@@ -37,7 +37,7 @@ async fn add_request_unchecked(state: &AppState, input: SongRequestInput) -> Res
             artist: "YouTube".to_string(),
         };
 
-        return Ok(state.queue.write().await.add_resolved(request));
+        return add_resolved_and_persist(state, request).await;
     }
 
     if should_use_spotify(default_provider, &input) {
@@ -49,14 +49,16 @@ async fn add_request_unchecked(state: &AppState, input: SongRequestInput) -> Res
         request.requester = input.requester.trim().to_string();
         request.query = input.query.trim().to_string();
 
-        return Ok(state.queue.write().await.add_resolved(request));
+        return add_resolved_and_persist(state, request).await;
     }
 
     if should_use_youtube(default_provider, &input) {
         return add_youtube_search_request(state, input).await;
     }
 
-    state.queue.write().await.add(input)
+    let request = state.queue.write().await.add(input)?;
+    persist_queue_if_enabled(state).await?;
+    Ok(request)
 }
 
 async fn add_youtube_search_request(
@@ -75,7 +77,31 @@ async fn add_youtube_search_request(
         artist: metadata.channel_title,
     };
 
-    Ok(state.queue.write().await.add_resolved(request))
+    add_resolved_and_persist(state, request).await
+}
+
+async fn add_resolved_and_persist(state: &AppState, request: SongRequest) -> Result<SongRequest> {
+    let request = state.queue.write().await.add_resolved(request);
+    persist_queue_if_enabled(state).await?;
+    Ok(request)
+}
+
+async fn persist_queue_if_enabled(state: &AppState) -> Result<()> {
+    if !config::queue_persistence_enabled(&state.config.paths) {
+        return Ok(());
+    }
+
+    state
+        .queue
+        .read()
+        .await
+        .save(&state.config.paths.queue_file)
+        .with_context(|| {
+            format!(
+                "failed to persist queue at {}",
+                state.config.paths.queue_file.display()
+            )
+        })
 }
 
 async fn enforce_queue_limit(
