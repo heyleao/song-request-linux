@@ -888,8 +888,6 @@ pub async fn page() -> Html<&'static str> {
               </label>
               <div class="actions">
                 <button type="submit">Adicionar pedido</button>
-                <button class="secondary" id="song" type="button">Ver atual</button>
-                <button class="secondary" id="queue-command" type="button">Ver fila</button>
               </div>
             </form>
             <div class="message" id="request-message"></div>
@@ -1347,8 +1345,6 @@ pub async fn page() -> Html<&'static str> {
       'Solicitante': 'Requester',
       'Música, artista ou link': 'Song, artist, or link',
       'Adicionar pedido': 'Add request',
-      'Ver atual': 'Current song',
-      'Ver fila': 'Show queue',
       'Controles': 'Controls',
       'Moderador/broadcaster': 'Moderator/broadcaster',
       'Volume --': 'Volume --',
@@ -2084,27 +2080,6 @@ pub async fn page() -> Html<&'static str> {
         });
         setMessage('request-message', `Adicionado: ${request.title}`);
         $('query').value = '';
-        await refresh();
-      } catch (error) {
-        setMessage('request-message', error.message, true);
-      }
-    });
-
-    $('song').addEventListener('click', async () => {
-      try {
-        const result = await sendCommand('!song');
-        const title = result.current_song ? result.current_song.title : 'fila vazia';
-        setMessage('request-message', `Atual: ${title}`);
-        await refresh();
-      } catch (error) {
-        setMessage('request-message', error.message, true);
-      }
-    });
-
-    $('queue-command').addEventListener('click', async () => {
-      try {
-        const result = await sendCommand('!fila');
-        setMessage('request-message', `Fila: ${result.queue.queue_length} pedido(s)`);
         await refresh();
       } catch (error) {
         setMessage('request-message', error.message, true);
