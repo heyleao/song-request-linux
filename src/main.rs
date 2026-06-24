@@ -28,7 +28,7 @@ use tracing_subscriber::{
 
 use crate::{config::AppConfig, state::AppState};
 
-#[tokio::main]
+#[tokio::main(flavor = "multi_thread", worker_threads = 2)]
 async fn main() -> anyhow::Result<()> {
     let _ = rustls::crypto::ring::default_provider().install_default();
 
