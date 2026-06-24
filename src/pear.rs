@@ -48,6 +48,13 @@ struct PearQueueInfo {
     items: Vec<Value>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct PearQueueItem {
+    index: usize,
+    video_id: Option<String>,
+    selected: bool,
+}
+
 #[derive(Debug, Serialize)]
 struct PearVolumeRequest {
     volume: u8,
@@ -137,9 +144,70 @@ pub async fn next(config: &AppConfig) -> Result<()> {
     empty_post(config, "next").await
 }
 
+pub async fn clear_queue(config: &AppConfig) -> Result<()> {
+    let response = client()?
+        .delete(endpoint(config, "queue"))
+        .send()
+        .await
+        .context("Pear nao respondeu em DELETE /queue")?;
+    let status = response.status();
+    if status.is_success() {
+        return Ok(());
+    }
+
+    let body = response.text().await.unwrap_or_default();
+    bail!("Pear nao aceitou limpar a fila ({status}): {}", body.trim());
+}
+
+pub async fn compact_queue_for_app(
+    config: &AppConfig,
+    current_video_id: &str,
+    next_video_id: Option<&str>,
+) -> Result<()> {
+    let items = queue_items(config).await?;
+    let mut kept_current = false;
+    let mut kept_next = false;
+    let mut delete_indexes = Vec::new();
+
+    for item in items {
+        let keep_current = item.selected
+            && item
+                .video_id
+                .as_deref()
+                .is_some_and(|video_id| video_id == current_video_id)
+            && !kept_current;
+        let keep_next = next_video_id.is_some()
+            && item.video_id.as_deref() == next_video_id
+            && !item.selected
+            && !kept_next;
+
+        if keep_current {
+            kept_current = true;
+        } else if keep_next {
+            kept_next = true;
+        } else {
+            delete_indexes.push(item.index);
+        }
+    }
+
+    for index in delete_indexes.into_iter().rev() {
+        delete_queue_index(config, index).await?;
+    }
+
+    Ok(())
+}
+
+pub async fn ensure_queued_after_current(config: &AppConfig, video_id: &str) -> Result<()> {
+    if queue_contains_video(config, video_id).await? {
+        return Ok(());
+    }
+
+    enqueue_after_current(config, video_id).await
+}
+
 pub async fn select_video_from_queue(config: &AppConfig, video_id: &str) -> Result<bool> {
     let mut index = None;
-    for _ in 0..10 {
+    for _ in 0..30 {
         index = queue_video_ids(config)
             .await?
             .into_iter()
@@ -147,7 +215,7 @@ pub async fn select_video_from_queue(config: &AppConfig, video_id: &str) -> Resu
         if index.is_some() {
             break;
         }
-        sleep(Duration::from_millis(150)).await;
+        sleep(Duration::from_millis(200)).await;
     }
 
     let Some(index) = index else {
@@ -172,7 +240,22 @@ pub async fn select_video_from_queue(config: &AppConfig, video_id: &str) -> Resu
     );
 }
 
+async fn queue_contains_video(config: &AppConfig, video_id: &str) -> Result<bool> {
+    Ok(queue_video_ids(config)
+        .await?
+        .into_iter()
+        .any(|id| id == video_id))
+}
+
 async fn queue_video_ids(config: &AppConfig) -> Result<Vec<String>> {
+    Ok(queue_items(config)
+        .await?
+        .into_iter()
+        .filter_map(|item| item.video_id)
+        .collect())
+}
+
+async fn queue_items(config: &AppConfig) -> Result<Vec<PearQueueItem>> {
     let response = client()?
         .get(endpoint(config, "queue"))
         .send()
@@ -188,8 +271,31 @@ async fn queue_video_ids(config: &AppConfig) -> Result<Vec<String>> {
     Ok(queue
         .items
         .iter()
-        .filter_map(extract_queue_video_id)
+        .enumerate()
+        .map(|(index, item)| PearQueueItem {
+            index,
+            video_id: extract_queue_video_id(item),
+            selected: extract_queue_selected(item),
+        })
         .collect())
+}
+
+async fn delete_queue_index(config: &AppConfig, index: usize) -> Result<()> {
+    let response = client()?
+        .delete(endpoint(config, &format!("queue/{index}")))
+        .send()
+        .await
+        .with_context(|| format!("Pear nao respondeu em DELETE /queue/{index}"))?;
+    let status = response.status();
+    if status.is_success() {
+        return Ok(());
+    }
+
+    let body = response.text().await.unwrap_or_default();
+    bail!(
+        "Pear nao aceitou remover item {index} da fila ({status}): {}",
+        body.trim()
+    );
 }
 
 pub async fn current_volume(config: &AppConfig) -> Result<PearVolume> {
@@ -245,6 +351,13 @@ fn extract_queue_video_id(item: &Value) -> Option<String> {
         .map(ToString::to_string)
 }
 
+fn extract_queue_selected(item: &Value) -> bool {
+    item.pointer("/selected")
+        .or_else(|| item.pointer("/playlistPanelVideoRenderer/selected"))
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
+}
+
 async fn empty_post(config: &AppConfig, path: &str) -> Result<()> {
     let response = client()?
         .post(endpoint(config, path))
@@ -289,6 +402,7 @@ mod tests {
         let item = json!({
             "playlistPanelVideoRenderer": {
                 "title": { "runs": [{ "text": "ATWA" }] },
+                "selected": true,
                 "videoId": "Ph8Qt3DHVwo"
             }
         });
@@ -297,5 +411,6 @@ mod tests {
             extract_queue_video_id(&item).as_deref(),
             Some("Ph8Qt3DHVwo")
         );
+        assert!(extract_queue_selected(&item));
     }
 }
