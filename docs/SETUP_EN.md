@@ -7,8 +7,8 @@ This is the short recipe to get Song Request Linux ready for a stream. Do one st
 `.tar.gz` package:
 
 ```bash
-tar -xzf song-request-linux-0.1.8-linux-x86_64.tar.gz
-cd song-request-linux-0.1.8-linux-x86_64
+tar -xzf song-request-linux-0.1.9-linux-x86_64.tar.gz
+cd song-request-linux-0.1.9-linux-x86_64
 ./scripts/check-runtime-prereqs
 ./scripts/install-desktop-entry
 ./scripts/song-request-linux-open

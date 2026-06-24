@@ -34,8 +34,8 @@ configure o player e adicione o overlay no OBS.
 O pacote `.tar.gz` ja traz o binario compilado. O usuario comum nao precisa instalar Rust, Cargo ou Git.
 
 ```bash
-tar -xzf song-request-linux-0.1.8-linux-x86_64.tar.gz
-cd song-request-linux-0.1.8-linux-x86_64
+tar -xzf song-request-linux-0.1.9-linux-x86_64.tar.gz
+cd song-request-linux-0.1.9-linux-x86_64
 ./scripts/check-runtime-prereqs
 ./scripts/install-desktop-entry
 ./scripts/song-request-linux-open
