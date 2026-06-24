@@ -779,17 +779,21 @@ async fn volume_message(state: &AppState, requester: String, level: Option<u8>) 
             let mut changed = Vec::new();
             let mut errors = Vec::new();
 
-            match set_spotify_volume(state, level).await {
-                Some(Ok(level)) => changed.push(format!("Spotify {level}%")),
-                Some(Err(error)) => errors.push(format!("Spotify: {error}")),
-                None => errors.push("Spotify nao conectado".to_string()),
-            }
-
-            if matches!(state.config.youtube.playback, YoutubePlayback::Pear) {
-                match pear::set_volume(&state.config, level).await {
-                    Ok(level) => changed.push(format!("Pear/YouTube {level}%")),
-                    Err(error) => errors.push(format!("Pear/YouTube: {error}")),
+            match (current_provider(state), state.config.youtube.playback) {
+                (MusicProvider::Youtube, YoutubePlayback::Pear) => {
+                    match pear::set_volume(&state.config, level).await {
+                        Ok(level) => changed.push(format!("Pear/YouTube {level}%")),
+                        Err(error) => errors.push(format!("Pear/YouTube: {error}")),
+                    }
                 }
+                (MusicProvider::Youtube, YoutubePlayback::Browser) => {
+                    errors.push("YouTube Browser Source ainda nao aceita controle de volume pelo dashboard; ajuste o audio no OBS.".to_string());
+                }
+                (MusicProvider::Spotify, _) => match set_spotify_volume(state, level).await {
+                    Some(Ok(level)) => changed.push(format!("Spotify {level}%")),
+                    Some(Err(error)) => errors.push(format!("Spotify: {error}")),
+                    None => errors.push("Spotify nao conectado".to_string()),
+                },
             }
 
             if !changed.is_empty() {
