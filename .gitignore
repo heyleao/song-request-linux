@@ -17,8 +17,6 @@ memory/
 SECURITY.md
 docs/*
 !docs/SETUP.md
-!docs/UI_REFERENCES.md
-!docs/PACKAGING.md
 
 # Editor noise
 .idea/
