@@ -106,8 +106,24 @@ async fn shutdown(
 async fn status(State(state): State<AppState>) -> Json<StatusResponse> {
     let queue = effective_queue_view(&state).await;
     let provider = current_provider(&state);
+    let mut response = StatusResponse::from_queue(&state, queue, provider);
 
-    Json(StatusResponse::from_queue(&state, queue, provider))
+    if response.current_song.is_none()
+        && matches!(provider, MusicProvider::Youtube)
+        && matches!(state.config.youtube.playback, YoutubePlayback::Pear)
+    {
+        if let Ok(song) = pear::now_playing(&state.config).await {
+            if !song.is_paused {
+                response.current_song = Some(crate::state::SongView {
+                    title: song.title.unwrap_or_else(|| "Pear tocando".to_string()),
+                    artist: song.artist.unwrap_or_else(|| "YouTube Music".to_string()),
+                    requester: "Pear / A seguir".to_string(),
+                });
+            }
+        }
+    }
+
+    Json(response)
 }
 
 async fn diagnostics(State(state): State<AppState>) -> Json<DiagnosticsResponse> {
