@@ -3,6 +3,9 @@ set -euo pipefail
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/song-request-linux"
+DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
+INSTALL_ROOT="$DATA_HOME/song-request-linux"
+PORTABLE_APP_DIR="$INSTALL_ROOT/app"
 LOG_DIR="$STATE_DIR/logs"
 LOG_FILE="$LOG_DIR/update.log"
 STATUS_FILE="$STATE_DIR/update-status.json"
@@ -46,9 +49,9 @@ for arg in "$@"; do
       cat <<HELP
 Usage: ./scripts/update-from-github [--restart] [--no-stop]
 
-Atualiza o Song Request Linux a partir do GitHub remoto configurado no repo.
-Config, tokens, logs e fila ficam preservados nos caminhos XDG do usuario.
-Use --no-stop apenas para teste/CI quando outro app local estiver rodando na porta 7384.
+Atualiza o Song Request Linux.
+- Em repositorio Git: usa git pull + cargo build.
+- Em pacote portatil: baixa o tar.gz mais recente da release e reinstala em ~/.local/share/song-request-linux/app.
 HELP
       exit 0
       ;;
@@ -65,67 +68,114 @@ write_status "running" "Atualizacao em andamento. O app pode reiniciar em alguns
   echo "Projeto: $APP_DIR"
 } >>"$LOG_FILE"
 
-if ! command -v git >/dev/null 2>&1; then
-  echo "ERRO: git nao encontrado." | tee -a "$LOG_FILE" >&2
-  exit 1
-fi
+update_git_repo() {
+  if ! command -v git >/dev/null 2>&1; then
+    echo "ERRO: git nao encontrado." | tee -a "$LOG_FILE" >&2
+    exit 1
+  fi
 
-if ! command -v cargo >/dev/null 2>&1; then
-  echo "ERRO: cargo nao encontrado." | tee -a "$LOG_FILE" >&2
-  exit 1
-fi
+  if ! command -v cargo >/dev/null 2>&1; then
+    echo "ERRO: cargo nao encontrado." | tee -a "$LOG_FILE" >&2
+    exit 1
+  fi
 
-cd "$APP_DIR"
+  cd "$APP_DIR"
+  before_rev="$(git rev-parse --short HEAD 2>/dev/null || true)"
+  after_rev="$before_rev"
 
-before_rev="$(git rev-parse --short HEAD 2>/dev/null || true)"
-after_rev="$before_rev"
+  if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
+    echo "ERRO: existem alteracoes locais em arquivos rastreados. Salve ou descarte antes de atualizar." | tee -a "$LOG_FILE" >&2
+    git status --short --untracked-files=no | tee -a "$LOG_FILE" >&2
+    exit 1
+  fi
 
-if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  echo "ERRO: este diretorio nao e um repo git." | tee -a "$LOG_FILE" >&2
-  exit 1
-fi
+  if (( STOP_BEFORE )); then
+    ./scripts/song-request-linux-stop >>"$LOG_FILE" 2>&1 || true
+  fi
 
-if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
-  echo "ERRO: existem alteracoes locais em arquivos rastreados. Salve ou descarte antes de atualizar." | tee -a "$LOG_FILE" >&2
-  git status --short --untracked-files=no | tee -a "$LOG_FILE" >&2
-  exit 1
-fi
+  git fetch --prune >>"$LOG_FILE" 2>&1
+  branch="$(git branch --show-current)"
+  if [[ -z "$branch" ]]; then
+    echo "ERRO: repo esta em detached HEAD. Atualize manualmente." | tee -a "$LOG_FILE" >&2
+    exit 1
+  fi
 
-if (( STOP_BEFORE )); then
-  ./scripts/song-request-linux-stop >>"$LOG_FILE" 2>&1 || true
-fi
+  upstream="$(git rev-parse --abbrev-ref --symbolic-full-name "@{u}" 2>/dev/null || true)"
+  if [[ -n "$upstream" ]]; then
+    git pull --ff-only >>"$LOG_FILE" 2>&1
+  else
+    git pull --ff-only origin "$branch" >>"$LOG_FILE" 2>&1
+  fi
 
-git fetch --prune >>"$LOG_FILE" 2>&1
+  after_rev="$(git rev-parse --short HEAD)"
+  cargo build --release >>"$LOG_FILE" 2>&1
+  ./scripts/install-desktop-entry >>"$LOG_FILE" 2>&1
 
-branch="$(git branch --show-current)"
-if [[ -z "$branch" ]]; then
-  echo "ERRO: repo esta em detached HEAD. Atualize manualmente." | tee -a "$LOG_FILE" >&2
-  exit 1
-fi
+  if (( START_AFTER )); then
+    ./scripts/song-request-linux-open >>"$LOG_FILE" 2>&1 &
+  fi
 
-upstream="$(git rev-parse --abbrev-ref --symbolic-full-name "@{u}" 2>/dev/null || true)"
-if [[ -n "$upstream" ]]; then
-  git pull --ff-only >>"$LOG_FILE" 2>&1
+  if [[ -n "$before_rev" && "$before_rev" != "$after_rev" ]]; then
+    write_status "updated" "Atualizado com sucesso: baixou $before_rev -> $after_rev." "$before_rev" "$after_rev"
+  else
+    write_status "up_to_date" "Ja estava atualizado. Commit atual: $after_rev." "$before_rev" "$after_rev"
+  fi
+}
+
+update_portable_release() {
+  if ! command -v curl >/dev/null 2>&1; then
+    echo "ERRO: curl nao encontrado." | tee -a "$LOG_FILE" >&2
+    exit 1
+  fi
+  if ! command -v tar >/dev/null 2>&1; then
+    echo "ERRO: tar nao encontrado." | tee -a "$LOG_FILE" >&2
+    exit 1
+  fi
+
+  local arch package_arch api tag url tmp archive new_dir
+  arch="$(uname -m)"
+  case "$arch" in
+    x86_64|amd64) package_arch="x86_64" ;;
+    aarch64|arm64) package_arch="aarch64" ;;
+    *) package_arch="$arch" ;;
+  esac
+
+  before_rev="$(basename "$APP_DIR")"
+  api="$(curl -fsSL https://api.github.com/repos/heyleao/song-request-linux/releases/latest)"
+  tag="$(printf '%s\n' "$api" | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -1)"
+  url="$(printf '%s\n' "$api" | sed -n "s/.*\"browser_download_url\": *\"\\([^\"]*song-request-linux-[^\"]*-linux-${package_arch}\\.tar\\.gz\\)\".*/\\1/p" | head -1)"
+
+  if [[ -z "$tag" || -z "$url" ]]; then
+    echo "ERRO: nao encontrei pacote Linux $package_arch na ultima release." | tee -a "$LOG_FILE" >&2
+    exit 1
+  fi
+
+  after_rev="$tag"
+  tmp="$(mktemp -d "${TMPDIR:-/tmp}/song-request-linux-update.XXXXXX")"
+  archive="$tmp/update.tar.gz"
+  curl -fL "$url" -o "$archive" >>"$LOG_FILE" 2>&1
+  tar -xzf "$archive" -C "$tmp"
+  new_dir="$(find "$tmp" -maxdepth 1 -type d -name 'song-request-linux-*-linux-*' | head -1)"
+  if [[ -z "$new_dir" || ! -x "$new_dir/scripts/install-desktop-entry" ]]; then
+    echo "ERRO: pacote baixado nao contem instalador valido." | tee -a "$LOG_FILE" >&2
+    exit 1
+  fi
+
+  if (( STOP_BEFORE )); then
+    "$APP_DIR/scripts/song-request-linux-stop" >>"$LOG_FILE" 2>&1 || true
+  fi
+
+  "$new_dir/scripts/install-desktop-entry" >>"$LOG_FILE" 2>&1
+
+  if (( START_AFTER )); then
+    "$PORTABLE_APP_DIR/scripts/song-request-linux-open" >>"$LOG_FILE" 2>&1 &
+  fi
+
+  write_status "updated" "Atualizado com sucesso para $tag." "$before_rev" "$after_rev"
+}
+
+if [[ -d "$APP_DIR/.git" ]]; then
+  update_git_repo
 else
-  git pull --ff-only origin "$branch" >>"$LOG_FILE" 2>&1
+  update_portable_release
 fi
-
-after_rev="$(git rev-parse --short HEAD)"
-
-cargo build --release >>"$LOG_FILE" 2>&1
-./scripts/install-desktop-entry >>"$LOG_FILE" 2>&1
-
-if (( START_AFTER )); then
-  ./scripts/song-request-linux-open >>"$LOG_FILE" 2>&1 &
-fi
-
-if [[ -n "$before_rev" && "$before_rev" != "$after_rev" ]]; then
-  message="Atualizado com sucesso: baixou $before_rev -> $after_rev."
-  status="updated"
-else
-  message="Ja estava atualizado. Commit atual: $after_rev."
-  status="up_to_date"
-fi
-
-write_status "$status" "$message" "$before_rev" "$after_rev"
-echo "$message" | tee -a "$LOG_FILE"

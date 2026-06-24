@@ -770,18 +770,15 @@ pub async fn page() -> Html<&'static str> {
     .update-notice {
       display: none;
       align-items: center;
-      gap: 8px;
-      margin-top: 10px;
-      padding: 10px 12px;
-      border: 1px solid rgba(247, 185, 85, .45);
-      border-radius: 8px;
+      gap: 7px;
+      border-color: rgba(247, 185, 85, .48);
       background: rgba(247, 185, 85, .10);
       color: var(--text);
-      font-size: 13px;
-      line-height: 1.35;
     }
-    .update-notice.visible { display: flex; }
-    .update-notice strong { color: var(--warn); text-transform: uppercase; font-size: 12px; }
+    .update-notice.visible { display: inline-flex; }
+    .update-notice strong { color: var(--warn); text-transform: uppercase; font-size: 11px; }
+    .top-update-button { display: none; min-height: 30px; padding: 5px 10px; }
+    .top-update-button.visible { display: inline-flex; }
     .update-progress {
       display: none;
       height: 8px;
@@ -909,6 +906,8 @@ pub async fn page() -> Html<&'static str> {
         </div>
         <div class="top-status">
           <span class="pill version-pill">SRL <strong id="app-version">v...</strong></span>
+          <span class="pill update-notice" id="update-notice"><strong>Update</strong><span id="update-notice-text">Nova versao disponivel.</span></span>
+          <button class="secondary top-update-button" id="update-app" type="button" hidden>Atualizar</button>
           <span class="pill"><span class="dot" id="twitch-dot"></span>Twitch <strong id="twitch-state">verificando</strong></span>
           <span class="pill"><span class="dot" id="spotify-dot"></span>Spotify <strong id="spotify-state">verificando</strong></span>
           <span class="pill"><span class="dot" id="youtube-dot"></span>YouTube <strong id="youtube-state">verificando</strong></span>
@@ -1377,7 +1376,6 @@ pub async fn page() -> Html<&'static str> {
         <section>
           <div class="toolbar">
             <h2>Instalar e atualizar</h2>
-            <button class="secondary" id="update-app" type="button">Atualizar pelo GitHub</button>
           </div>
           <div class="endpoints">
             <div class="endpoint-row with-action"><span>Instalar pacote</span><code>./scripts/install-desktop-entry</code><button class="secondary icon-button copy-button" type="button" data-copy-value="./scripts/install-desktop-entry" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
@@ -1388,7 +1386,6 @@ pub async fn page() -> Html<&'static str> {
             <div class="endpoint-row with-action"><span>Remover app</span><code>./scripts/uninstall-user</code><button class="secondary icon-button copy-button" type="button" data-copy-value="./scripts/uninstall-user" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
           </div>
           <p class="hint">Atualizar preserva configuracao, tokens e logs. A fila so volta se a persistencia da fila estiver ligada.</p>
-          <div class="update-notice" id="update-notice"><strong>Update</strong><span id="update-notice-text">Verificando atualizacao...</span></div>
           <div class="update-progress" id="update-progress" aria-hidden="true"><div class="update-progress-bar"></div></div>
           <div class="message" id="update-message"></div>
         </section>
@@ -2055,10 +2052,16 @@ pub async fn page() -> Html<&'static str> {
     function renderLatestUpdate(update) {
       const notice = $('update-notice');
       const text = $('update-notice-text');
+      const button = $('update-app');
       if (!notice || !text || !update) return;
-      notice.classList.toggle('visible', Boolean(update.update_available));
-      text.textContent = update.message || 'Nova versao disponivel.';
-      if (!update.update_available && !localStorage.getItem('song-request-linux-update-pending')) {
+      const available = Boolean(update.update_available);
+      notice.classList.toggle('visible', available);
+      if (button) {
+        button.classList.toggle('visible', available);
+        button.hidden = !available;
+      }
+      text.textContent = available ? `v${update.latest_version}` : (update.message || 'Atualizado');
+      if (!available && !localStorage.getItem('song-request-linux-update-pending')) {
         setMessage('update-message', update.message || 'Voce ja esta na versao mais recente.');
       }
     }
@@ -2674,7 +2677,7 @@ pub async fn page() -> Html<&'static str> {
       }
     });
 
-    $('update-app').addEventListener('click', async () => {
+    $('update-app')?.addEventListener('click', async () => {
       try {
         $('update-app').disabled = true;
         setUpdateProgress(true);

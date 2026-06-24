@@ -7,7 +7,7 @@ use axum::{
     Json, Router,
 };
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, sync::atomic::Ordering, time::Duration};
+use std::{collections::HashMap, path::PathBuf, sync::atomic::Ordering, time::Duration};
 use tokio::{process::Command, time::timeout};
 use tower_http::trace::TraceLayer;
 
@@ -143,7 +143,7 @@ async fn update_from_github(headers: HeaderMap) -> Result<Json<UpdateResponse>, 
         )));
     }
 
-    let app_dir = std::env::current_dir().map_err(|error| ApiError::bad_request(error.into()))?;
+    let app_dir = app_root_dir().map_err(ApiError::bad_request)?;
     let script = app_dir.join("scripts/update-from-github");
     if !script.is_file() {
         return Err(ApiError::bad_request(anyhow!(
@@ -165,6 +165,22 @@ async fn update_from_github(headers: HeaderMap) -> Result<Json<UpdateResponse>, 
         status: "updating",
         message: "Atualizacao iniciada. O app vai reiniciar em alguns segundos.",
     }))
+}
+
+fn app_root_dir() -> anyhow::Result<PathBuf> {
+    let exe = std::env::current_exe()?;
+    if let Some(parent) = exe.parent() {
+        if parent.file_name().and_then(|name| name.to_str()) == Some("bin") {
+            if let Some(root) = parent.parent() {
+                return Ok(root.to_path_buf());
+            }
+        }
+        if parent.join("scripts").is_dir() {
+            return Ok(parent.to_path_buf());
+        }
+    }
+
+    Ok(std::env::current_dir()?)
 }
 
 async fn update_latest() -> Result<Json<UpdateLatestResponse>, ApiError> {
