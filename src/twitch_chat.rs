@@ -431,10 +431,26 @@ async fn spotify_playback_reply(
 }
 
 async fn current_song_reply(state: &AppState) -> String {
-    if let Some(snapshot) = spotify_queue_snapshot(state).await {
-        if let Some(song) = snapshot.currently_playing {
-            return format!("Tocando agora: {song}");
+    match current_provider(state) {
+        MusicProvider::Spotify => {
+            if let Some(snapshot) = spotify_queue_snapshot(state).await {
+                if let Some(song) = snapshot.currently_playing {
+                    return format!("Tocando agora: {song}");
+                }
+            }
         }
+        MusicProvider::Youtube
+            if matches!(state.config.youtube.playback, YoutubePlayback::Pear) =>
+        {
+            if let Ok(Some(song)) = crate::pear::now_playing_request(&state.config).await {
+                return format!(
+                    "Tocando agora: {} - pedido por {}",
+                    display::chat_song_title(&song),
+                    song.requester
+                );
+            }
+        }
+        MusicProvider::Youtube => {}
     }
 
     let queue = state.queue.read().await.view();
