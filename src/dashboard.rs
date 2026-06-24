@@ -136,6 +136,10 @@ pub async fn page() -> Html<&'static str> {
       min-width: max-content;
     }
     .top-status .pill { max-width: none; }
+    .top-status .version-pill {
+      color: var(--soft);
+      font-weight: 800;
+    }
     .pill strong { color: var(--text); }
     .pill.compact { min-height: 26px; padding: 4px 8px; font-size: 12px; }
     .dot { width: 8px; height: 8px; border-radius: 999px; background: var(--warn); flex: 0 0 auto; }
@@ -876,6 +880,7 @@ pub async fn page() -> Html<&'static str> {
           <p>Fila, player, eventos e conexões em uma tela.</p>
         </div>
         <div class="top-status">
+          <span class="pill version-pill">SRL <strong id="app-version">v...</strong></span>
           <span class="pill"><span class="dot" id="twitch-dot"></span>Twitch <strong id="twitch-state">verificando</strong></span>
           <span class="pill"><span class="dot" id="spotify-dot"></span>Spotify <strong id="spotify-state">verificando</strong></span>
           <span class="pill"><span class="dot" id="youtube-dot"></span>YouTube <strong id="youtube-state">verificando</strong></span>
@@ -1390,6 +1395,7 @@ pub async fn page() -> Html<&'static str> {
       'Configuração': 'Setup',
       'Guia': 'Guide',
       'Operação da live': 'Live operation',
+      'SRL': 'SRL',
       'Fila, player, eventos e conexões em uma tela.': 'Queue, player, events, and connections on one screen.',
       'verificando': 'checking',
       'Encerrar': 'Quit',
@@ -2206,6 +2212,7 @@ pub async fn page() -> Html<&'static str> {
         lastConfig = config;
 
         $('queue-count').textContent = `${queue.queue_length} pedido(s)`;
+        $('app-version').textContent = status.version ? `v${status.version}` : 'v?';
         $('refresh-state').textContent = 'OK';
         $('playback-mode').textContent = config.default_provider === 'youtube' ? (config.youtube_playback === 'pear' ? 'Pear Desktop' : 'OBS Browser') : 'Inativo';
         await refreshVolume();
