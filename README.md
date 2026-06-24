@@ -134,7 +134,7 @@ Requisitos:
 
 - YouTube Data API v3 ativa.
 - API Key salva no dashboard.
-- Pear Desktop / YouTube Music Desktop aberto.
+- Pear Desktop aberto se o modo escolhido for Pear.
 - Plugin `API Server` do Pear ativo.
 
 Config recomendada do Pear:

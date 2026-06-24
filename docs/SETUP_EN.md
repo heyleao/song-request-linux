@@ -51,7 +51,7 @@ Use `Spotify` if you want to:
 Use `YouTube/Pear` if you want to:
 
 - search songs by name on YouTube;
-- play through Pear Desktop / YouTube Music Desktop;
+- play through Pear Desktop;
 - accept direct YouTube links.
 
 Use one mode at a time. If you change the provider, save settings.
@@ -151,7 +151,7 @@ Skip this if you only use Spotify.
 
 ### Pear Desktop
 
-1. Open Pear Desktop / YouTube Music Desktop.
+1. Open Pear Desktop.
 2. Enable the `API Server` plugin.
 3. Use port `26538`.
 4. Set `Authorization` to `No Authorization`.
