@@ -1066,14 +1066,24 @@ pub async fn page() -> Html<&'static str> {
                 <p class="step-copy">Escolha se a fila deve continuar depois que a live acabar e o app abrir de novo.</p>
               </div>
             </div>
-            <div class="form-grid single">
-              <label><span><input id="setup-queue-persistence-enabled" type="checkbox"> Continuar com a fila salva quando o app abrir de novo</span></label>
+            <div class="form-grid">
+              <label class="full"><span><input id="setup-queue-persistence-enabled" type="checkbox"> Continuar com a fila salva quando o app abrir de novo</span></label>
+              <label>Texto do overlay
+                <input id="setup-overlay-label" autocomplete="off" maxlength="40" placeholder="Tocando agora">
+              </label>
+              <label>Linhas do nome no overlay
+                <select id="setup-overlay-lines">
+                  <option value="1">1 linha</option>
+                  <option value="2">2 linhas</option>
+                  <option value="3">3 linhas</option>
+                </select>
+              </label>
             </div>
             <div class="setup-quick-list">
               <span>Marcado: pedidos pendentes voltam na próxima abertura.</span>
               <span>Desmarcado: a próxima live começa com fila vazia.</span>
-              <span>No OBS, use o overlay: <code>http://127.0.0.1:7384/overlay?max=48&width=520&size=24&lines=1</code></span>
-              <span>Tamanho da Browser Source: largura <code>620</code>, altura <code>120</code>. Depois posicione e redimensione na cena se precisar.</span>
+              <span>No OBS, use o overlay: <code id="setup-overlay-url">http://127.0.0.1:7384/overlay?max=48&width=520&size=24&lines=1</code></span>
+              <span>Tamanho da Browser Source: largura <code>620</code>, altura <code id="setup-overlay-height">120</code>. Depois posicione e redimensione na cena se precisar.</span>
             </div>
           </div>
         </section>
@@ -1265,13 +1275,13 @@ pub async fn page() -> Html<&'static str> {
           <h2>OBS</h2>
           <div class="endpoints">
             <div class="endpoint-row with-action"><span>Dashboard</span><code>http://127.0.0.1:7384/</code><a class="secondary" href="/" target="_blank" rel="noreferrer">Abrir</a></div>
-            <div class="endpoint-row with-action"><span>Overlay pronto</span><code>http://127.0.0.1:7384/overlay?max=48&width=520&size=24&lines=1</code><a class="secondary" href="/overlay?max=48&width=520&size=24&lines=1" target="_blank" rel="noreferrer">Abrir</a></div>
+            <div class="endpoint-row with-action"><span>Overlay pronto</span><code id="guide-overlay-url">http://127.0.0.1:7384/overlay?max=48&width=520&size=24&lines=1</code><a class="secondary" id="guide-overlay-open" href="/overlay?max=48&width=520&size=24&lines=1" target="_blank" rel="noreferrer">Abrir</a></div>
             <p class="endpoint-description">No OBS, adicione como Browser Source para mostrar a musica atual.</p>
             <div class="obs-size-grid" aria-label="Tamanho recomendado para a Browser Source do overlay">
               <div class="obs-size-card"><strong>620 px</strong><span>Largura da fonte no OBS</span></div>
-              <div class="obs-size-card"><strong>120 px</strong><span>Altura da fonte no OBS</span></div>
+              <div class="obs-size-card"><strong id="guide-overlay-height">120 px</strong><span>Altura da fonte no OBS</span></div>
             </div>
-            <p class="endpoint-description">O parametro <code>width=520</code> limita o texto dentro do overlay. A fonte do OBS deve ficar um pouco maior para sobrar area transparente.</p>
+            <p class="endpoint-description">Use 2 linhas quando o nome da musica for maior. O parametro <code>width=520</code> limita o texto dentro do overlay.</p>
             <div class="endpoint-row with-action"><span>Player YouTube</span><code>http://127.0.0.1:7384/player</code><a class="secondary" href="/player" target="_blank" rel="noreferrer">Abrir</a></div>
             <p class="endpoint-description">Use so se o YouTube estiver em Browser Source OBS. Se usar Pear Desktop, nao precisa.</p>
             <div class="endpoint-row"><span>Pear API</span><code>http://127.0.0.1:26538/api/v1</code></div>
@@ -1386,6 +1396,11 @@ pub async fn page() -> Html<&'static str> {
       'Live: comportamento da fila': 'Stream: queue behavior',
       'Escolha se a fila deve continuar depois que a live acabar e o app abrir de novo.': 'Choose whether the queue continues after the stream ends and the app opens again.',
       'Continuar com a fila salva quando o app abrir de novo': 'Restore saved queue when the app opens again',
+      'Texto do overlay': 'Overlay label',
+      'Linhas do nome no overlay': 'Song title lines',
+      '1 linha': '1 line',
+      '2 linhas': '2 lines',
+      '3 linhas': '3 lines',
       'Avançado: comandos, permissões e limites': 'Advanced: commands, permissions, and limits',
       'Comandos e permissões do chat': 'Chat commands and permissions',
       'Pedido de música': 'Song request',
@@ -1434,7 +1449,8 @@ pub async fn page() -> Html<&'static str> {
       'system of a down spiders ou https://youtu.be/...': 'system of a down spiders or https://youtu.be/...',
       'Client ID do app Twitch': 'Twitch app Client ID',
       'Client ID do app Spotify': 'Spotify app Client ID',
-      'deixe vazio para manter a chave atual': 'leave empty to keep the current key'
+      'deixe vazio para manter a chave atual': 'leave empty to keep the current key',
+      'Tocando agora': 'Now playing'
     };
     const I18N_REVERSE_EN = Object.fromEntries(Object.entries(I18N_EN).map(([pt, en]) => [en, pt]));
     const I18N_PLACEHOLDERS_REVERSE_EN = Object.fromEntries(Object.entries(I18N_PLACEHOLDERS_EN).map(([pt, en]) => [en, pt]));
@@ -1581,6 +1597,49 @@ pub async fn page() -> Html<&'static str> {
       const value = Number($(id).value);
       if (!Number.isFinite(value)) return fallback;
       return Math.max(0, Math.min(100, Math.floor(value)));
+    }
+
+    function overlayLinesHeight(lines) {
+      return lines >= 3 ? 180 : lines === 2 ? 150 : 120;
+    }
+
+    function overlayConfigFromForm() {
+      return {
+        label: $('setup-overlay-label').value || 'Tocando agora',
+        lines: Number($('setup-overlay-lines').value || 1)
+      };
+    }
+
+    function overlayUrl(overlay) {
+      const config = overlay || overlayConfigFromForm();
+      const params = new URLSearchParams({
+        max: '48',
+        width: '520',
+        size: '24',
+        lines: String(Math.max(1, Math.min(3, Number(config.lines || 1))))
+      });
+      const label = String(config.label || 'Tocando agora').trim();
+      if (label && label !== 'Tocando agora') params.set('label', label);
+      return `/overlay?${params.toString()}`;
+    }
+
+    function renderOverlayGuide(overlay) {
+      const config = overlay || overlayConfigFromForm();
+      const url = overlayUrl(config);
+      const fullUrl = `${window.location.origin}${url}`;
+      const height = overlayLinesHeight(Number(config.lines || 1));
+      if ($('setup-overlay-url')) $('setup-overlay-url').textContent = fullUrl;
+      if ($('guide-overlay-url')) $('guide-overlay-url').textContent = fullUrl;
+      if ($('guide-overlay-open')) $('guide-overlay-open').href = url;
+      if ($('setup-overlay-height')) $('setup-overlay-height').textContent = String(height);
+      if ($('guide-overlay-height')) $('guide-overlay-height').textContent = `${height} px`;
+    }
+
+    function fillOverlaySettings(config) {
+      const overlay = config.overlay || { label: 'Tocando agora', lines: 1 };
+      $('setup-overlay-label').value = overlay.label || 'Tocando agora';
+      $('setup-overlay-lines').value = String(overlay.lines || 1);
+      renderOverlayGuide(overlay);
     }
 
     function queueLimitsFromForm() {
@@ -1990,6 +2049,7 @@ pub async fn page() -> Html<&'static str> {
           $('setup-youtube-max-duration').value = config.youtube_max_duration_seconds || 360;
           $('setup-youtube-allow-non-music').checked = Boolean(config.youtube_allow_non_music);
           $('setup-queue-persistence-enabled').checked = Boolean(config.queue_persistence_enabled);
+          fillOverlaySettings(config);
           fillCommandSettings(config);
         }
 
@@ -2200,7 +2260,8 @@ pub async fn page() -> Html<&'static str> {
           youtube_max_duration_seconds: Number($('setup-youtube-max-duration').value || 360),
           youtube_allow_non_music: $('setup-youtube-allow-non-music').checked,
           command_settings: commandSettingsFromForm(),
-          queue_limits: queueLimitsFromForm()
+          queue_limits: queueLimitsFromForm(),
+          overlay: overlayConfigFromForm()
         })
       });
       $('setup-youtube-api-key').value = '';
@@ -2232,6 +2293,11 @@ pub async fn page() -> Html<&'static str> {
       setSetupDirty(true, $('setup-spotify-fallback-enabled').checked
         ? 'Playlist fallback marcada. Clique em Salvar configuração.'
         : 'Playlist fallback desmarcada. Clique em Salvar configuração.');
+    });
+
+    ['setup-overlay-label', 'setup-overlay-lines'].forEach((id) => {
+      $(id).addEventListener('input', () => renderOverlayGuide());
+      $(id).addEventListener('change', () => renderOverlayGuide());
     });
 
     $('setup-queue-persistence-enabled').addEventListener('change', () => {

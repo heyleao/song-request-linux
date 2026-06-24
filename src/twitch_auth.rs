@@ -70,6 +70,7 @@ pub async fn save_bot_token(config: &AppConfig, input: TwitchTokenInput) -> Resu
         youtube_allow_non_music: current.youtube_allow_non_music,
         command_settings: Some(current.command_settings),
         queue_limits: Some(current.queue_limits),
+        overlay: Some(current.overlay),
     };
 
     save_ui_config(&config.paths, user_config)

@@ -58,7 +58,7 @@ pub async fn page() -> Html<&'static str> {
 </head>
 <body>
   <main>
-    <div class="label">Tocando agora</div>
+    <div class="label" id="overlay-label">Tocando agora</div>
     <div class="song" id="song">Aguardando pedido</div>
     <div class="meta" id="meta">Song Request Linux</div>
   </main>
@@ -69,14 +69,20 @@ pub async fn page() -> Html<&'static str> {
       width: clampNumber(params.get('width'), 240, 1200, 620),
       size: clampNumber(params.get('size'), 14, 64, 28),
       lines: clampNumber(params.get('lines'), 1, 3, 1),
-      align: ['left', 'center', 'right'].includes(params.get('align')) ? params.get('align') : 'left'
+      align: ['left', 'center', 'right'].includes(params.get('align')) ? params.get('align') : 'left',
+      label: cleanOverlayLabel(params.get('label') || 'Tocando agora')
     };
 
-    document.documentElement.style.setProperty('--overlay-width', `${overlayOptions.width}px`);
-    document.documentElement.style.setProperty('--song-size', `${overlayOptions.size}px`);
-    document.documentElement.style.setProperty('--song-lines', overlayOptions.lines);
-    document.documentElement.style.setProperty('--overlay-align', overlayOptions.align);
-    document.getElementById('song').classList.toggle('multiline', overlayOptions.lines > 1);
+    function applyOverlayOptions() {
+      document.documentElement.style.setProperty('--overlay-width', `${overlayOptions.width}px`);
+      document.documentElement.style.setProperty('--song-size', `${overlayOptions.size}px`);
+      document.documentElement.style.setProperty('--song-lines', overlayOptions.lines);
+      document.documentElement.style.setProperty('--overlay-align', overlayOptions.align);
+      document.getElementById('overlay-label').textContent = overlayOptions.label;
+      document.getElementById('song').classList.toggle('multiline', overlayOptions.lines > 1);
+    }
+
+    applyOverlayOptions();
 
     const GENERIC_ARTISTS = new Set(['spotify', 'youtube', 'spotify search', 'youtube search']);
     const NOISE_PATTERNS = [
@@ -92,6 +98,11 @@ pub async fn page() -> Html<&'static str> {
       /\b4k\b/gi,
       /\bhd\b/gi
     ];
+
+    function cleanOverlayLabel(value) {
+      const label = String(value || '').replace(/[\u0000-\u001F\u007F]/g, ' ').replace(/\s+/g, ' ').trim();
+      return label ? label.slice(0, 40) : 'Tocando agora';
+    }
 
     function clampNumber(value, min, max, fallback) {
       const number = Number(value);
@@ -138,6 +149,17 @@ pub async fn page() -> Html<&'static str> {
       return trimDisplay(display);
     }
 
+    async function loadOverlayConfig() {
+      try {
+        const response = await fetch('/api/config', { cache: 'no-store' });
+        const config = await response.json();
+        const overlay = config.overlay || {};
+        if (!params.has('lines')) overlayOptions.lines = clampNumber(overlay.lines, 1, 3, 1);
+        if (!params.has('label')) overlayOptions.label = cleanOverlayLabel(overlay.label || 'Tocando agora');
+        applyOverlayOptions();
+      } catch (_) {}
+    }
+
     async function refresh() {
       const response = await fetch('/api/status', { cache: 'no-store' });
       const data = await response.json();
@@ -145,7 +167,7 @@ pub async fn page() -> Html<&'static str> {
       document.getElementById('song').textContent = song ? compactTrack(song) : 'Aguardando pedido';
       document.getElementById('meta').textContent = song ? '' : `${data.app} v${data.version}`;
     }
-    refresh();
+    loadOverlayConfig().then(refresh);
     setInterval(refresh, 3000);
   </script>
 </body>

@@ -179,18 +179,19 @@ Adicione uma `Browser Source` para o overlay.
 URL:
 
 ```text
-http://127.0.0.1:7384/overlay?max=48&width=520&size=24&lines=1
+http://127.0.0.1:7384/overlay?max=48&width=520&size=24&lines=2
 ```
 
 Tamanho da fonte:
 
 ```text
 Largura: 620
-Altura: 120
+Altura: 150
 ```
 
-O `width=520` limita o texto dentro do overlay. A fonte no OBS fica maior para
-sobrar area transparente.
+O `width=520` limita o texto dentro do overlay. Use `lines=2` para permitir
+duas linhas no nome da musica. O texto do topo pode ser alterado no Setup ou
+com `label=Texto` na URL.
 
 Fonte de player YouTube:
 

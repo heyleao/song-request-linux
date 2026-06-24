@@ -188,6 +188,7 @@ mod tests {
                     moderator: 10,
                     streamer: 0,
                 }),
+                overlay: None,
             },
         )
         .expect("save config");
@@ -239,6 +240,7 @@ mod tests {
                 youtube_allow_non_music: false,
                 command_settings: None,
                 queue_limits: Some(crate::config::QueueLimitConfig::default()),
+                overlay: None,
             },
         )
         .expect("save config");

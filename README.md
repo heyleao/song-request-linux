@@ -200,18 +200,19 @@ http://127.0.0.1:7384/
 Overlay recomendado:
 
 ```text
-http://127.0.0.1:7384/overlay?max=48&width=520&size=24&lines=1
+http://127.0.0.1:7384/overlay?max=48&width=520&size=24&lines=2
 ```
 
 Tamanho recomendado da Browser Source:
 
 ```text
 Largura: 620
-Altura: 120
+Altura: 150
 ```
 
-O parametro `width=520` controla a largura interna do texto. A fonte no OBS deve
-ser um pouco maior para sobrar area transparente e evitar corte.
+O parametro `width=520` controla a largura interna do texto. Use `lines=2` para
+permitir duas linhas no nome da musica. O texto do topo pode ser alterado no
+Setup ou com `label=Texto` na URL.
 
 Player OBS para YouTube:
 

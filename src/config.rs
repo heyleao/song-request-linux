@@ -43,6 +43,7 @@ pub struct UserConfig {
     pub twitch_channel: Option<String>,
     pub command_settings: CommandSettings,
     pub queue_limits: QueueLimitConfig,
+    pub overlay: OverlayConfig,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -69,6 +70,7 @@ pub struct UiConfigInput {
     pub youtube_allow_non_music: bool,
     pub command_settings: Option<CommandSettings>,
     pub queue_limits: Option<QueueLimitConfig>,
+    pub overlay: Option<OverlayConfig>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -89,6 +91,7 @@ pub struct UiConfigView {
     pub command_settings: CommandSettings,
     pub queue_limits: QueueLimitConfig,
     pub commands_summary: Vec<CommandSummary>,
+    pub overlay: OverlayConfig,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -101,6 +104,30 @@ pub struct QueueLimitConfig {
     pub vip: u16,
     pub moderator: u16,
     pub streamer: u16,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(default)]
+pub struct OverlayConfig {
+    pub label: String,
+    pub lines: u8,
+}
+
+impl Default for OverlayConfig {
+    fn default() -> Self {
+        Self {
+            label: "Tocando agora".to_string(),
+            lines: 1,
+        }
+    }
+}
+
+impl OverlayConfig {
+    pub fn normalized(mut self) -> Self {
+        self.label = sanitize_overlay_label(&self.label);
+        self.lines = self.lines.clamp(1, 3);
+        self
+    }
 }
 
 fn default_subscriber_queue_limit() -> u16 {
@@ -233,6 +260,7 @@ impl Default for UserConfig {
             twitch_channel: None,
             command_settings: CommandSettings::default(),
             queue_limits: QueueLimitConfig::default(),
+            overlay: OverlayConfig::default(),
         }
     }
 }
@@ -346,6 +374,7 @@ impl UiConfigView {
             command_settings: user_config.command_settings.clone(),
             queue_limits: user_config.queue_limits.clone(),
             commands_summary: command_summary(&user_config.command_settings),
+            overlay: user_config.overlay.clone().normalized(),
         }
     }
 }
@@ -379,6 +408,7 @@ pub fn save_ui_config(paths: &AppPaths, input: UiConfigInput) -> Result<UiConfig
         twitch_channel: clean_optional_value(input.twitch_channel),
         command_settings: normalize_command_settings(input.command_settings.unwrap_or_default()),
         queue_limits: normalize_queue_limits(input.queue_limits.unwrap_or_default()),
+        overlay: input.overlay.unwrap_or_default().normalized(),
     };
     let user_secrets = UserSecrets {
         twitch_bot_oauth_token: clean_optional_value(input.twitch_bot_oauth_token)
@@ -402,6 +432,22 @@ pub fn command_settings(paths: &AppPaths) -> CommandSettings {
     load_user_config_from_paths(paths)
         .map(|config| normalize_command_settings(config.command_settings))
         .unwrap_or_default()
+}
+
+fn sanitize_overlay_label(value: &str) -> String {
+    let cleaned = value
+        .chars()
+        .filter(|ch| !ch.is_control())
+        .collect::<String>()
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
+
+    if cleaned.is_empty() {
+        return "Tocando agora".to_string();
+    }
+
+    cleaned.chars().take(40).collect()
 }
 
 fn normalize_queue_limits(mut limits: QueueLimitConfig) -> QueueLimitConfig {
