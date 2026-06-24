@@ -31,6 +31,10 @@ pub struct PearNowPlaying {
     pub artist: Option<String>,
     #[serde(default, rename = "isPaused")]
     pub is_paused: bool,
+    #[serde(default, rename = "songDuration")]
+    pub song_duration: Option<u64>,
+    #[serde(default, rename = "elapsedSeconds")]
+    pub elapsed_seconds: Option<u64>,
 }
 
 #[derive(Debug, Serialize)]
@@ -72,6 +76,11 @@ pub struct PearQueueDisplayItem {
 #[derive(Debug, Serialize)]
 struct PearVolumeRequest {
     volume: u8,
+}
+
+#[derive(Debug, Serialize)]
+struct PearSeekRequest {
+    seconds: u64,
 }
 
 const PEAR_VOLUME_SCALE: &[(u8, u8)] = &[
@@ -177,6 +186,22 @@ pub async fn next(config: &AppConfig) -> Result<()> {
     empty_post(config, "next").await
 }
 
+pub async fn seek_to(config: &AppConfig, seconds: u64) -> Result<()> {
+    let response = client()?
+        .post(endpoint(config, "seek-to"))
+        .json(&PearSeekRequest { seconds })
+        .send()
+        .await
+        .context("Pear nao respondeu em /seek-to")?;
+    let status = response.status();
+    if status.is_success() {
+        return Ok(());
+    }
+
+    let body = response.text().await.unwrap_or_default();
+    bail!("Pear nao aceitou seek-to ({status}): {}", body.trim());
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PearSkipOutcome {
     pub changed: bool,
@@ -204,6 +229,16 @@ pub async fn skip_next(config: &AppConfig) -> Result<PearSkipOutcome> {
         sleep(Duration::from_millis(1200)).await;
         after = now_playing(config).await.ok();
         return Ok(PearSkipOutcome::new(before, after, true));
+    }
+
+    if let Some(duration) = before.as_ref().and_then(PearNowPlaying::skip_seek_seconds) {
+        seek_to(config, duration).await?;
+        play(config).await?;
+        sleep(Duration::from_millis(2500)).await;
+        after = now_playing(config).await.ok();
+        if song_changed(before.as_ref(), after.as_ref()) {
+            return Ok(PearSkipOutcome::new(before, after, true));
+        }
     }
 
     Ok(PearSkipOutcome::new(before, after, false))
@@ -474,6 +509,12 @@ impl PearSkipOutcome {
 }
 
 impl PearNowPlaying {
+    fn skip_seek_seconds(&self) -> Option<u64> {
+        let duration = self.song_duration.filter(|duration| *duration > 0)?;
+        let elapsed = self.elapsed_seconds.unwrap_or(0);
+        Some(duration.saturating_sub(if elapsed >= duration { 0 } else { 1 }))
+    }
+
     fn into_song_request(self) -> Option<SongRequest> {
         let video_id = self.video_id.clone();
         let title = self
@@ -643,6 +684,8 @@ mod tests {
             alternative_title: Some("Mamonas Assassinas - Pelados em Santos".to_string()),
             artist: Some("Mamonas Assassinas".to_string()),
             is_paused: false,
+            song_duration: Some(200),
+            elapsed_seconds: Some(1),
         }
         .into_song_request()
         .expect("song request");
@@ -661,6 +704,8 @@ mod tests {
             alternative_title: None,
             artist: None,
             is_paused: false,
+            song_duration: Some(120),
+            elapsed_seconds: Some(10),
         };
         let after = PearNowPlaying {
             video_id: Some("b".to_string()),
@@ -668,9 +713,26 @@ mod tests {
             alternative_title: None,
             artist: None,
             is_paused: false,
+            song_duration: Some(180),
+            elapsed_seconds: Some(1),
         };
 
         assert!(song_changed(Some(&before), Some(&after)));
         assert!(!song_changed(Some(&before), Some(&before)));
+    }
+
+    #[test]
+    fn calculates_safe_skip_seek_second() {
+        let song = PearNowPlaying {
+            video_id: Some("a".to_string()),
+            title: Some("Before".to_string()),
+            alternative_title: None,
+            artist: None,
+            is_paused: false,
+            song_duration: Some(254),
+            elapsed_seconds: Some(10),
+        };
+
+        assert_eq!(song.skip_seek_seconds(), Some(253));
     }
 }
