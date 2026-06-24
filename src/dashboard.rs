@@ -447,7 +447,7 @@ pub async fn page() -> Html<&'static str> {
     .provider-options {
       align-items: stretch;
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
     }
     .provider-option {
       min-height: 58px;
@@ -464,6 +464,30 @@ pub async fn page() -> Html<&'static str> {
       background: linear-gradient(180deg, rgba(34, 197, 94, .14), rgba(29, 37, 48, 1));
     }
     .provider-option strong { font-size: 15px; }
+    .provider-option span {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    .player-config-card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface-2);
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+    }
+    .player-config-card h3 {
+      margin: 0;
+      font-size: 15px;
+    }
+    .player-config-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    .player-config-card.provider-hidden { display: none; }
     .provider-exclusive-note {
       color: var(--muted);
       font-size: 13px;
@@ -865,10 +889,11 @@ pub async fn page() -> Html<&'static str> {
               <span class="pill compact"><span class="dot ok"></span>Modo <strong id="provider-mode">verificando</strong></span>
             </div>
             <div class="provider-options">
-              <div class="provider-option" id="provider-spotify"><strong>Spotify</strong></div>
-              <div class="provider-option" id="provider-youtube"><strong>YouTube</strong></div>
+              <div class="provider-option" id="provider-spotify"><strong>Spotify</strong><span>Busca, fila, volume e fallback pelo Spotify.</span></div>
+              <div class="provider-option" id="provider-youtube-pear"><strong>YouTube/Pear</strong><span>Busca pelo SRL e playback no Pear Desktop.</span></div>
+              <div class="provider-option" id="provider-youtube-browser"><strong>YouTube/OBS</strong><span>Busca pelo SRL e playback no Browser Source.</span></div>
             </div>
-            <div class="provider-exclusive-note">Escolha um modo por live.</div>
+            <div class="provider-exclusive-note">Escolha um modo por live: Spotify, YouTube/Pear ou YouTube/OBS Browser.</div>
           </section>
 
           <section>
@@ -958,7 +983,7 @@ pub async fn page() -> Html<&'static str> {
           <div>
             <h2>Configuração para iniciar a live</h2>
             <p id="setup-provider-help">Siga os passos em ordem. Preencha, conecte as contas e clique em Salvar.</p>
-            <p class="field-note"><strong>Escolha um modo por live:</strong> Spotify ou YouTube. Depois escolha se o YouTube toca pelo OBS Browser ou pelo Pear.</p>
+            <p class="field-note"><strong>Escolha um modo por live:</strong> Spotify, YouTube via Pear ou YouTube via OBS Browser.</p>
             <p class="field-note">Provider atual: <strong id="setup-active-provider">verificando</strong></p>
           </div>
           <div class="requirement-list" id="setup-provider-requirements"></div>
@@ -989,12 +1014,15 @@ pub async fn page() -> Html<&'static str> {
               <label>Canal da live
                 <input id="setup-twitch-channel" autocomplete="off" placeholder="hey_leao">
               </label>
-              <label>Provider padrão
-                <select id="setup-provider">
+              <label>Modo de operação
+                <select id="setup-operation-mode">
                   <option value="spotify">Spotify</option>
-                  <option value="youtube">YouTube</option>
+                  <option value="youtube_pear">YouTube via Pear Desktop</option>
+                  <option value="youtube_browser">YouTube via OBS Browser Source</option>
                 </select>
               </label>
+              <input id="setup-provider" type="hidden" value="spotify">
+              <input id="setup-youtube-playback" type="hidden" value="pear">
             </div>
             <div class="card-actions">
               <button class="secondary" id="setup-twitch-login" type="button">Conectar bot</button>
@@ -1041,34 +1069,39 @@ pub async fn page() -> Html<&'static str> {
           <div class="step-body">
             <div class="step-head">
               <div>
-                <h2>YouTube: links e pedidos do YouTube</h2>
-                <p class="step-copy">Escolha onde o YouTube vai tocar: OBS Browser Source ou Pear Desktop.</p>
+                <h2>YouTube: busca por texto e links</h2>
+                <p class="step-copy">A API Key é usada pelo Song Request Linux para pesquisar e validar pedidos. O Pear toca com a conta logada no próprio Pear/YouTube; ele não usa sua API Key como login.</p>
               </div>
               <a class="setup-inline-link" href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noreferrer">Criar API Key</a>
             </div>
             <div class="setup-quick-list">
-              <span>Ative YouTube Data API v3 no Google Cloud.</span>
-              <span>Se escolher Pear, ligue o API Server na porta 26538.</span>
-              <span>Use limite de tempo para evitar vídeos longos na fila.</span>
+              <span>Escolha um modo de operação: Spotify, YouTube via Pear ou YouTube via OBS Browser.</span>
+              <span>Texto como <code>system of a down spiders</code> usa YouTube Data API v3 para buscar o vídeo.</span>
+              <span>Link direto do YouTube vai direto para o player escolhido e usa menos API.</span>
             </div>
             <div class="form-grid">
-              <label>Player YouTube
-                <select id="setup-youtube-playback">
-                  <option value="pear">Pear Desktop</option>
-                  <option value="browser">Browser Source OBS</option>
-                </select>
-              </label>
-              <label>Pear API
-                <input id="setup-pear-base-url" autocomplete="off" placeholder="http://127.0.0.1:26538/api/v1">
-              </label>
               <label class="full">YouTube API Keys
                 <textarea id="setup-youtube-api-key" rows="4" autocomplete="off" placeholder="uma chave por linha; deixe vazio para manter as chaves atuais"></textarea>
-                <span class="field-note">Busca por texto e validação usam YouTube Data API e podem bater limite. Links diretos do YouTube usam menos API. Para mais margem, crie várias API Keys no Google Cloud e cole uma por linha.</span>
+                <span class="field-note">Vale para YouTube/Pear e YouTube/OBS Browser quando o pedido vem por texto. Para mais margem de quota, crie várias API Keys no Google Cloud e cole uma por linha.</span>
               </label>
               <label>Máximo do vídeo em segundos
                 <input id="setup-youtube-max-duration" type="number" inputmode="numeric" min="30" max="86400" step="30" value="360">
               </label>
               <label><span><input id="setup-youtube-allow-non-music" type="checkbox"> Aceitar vídeo fora da categoria Música</span></label>
+            </div>
+
+            <div class="player-config-card" data-youtube-mode="pear">
+              <h3>YouTube via Pear Desktop</h3>
+              <p>Use quando quiser tocar pelo Pear. Abra o Pear, entre com sua conta Google/YouTube se necessário e ative o plugin API Server.</p>
+              <label>Pear API
+                <input id="setup-pear-base-url" autocomplete="off" placeholder="http://127.0.0.1:26538/api/v1">
+              </label>
+            </div>
+
+            <div class="player-config-card" data-youtube-mode="browser">
+              <h3>YouTube via OBS Browser Source</h3>
+              <p>Use quando quiser tocar dentro do OBS. Adicione a fonte <code>http://127.0.0.1:7384/player</code>, marque <code>Controlar audio via OBS</code> e monitore o áudio pelo mixer do OBS.</p>
+              <div class="endpoint-row with-action"><span>Player OBS</span><code>http://127.0.0.1:7384/player</code><button class="secondary icon-button copy-button" type="button" data-copy-value="http://127.0.0.1:7384/player" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button><a class="secondary" href="/player" target="_blank" rel="noreferrer">Abrir</a></div>
             </div>
           </div>
         </section>
@@ -1383,7 +1416,7 @@ pub async fn page() -> Html<&'static str> {
       'Configuração para iniciar a live': 'Setup to start the stream',
       'Siga os passos em ordem. Preencha, conecte as contas e clique em Salvar.': 'Follow the steps in order. Fill in the fields, connect accounts, and click Save.',
       'Escolha um modo por live:': 'Choose one mode per stream:',
-      'Spotify ou YouTube. Depois escolha se o YouTube toca pelo OBS Browser ou pelo Pear.': 'Spotify or YouTube. Then choose whether YouTube plays through OBS Browser or Pear.',
+      'Spotify, YouTube via Pear ou YouTube via OBS Browser.': 'Spotify, YouTube via Pear, or YouTube via OBS Browser.',
       'Provider atual:': 'Current provider:',
       'Twitch: ligar o bot ao chat': 'Twitch: connect the bot to chat',
       'Use a conta do bot aqui. Ela vai ler o chat e responder aos comandos.': 'Use the bot account here. It reads chat and responds to commands.',
@@ -1391,10 +1424,10 @@ pub async fn page() -> Html<&'static str> {
       'Client ID Twitch': 'Twitch Client ID',
       'Conta do bot': 'Bot account',
       'Canal da live': 'Stream channel',
-      'Provider padrão': 'Default provider',
+      'Modo de operação': 'Operation mode',
       'Conectar bot': 'Connect bot',
       'Spotify: tocar músicas e fallback': 'Spotify: playback and fallback',
-      'Obrigatório se o provider padrão for Spotify. Precisa de Premium e Spotify aberto no PC da live.': 'Required if Spotify is the default provider. Requires Premium and Spotify open on the stream PC.',
+      'Obrigatório se o provider padrão for Spotify. Precisa de Premium e Spotify aberto no PC da live.': 'Required when Spotify is the active mode. Requires Premium and Spotify open on the stream PC.',
       'Criar app Spotify': 'Create Spotify app',
       'Client ID Spotify': 'Spotify Client ID',
       'Tocar playlist fallback quando não houver pedidos': 'Play fallback playlist when there are no requests',
@@ -1766,12 +1799,76 @@ pub async fn page() -> Html<&'static str> {
       });
     }
 
+    function operationModeFromValues(provider, playback) {
+      if (provider === 'spotify') return 'spotify';
+      return playback === 'browser' ? 'youtube_browser' : 'youtube_pear';
+    }
+
+    function operationModeFromConfig(config = {}) {
+      return operationModeFromValues(config.default_provider || $('setup-provider').value || 'youtube', config.youtube_playback || $('setup-youtube-playback').value || 'pear');
+    }
+
+    function operationModeLabel(mode) {
+      if (mode === 'spotify') return 'Spotify';
+      if (mode === 'youtube_browser') return 'YouTube/OBS';
+      return 'YouTube/Pear';
+    }
+
+    function paintOperationMode(mode, pending = false) {
+      $('provider-mode').textContent = operationModeLabel(mode);
+      $('setup-active-provider').textContent = operationModeLabel(mode);
+      $('provider-spotify').classList.toggle('active', mode === 'spotify');
+      $('provider-youtube-pear').classList.toggle('active', mode === 'youtube_pear');
+      $('provider-youtube-browser').classList.toggle('active', mode === 'youtube_browser');
+      if (pending) {
+        const suffix = ' selecionado. Clique em Salvar configuração para aplicar na live.';
+        $('setup-provider-help').textContent = operationModeLabel(mode) + suffix;
+        if (mode === 'spotify') {
+          $('setup-provider-requirements').innerHTML = [
+            requirementRow('warn', 'Spotify', 'Salve para ativar busca, fila, volume e fallback pelo Spotify.'),
+            requirementRow('warn', 'YouTube', 'Ficará inativo enquanto Spotify for o modo da live.')
+          ].join('');
+        } else if (mode === 'youtube_pear') {
+          $('setup-provider-requirements').innerHTML = [
+            requirementRow('warn', 'YouTube API para busca', 'Necessária para pedidos por nome. Links diretos do YouTube usam menos API.'),
+            requirementRow('warn', 'Playback Pear Desktop', 'Abra o Pear, faça login no Pear/YouTube se necessário e ative o API Server na porta 26538.')
+          ].join('');
+        } else {
+          $('setup-provider-requirements').innerHTML = [
+            requirementRow('warn', 'YouTube API para busca', 'Necessária para pedidos por nome. Links diretos do YouTube usam menos API.'),
+            requirementRow('warn', 'Playback OBS Browser', 'Adicione http://127.0.0.1:7384/player como Browser Source e monitore o áudio no OBS.')
+          ].join('');
+        }
+      }
+    }
+
+    function applyOperationMode(mode, options = {}) {
+      const provider = mode === 'spotify' ? 'spotify' : 'youtube';
+      const playback = mode === 'youtube_browser' ? 'browser' : 'pear';
+      $('setup-operation-mode').value = mode;
+      $('setup-provider').value = provider;
+      $('setup-youtube-playback').value = playback;
+      updateProviderStepVisibility({ default_provider: provider, youtube_playback: playback });
+      paintOperationMode(mode, Boolean(options.dirty));
+      if (options.dirty) {
+        setSetupDirty(true, `Modo alterado para ${operationModeLabel(mode)}. Clique em Salvar configuração.`);
+      }
+    }
+
     function updateProviderStepVisibility(config) {
       const provider = config.default_provider || $('setup-provider').value || 'youtube';
+      const playback = config.youtube_playback || $('setup-youtube-playback').value || 'pear';
       document.querySelectorAll('[data-provider-step]').forEach((section) => {
         const visible = section.dataset.providerStep === provider;
         section.classList.toggle('provider-hidden', !visible);
-        section.querySelectorAll('input, select, button').forEach((control) => {
+        section.querySelectorAll('input, select, textarea, button').forEach((control) => {
+          control.disabled = !visible;
+        });
+      });
+      document.querySelectorAll('[data-youtube-mode]').forEach((section) => {
+        const visible = provider === 'youtube' && section.dataset.youtubeMode === playback;
+        section.classList.toggle('provider-hidden', !visible);
+        section.querySelectorAll('input, select, textarea, button').forEach((control) => {
           control.disabled = !visible;
         });
       });
@@ -1819,7 +1916,8 @@ pub async fn page() -> Html<&'static str> {
     }
 
     function renderProviderRequirements(config, connections, pear) {
-      const provider = config.default_provider === 'spotify' ? 'Spotify' : 'YouTube';
+      const mode = operationModeFromConfig(config);
+      const provider = operationModeLabel(mode);
       $('setup-active-provider').textContent = provider;
       updateProviderStepVisibility(config);
 
@@ -1856,20 +1954,22 @@ pub async fn page() -> Html<&'static str> {
 
       const pearMode = config.youtube_playback === 'pear';
       $('setup-provider-help').textContent = pearMode
-        ? 'Modo YouTube ativo: pedidos entram no YouTube e tocam pelo Pear Desktop. Spotify fica fora da fila até você trocar o provider.'
-        : 'Modo YouTube ativo: pedidos entram no YouTube e tocam pelo OBS Browser Source. Spotify fica fora da fila até você trocar o provider.';
+        ? 'Modo YouTube/Pear ativo: o SRL usa YouTube Data API para buscar por texto e manda tocar no Pear. O Pear usa a conta logada nele.'
+        : 'Modo YouTube/OBS ativo: o SRL usa YouTube Data API para buscar por texto e toca no Browser Source /player dentro do OBS.';
       $('setup-provider-requirements').innerHTML = [
         requirementRow(
           config.youtube_api_key_configured ? 'ok' : 'bad',
-          'YouTube API Keys',
-          config.youtube_api_key_configured ? `${config.youtube_api_key_count || 1} chave(s) salvas para busca por texto.` : 'Preencha ao menos uma API Key para buscar música por nome.'
+          'YouTube API para busca',
+          config.youtube_api_key_configured
+            ? `${config.youtube_api_key_count || 1} chave(s) salva(s). Necessária para pedidos por nome; links diretos usam menos API.`
+            : 'Preencha ao menos uma API Key para buscar música por nome. Link direto do YouTube ainda é o caminho mais leve.'
         ),
         requirementRow(
           pearMode ? pear.reachable ? 'ok' : 'bad' : 'ok',
-          pearMode ? 'Pear Desktop' : 'Player OBS',
+          pearMode ? 'Playback Pear Desktop' : 'Playback OBS Browser',
           pearMode
-            ? pear.reachable ? 'Pear respondeu na API local.' : 'Abra o Pear Desktop e confira a URL da API.'
-            : 'Adicione http://127.0.0.1:7384/player como fonte de navegador no OBS.'
+            ? pear.reachable ? 'Pear respondeu na API local. Login Google/YouTube fica dentro do Pear, não na API Key do SRL.' : 'Abra o Pear Desktop e confira o plugin API Server na porta 26538.'
+            : 'Adicione http://127.0.0.1:7384/player como fonte de navegador no OBS e monitore o áudio pelo OBS.'
         ),
         requirementRow(
           'warn',
@@ -2016,26 +2116,27 @@ pub async fn page() -> Html<&'static str> {
       const twitchReady = diagnostics.integrations.twitch.configured;
       const spotifyReady = connections.spotify.token_configured;
       const spotifyConfigured = connections.spotify.client_id_configured;
-      const youtubeReady = config.youtube_playback === 'pear' ? pear.reachable : config.youtube_api_key_configured;
+      const youtubeReady = config.default_provider !== 'youtube' || (config.youtube_api_key_configured && (config.youtube_playback !== 'pear' || pear.reachable));
 
       $('twitch-state').textContent = twitchReady ? 'configurado' : 'pendente';
       $('twitch-dot').className = stateClass(twitchReady);
       $('spotify-state').textContent = spotifyReady ? 'conectado' : spotifyConfigured ? 'login' : 'pendente';
       $('spotify-dot').className = stateClass(spotifyReady, spotifyConfigured);
-      $('youtube-state').textContent = config.youtube_playback === 'pear'
-        ? pear.reachable ? 'Pear ok' : 'Pear pendente'
-        : config.youtube_api_key_configured ? 'API ok' : 'API pendente';
-      $('youtube-dot').className = stateClass(youtubeReady, config.youtube_api_key_configured || config.youtube_playback === 'pear');
-      $('provider-mode').textContent = config.default_provider === 'spotify' ? 'Spotify' : 'YouTube';
-      $('provider-spotify').classList.toggle('active', config.default_provider === 'spotify');
-      $('provider-youtube').classList.toggle('active', config.default_provider === 'youtube');
+      $('youtube-state').textContent = config.default_provider !== 'youtube'
+        ? 'inativo'
+        : config.youtube_playback === 'pear'
+          ? youtubeReady ? 'Pear + API ok' : 'Pear/API pendente'
+          : config.youtube_api_key_configured ? 'OBS + API ok' : 'API pendente';
+      $('youtube-dot').className = stateClass(youtubeReady, config.default_provider !== 'youtube' || config.youtube_api_key_configured || config.youtube_playback === 'pear');
+      const mode = operationModeFromConfig(config);
+      paintOperationMode(mode);
       renderProviderRequirements(config, connections, pear);
       renderSpotifyFallback(connections, config);
 
       const rows = [
         ['Bot Twitch', twitchReady ? 'configurado' : 'não configurado'],
         ['Spotify', spotifyReady ? 'conectado' : spotifyConfigured ? 'login pendente' : 'client id pendente'],
-        ['YouTube', `${config.youtube_playback === 'pear' ? 'Pear Desktop' : 'Browser Source'} - ${config.youtube_api_key_configured ? `${config.youtube_api_key_count || 1} api key(s)` : 'api key pendente'}`],
+        ['YouTube', config.default_provider === 'youtube' ? `${config.youtube_playback === 'pear' ? 'Pear Desktop' : 'OBS Browser'} - ${config.youtube_api_key_configured ? `${config.youtube_api_key_count || 1} api key(s)` : 'api key pendente'}` : 'inativo'],
         ['Pear Desktop', pear.configured ? pear.reachable ? 'conectado' : 'não encontrado' : 'desativado'],
         ['Pear atual', pear.now_playing || '-'],
         ['Logs', diagnostics.storage.log_dir.exists ? 'ok' : 'pendente']
@@ -2073,19 +2174,18 @@ pub async fn page() -> Html<&'static str> {
 
         $('queue-count').textContent = `${queue.queue_length} pedido(s)`;
         $('refresh-state').textContent = 'OK';
-        $('playback-mode').textContent = config.youtube_playback === 'pear' ? 'Pear Desktop' : 'Browser Source';
+        $('playback-mode').textContent = config.default_provider === 'youtube' ? (config.youtube_playback === 'pear' ? 'Pear Desktop' : 'OBS Browser') : 'Inativo';
         await refreshVolume();
         renderDiagnostics(diagnostics, connections, pear, config);
 
         if (!setupDirty && !$('setup-form').contains(document.activeElement)) {
-          $('setup-provider').value = config.default_provider;
+          applyOperationMode(operationModeFromConfig(config));
           $('setup-spotify-client-id').value = config.spotify_client_id || '';
           $('setup-twitch-client-id').value = config.twitch_client_id || '';
           $('setup-spotify-fallback-enabled').checked = Boolean(config.spotify_fallback_enabled || connections.spotify.fallback_playlist);
           setSpotifyFallbackControls($('setup-spotify-fallback-enabled').checked);
           $('setup-twitch-bot-username').value = config.twitch_bot_username || '';
           $('setup-twitch-channel').value = config.twitch_channel || '';
-          $('setup-youtube-playback').value = config.youtube_playback || 'pear';
           $('setup-pear-base-url').value = config.pear_base_url || 'http://127.0.0.1:26538/api/v1';
           $('setup-youtube-max-duration').value = config.youtube_max_duration_seconds || 360;
           $('setup-youtube-allow-non-music').checked = Boolean(config.youtube_allow_non_music);
@@ -2362,9 +2462,8 @@ pub async fn page() -> Html<&'static str> {
       }
     });
 
-    $('setup-provider').addEventListener('change', () => {
-      setSetupDirty(true, `Provider alterado para ${$('setup-provider').value === 'spotify' ? 'Spotify' : 'YouTube'}. Clique em Salvar configuração.`);
-      updateProviderStepVisibility({ default_provider: $('setup-provider').value });
+    $('setup-operation-mode').addEventListener('change', () => {
+      applyOperationMode($('setup-operation-mode').value, { dirty: true });
     });
 
     $('setup-spotify-fallback-enabled').addEventListener('change', () => {
@@ -2386,16 +2485,17 @@ pub async fn page() -> Html<&'static str> {
     });
 
     $('provider-spotify').addEventListener('click', () => {
-      $('setup-provider').value = 'spotify';
-      updateProviderStepVisibility({ default_provider: 'spotify' });
-      setSetupDirty(true, 'Provider alterado para Spotify. Clique em Salvar configuração.');
+      applyOperationMode('spotify', { dirty: true });
       showTab('setup-tab');
     });
 
-    $('provider-youtube').addEventListener('click', () => {
-      $('setup-provider').value = 'youtube';
-      updateProviderStepVisibility({ default_provider: 'youtube' });
-      setSetupDirty(true, 'Provider alterado para YouTube. Clique em Salvar configuração.');
+    $('provider-youtube-pear').addEventListener('click', () => {
+      applyOperationMode('youtube_pear', { dirty: true });
+      showTab('setup-tab');
+    });
+
+    $('provider-youtube-browser').addEventListener('click', () => {
+      applyOperationMode('youtube_browser', { dirty: true });
       showTab('setup-tab');
     });
 

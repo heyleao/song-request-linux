@@ -30,7 +30,7 @@ http://127.0.0.1:7384/
 
 The main screen shows:
 
-- active provider;
+- active mode;
 - now playing;
 - request queue;
 - recent events;
@@ -38,7 +38,7 @@ The main screen shows:
 
 ## 3. Choose Mode
 
-On the main `Live` screen, choose one provider in the `Active provider` card.
+On the main `Live` screen, choose one mode in the `Active provider` card.
 
 ![Active provider on the main screen](images/setup-provider.png)
 
@@ -48,13 +48,19 @@ Use `Spotify` if you want to:
 - control play, pause, skip, and volume on Spotify;
 - use Spotify fallback playlist when the queue is empty.
 
-Use `YouTube/Pear` if you want to:
+Use `YouTube via Pear` if you want to:
 
 - search songs by name on YouTube;
 - play through Pear Desktop;
 - accept direct YouTube links.
 
-Use one mode at a time. If you change the provider, save settings.
+Use `YouTube via OBS Browser` if you want to:
+
+- search songs by name on YouTube;
+- play through the `http://127.0.0.1:7384/player` OBS source;
+- control audio in the OBS mixer.
+
+Use one mode at a time: Spotify, YouTube via Pear, or YouTube via OBS Browser. If you change the mode, save settings.
 
 ## 4. Twitch
 
@@ -82,7 +88,7 @@ It is ready when the top status shows Twitch as configured.
 
 ## 5. Spotify
 
-Skip this if you only use YouTube/Pear.
+Skip this if you use YouTube via Pear or YouTube via OBS Browser.
 
 1. Open https://developer.spotify.com/dashboard
 2. Create an app.
@@ -136,11 +142,15 @@ The next stream starts with an empty queue.
 
 Disable it if you always want a clean stream start.
 
-## 8. YouTube/Pear
+## 8. YouTube: Pear or OBS Browser
 
 Skip this if you only use Spotify.
 
 ### YouTube API
+
+The API key is used by Song Request Linux to search text requests, validate duration/category, and pick the video. It applies to both `YouTube via Pear` and `YouTube via OBS Browser`.
+
+Pear does not use this API key as login. Pear plays using the Google/YouTube account logged into Pear itself.
 
 1. Open https://console.cloud.google.com/apis/credentials
 2. Create or choose a project.
@@ -156,7 +166,7 @@ the lighter path for exact requests.
 
 ### Choose where YouTube plays
 
-In Setup, the `YouTube player` field has two options:
+In Setup, the `Operation mode` field has three options. For YouTube, choose one:
 
 - `Pear Desktop`: plays through Pear and uses Pear's local API.
 - `OBS Browser Source`: plays directly inside an OBS browser source.
@@ -314,7 +324,7 @@ The limit counts the current song and the next songs from the same user.
 
 ## 12. Test Before Going Live
 
-1. Check if the top bar shows Twitch, provider, and API as configured.
+1. Check if the top bar shows Twitch, active mode, and API as configured.
 2. Send a manual request from the dashboard.
 3. Check if it appears in `Request queue`.
 4. Check if the player plays.

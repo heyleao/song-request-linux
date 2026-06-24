@@ -33,7 +33,7 @@ http://127.0.0.1:7384/
 
 A tela principal mostra:
 
-- provider ativo;
+- modo ativo;
 - musica tocando agora;
 - fila de pedidos;
 - eventos recentes;
@@ -41,7 +41,7 @@ A tela principal mostra:
 
 ## 3. Escolher o modo
 
-Na tela principal `Operacao`, escolha um provider principal no card `Provider ativo`.
+Na tela principal `Operacao`, escolha um modo principal no card `Provider ativo`.
 
 ![Provider ativo na tela principal](images/setup-provider.png)
 
@@ -51,13 +51,19 @@ Use `Spotify` se voce quer:
 - controlar play, pause, skip e volume no Spotify;
 - usar playlist fallback do Spotify quando a fila estiver vazia.
 
-Use `YouTube/Pear` se voce quer:
+Use `YouTube via Pear` se voce quer:
 
 - buscar musica por nome no YouTube;
 - tocar pelo Pear Desktop;
 - aceitar links do YouTube direto.
 
-Por enquanto, use um modo por vez. Se trocar o provider, salve a configuracao.
+Use `YouTube via OBS Browser` se voce quer:
+
+- buscar musica por nome no YouTube;
+- tocar pela fonte `http://127.0.0.1:7384/player` no OBS;
+- controlar o audio pelo mixer do OBS.
+
+Use um modo por vez: Spotify, YouTube via Pear ou YouTube via OBS Browser. Se trocar o modo, salve a configuracao.
 
 ## 4. Twitch
 
@@ -85,7 +91,7 @@ Esta pronto quando o topo mostrar `Twitch configurado`.
 
 ## 5. Spotify
 
-Pule este passo se voce escolheu apenas YouTube/Pear.
+Pule este passo se voce escolheu YouTube via Pear ou YouTube via OBS Browser.
 
 1. Abra https://developer.spotify.com/dashboard
 2. Crie um app.
@@ -140,11 +146,15 @@ A proxima abertura comeca com fila vazia.
 
 Use desmarcado se voce quer sempre comecar uma live limpa.
 
-## 8. YouTube/Pear
+## 8. YouTube: Pear ou OBS Browser
 
 Pule este passo se voce escolheu apenas Spotify.
 
 ### YouTube API
+
+A API Key e usada pelo Song Request Linux para buscar por texto, validar duracao/categoria e escolher o video. Ela vale tanto para `YouTube via Pear` quanto para `YouTube via OBS Browser`.
+
+O Pear nao usa essa API Key como login. O Pear toca usando a conta Google/YouTube logada dentro do proprio Pear.
 
 1. Abra https://console.cloud.google.com/apis/credentials
 2. Crie ou escolha um projeto.
@@ -160,7 +170,7 @@ caminho mais leve para pedidos especificos.
 
 ### Escolher onde o YouTube toca
 
-No Setup, o campo `Player YouTube` tem duas opcoes:
+No Setup, o campo `Modo de operacao` tem tres opcoes. Para YouTube, escolha uma:
 
 - `Pear Desktop`: toca pelo app Pear e usa a API local do Pear.
 - `Browser Source OBS`: toca direto em uma fonte de navegador do OBS.
@@ -324,7 +334,7 @@ O limite conta a musica atual e as proximas musicas do mesmo usuario.
 
 ## 12. Testar antes da live
 
-1. Veja se o topo mostra Twitch, provider e API como configurados.
+1. Veja se o topo mostra Twitch, modo ativo e API como configurados.
 2. No dashboard, mande um pedido manual.
 3. Veja se aparece em `Fila de pedidos`.
 4. Veja se o player toca.

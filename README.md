@@ -5,7 +5,7 @@
 <h1 align="center">Song Request Linux</h1>
 
 <p align="center">
-  Pedidos de musica para lives na Twitch, feito para Linux, com Spotify, YouTube/Pear, OBS overlay e dashboard local.
+  Pedidos de musica para lives na Twitch, feito para Linux, com Spotify, YouTube via Pear, YouTube via OBS Browser, OBS overlay e dashboard local.
 </p>
 
 <p align="center">
@@ -24,7 +24,7 @@ musica pelo chat da Twitch no Linux. Ele roda em `127.0.0.1`, abre um dashboard
 no navegador, controla a fila e entrega overlays para OBS.
 
 O app foi pensado para evitar dependencias Windows-only, WebView2 e Wine. O
-fluxo atual e simples: escolha um provider principal, conecte o bot da Twitch,
+fluxo atual e simples: escolha um modo principal, conecte o bot da Twitch,
 configure o player e adicione o overlay no OBS.
 
 ## Instalar
@@ -79,18 +79,19 @@ Remover tudo, incluindo dados locais:
 
 1. Abra o dashboard.
 2. Na tela `Operacao`, escolha o modo no card `Provider ativo`:
-   - `Spotify`: pedidos por texto buscam no Spotify.
-   - `YouTube/Pear`: pedidos por texto buscam no YouTube e tocam no Pear.
+   - `Spotify`: pedidos por texto buscam e tocam no Spotify.
+   - `YouTube/Pear`: o SRL busca/valida no YouTube e toca no Pear Desktop.
+   - `YouTube/OBS`: o SRL busca/valida no YouTube e toca no Browser Source do OBS.
 3. Va em `Configuracao`.
-4. Configure apenas o bloco do provider escolhido.
+4. Configure apenas o bloco do modo escolhido.
 5. Conecte o bot da Twitch.
 6. Salve a configuracao.
 7. Teste um pedido no dashboard ou no chat.
 8. Adicione o overlay no OBS.
 
-Importante: hoje o app trabalha melhor com um provider ativo por vez. Se o
-provider for Spotify, texto vai para Spotify. Se for YouTube/Pear, texto vai
-para YouTube. Links do YouTube continuam sendo detectados como YouTube.
+Importante: use um modo ativo por vez: Spotify, YouTube via Pear ou YouTube via
+OBS Browser. Texto segue o modo ativo. Links diretos do YouTube entram como
+YouTube e usam menos API.
 
 ## Spotify
 
@@ -112,15 +113,22 @@ http://127.0.0.1:7384/auth/spotify/callback
 O app evita transferir playback para celular. Se nao houver device valido no PC
 da live, o dashboard mostra erro e pede para abrir/tocar algo no Spotify local.
 
-## YouTube/Pear
+## YouTube: Pear ou OBS Browser
 
-Use YouTube/Pear quando quiser tocar pedidos do YouTube.
+Use YouTube quando quiser tocar pedidos via Pear Desktop ou via Browser Source do OBS.
 
-Requisitos:
+A YouTube Data API v3 e usada pelo SRL para busca por texto, validacao de duracao/categoria e escolha do video. Ela vale para YouTube/Pear e YouTube/OBS Browser.
+
+O Pear nao usa essa API Key como login. O Pear toca usando a conta Google/YouTube logada dentro do proprio Pear.
+
+Requisitos para pedidos por texto:
 
 - YouTube Data API v3 ativa.
 - Uma ou mais API Keys salvas no dashboard.
-- Pear Desktop aberto se o modo escolhido for Pear.
+
+Requisitos para Pear:
+
+- Pear Desktop aberto.
 - Plugin `API Server` do Pear ativo.
 
 Config recomendada do Pear:
