@@ -87,26 +87,6 @@ Remover tudo, incluindo dados locais:
 ./scripts/uninstall-user --remove-data
 ```
 
-## Distribuicao
-
-Caminho recomendado agora:
-
-1. `tar.gz` portatil para qualquer Linux compativel com o binario.
-2. Pacote Arch/CachyOS/AUR.
-3. `.deb` e `.rpm` usando o mesmo binario e os mesmos scripts.
-4. Flatpak depois, quando as permissoes de localhost, OBS, Pear e Spotify
-   estiverem bem testadas no sandbox.
-
-Gerar pacote portatil local:
-
-```bash
-./scripts/package-portable
-```
-
-O pacote gerado fica em `dist/` e inclui binario, scripts, logo, README, guia e
-prints. Ele nao inclui config, tokens, logs, fila, `.env`, `.secrets` ou dados do
-usuario.
-
 ## Como Funciona
 
 ![Dashboard do Song Request Linux](docs/images/dashboard-overview.png)
