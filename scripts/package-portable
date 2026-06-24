@@ -1,0 +1,117 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+DIST_DIR="$APP_DIR/dist"
+BUILD=1
+
+for arg in "$@"; do
+  case "$arg" in
+    --no-build) BUILD=0 ;;
+    -h|--help)
+      cat <<HELP
+Usage: ./scripts/package-portable [--no-build]
+
+Gera um pacote portatil em dist/ com:
+  - binario release ja compilado
+  - scripts de abrir/parar/atalho/desinstalar
+  - assets, README, guia e imagens
+  - checksum SHA256
+
+Esse pacote nao inclui configs, tokens, logs, fila, .env ou arquivos locais.
+HELP
+      exit 0
+      ;;
+    *) echo "Opcao desconhecida: $arg" >&2; exit 2 ;;
+  esac
+done
+
+cd "$APP_DIR"
+
+if (( BUILD )); then
+  cargo build --release
+fi
+
+version="$(sed -n 's/^version = "\([^"]*\)"/\1/p' Cargo.toml | head -1)"
+if [[ -z "$version" ]]; then
+  echo "ERRO: nao consegui ler a versao no Cargo.toml." >&2
+  exit 1
+fi
+
+arch="$(uname -m)"
+case "$arch" in
+  x86_64|amd64) package_arch="x86_64" ;;
+  aarch64|arm64) package_arch="aarch64" ;;
+  *) package_arch="$arch" ;;
+esac
+
+if [[ -x "$APP_DIR/target/release/song-request-linux" ]]; then
+  bin="$APP_DIR/target/release/song-request-linux"
+else
+  target_dir="$(cargo metadata --no-deps --format-version=1 | sed -n 's/.*"target_directory":"\([^"]*\)".*/\1/p')"
+  bin="$target_dir/release/song-request-linux"
+fi
+
+if [[ ! -x "$bin" ]]; then
+  echo "ERRO: binario release nao encontrado: $bin" >&2
+  exit 1
+fi
+
+name="song-request-linux-${version}-linux-${package_arch}"
+stage="$DIST_DIR/$name"
+archive="$DIST_DIR/$name.tar.gz"
+
+rm -rf "$stage" "$archive" "$archive.sha256"
+mkdir -p "$stage/bin" "$stage/scripts" "$stage/assets" "$stage/docs/images"
+
+install -m 0755 "$bin" "$stage/bin/song-request-linux"
+install -m 0755 scripts/song-request-linux-open "$stage/scripts/song-request-linux-open"
+install -m 0755 scripts/song-request-linux-stop "$stage/scripts/song-request-linux-stop"
+install -m 0755 scripts/install-desktop-entry "$stage/scripts/install-desktop-entry"
+install -m 0755 scripts/uninstall-user "$stage/scripts/uninstall-user"
+install -m 0644 assets/logo-srl.png "$stage/assets/logo-srl.png"
+install -m 0644 README.md "$stage/README.md"
+install -m 0644 LICENSE "$stage/LICENSE"
+install -m 0644 docs/SETUP.md "$stage/docs/SETUP.md"
+if compgen -G "docs/images/*.png" >/dev/null; then
+  install -m 0644 docs/images/*.png "$stage/docs/images/"
+fi
+
+cat > "$stage/INSTALL.md" <<INSTALL
+# Song Request Linux ${version}
+
+## Instalar/abrir
+
+Extraia este pacote e rode:
+
+\`\`\`bash
+./scripts/install-desktop-entry
+./scripts/song-request-linux-open
+\`\`\`
+
+Dashboard:
+
+\`\`\`text
+http://127.0.0.1:7384/
+\`\`\`
+
+## Atualizar
+
+Para esta versao portatil, baixe o pacote novo, feche o app e substitua a pasta
+extraida. Configs, tokens, logs e fila ficam nos caminhos XDG do usuario e nao
+ficam dentro desta pasta.
+
+Para atualizar via GitHub direto, use a instalacao por repositorio Git descrita
+no README.
+INSTALL
+
+(
+  cd "$DIST_DIR"
+  tar -czf "$archive" "$name"
+  sha256sum "$(basename "$archive")" > "$(basename "$archive").sha256"
+)
+
+rm -rf "$stage"
+
+echo "Pacote criado: $archive"
+echo "Checksum: $archive.sha256"

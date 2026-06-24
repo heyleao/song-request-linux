@@ -1,4 +1,5 @@
 target/
+dist/
 .cargo/
 .secrets/
 .env
@@ -17,6 +18,8 @@ memory/
 SECURITY.md
 docs/*
 !docs/SETUP.md
+!docs/images/
+!docs/images/*.png
 
 # Editor noise
 .idea/

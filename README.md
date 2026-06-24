@@ -1,143 +1,229 @@
 <p align="center">
-  <img src="assets/logo-srl.png" alt="Song Request Linux" width="160">
+  <img src="assets/logo-srl.png" alt="Song Request Linux" width="220">
 </p>
 
 <h1 align="center">Song Request Linux</h1>
 
 <p align="center">
-  Song requests for Twitch lives on Linux, with Spotify, YouTube, OBS overlay and a local dashboard.
+  Pedidos de musica para lives na Twitch, feito para Linux, com Spotify, YouTube/Pear, OBS overlay e dashboard local.
 </p>
 
 <p align="center">
-  <a href="docs/SETUP.md">Setup Guide</a> ·
-  <a href="#run">Install</a> ·
-  <a href="#commands">Commands</a> ·
-  <a href="#urls">OBS URLs</a>
+  <a href="docs/SETUP.md">Guia rapido</a> ·
+  <a href="#instalar">Instalar</a> ·
+  <a href="#como-funciona">Como funciona</a> ·
+  <a href="#comandos">Comandos</a> ·
+  <a href="#obs">OBS</a>
 </p>
 
 ---
 
-Song Request Linux is a Linux-first Twitch song request app for streamers. It
-runs as a local web dashboard, works well on Linux/Wayland, and avoids
-Wine/WebView2/Windows-only dependencies.
+Song Request Linux e um app local para streamers que querem aceitar pedidos de
+musica pelo chat da Twitch no Linux. Ele roda em `127.0.0.1`, abre um dashboard
+no navegador, controla a fila e entrega overlays para OBS.
 
-It is inspired by the streamer workflow of Songify, but it is not a fork and is
-not affiliated with Songify or Songify.Rocks.
+O app foi pensado para evitar dependencias Windows-only, WebView2 e Wine. O
+fluxo atual e simples: escolha um provider principal, conecte o bot da Twitch,
+configure o player e adicione o overlay no OBS.
 
-## What Works
+## Estado Atual
 
-- Twitch bot commands for song requests and player control.
-- Guided setup screen for Twitch, Spotify, YouTube, OBS and live behavior.
-- Spotify OAuth, search, queue control, playback control and fallback playlist selection.
-- Spotify fallback stays on the selected playlist when the request queue is empty.
-- Hybrid request routing: Spotify search by default, YouTube links as YouTube requests.
-- YouTube text search validation with duration/category policy through YouTube Data API v3.
-- YouTube playback through Pear Desktop API or the local OBS browser source.
-- Local OBS overlay at `http://127.0.0.1:7384/overlay`.
-- Local web dashboard with operation, setup, logs and guide tabs.
-- Desktop-style launcher with single-instance behavior and clean shutdown.
+- Dashboard local em `http://127.0.0.1:7384/`.
+- Setup guiado para Twitch, Spotify, YouTube/Pear, fila e OBS.
+- Twitch bot com comandos configuraveis.
+- Cargos reconhecidos por tags oficiais da Twitch: streamer, moderator, VIP,
+  subscriber e viewer.
+- Limite de pedidos por cargo, com `0` significando sem limite.
+- Um provider ativo por vez: Spotify ou YouTube/Pear.
+- Links do YouTube entram direto como YouTube.
+- Busca de texto usa o provider ativo.
+- Spotify com OAuth, busca, fila, controle de player, volume e playlist fallback.
+- YouTube com YouTube Data API v3 e playback recomendado via Pear Desktop.
+- Fila persistente opcional: o streamer decide se continua a fila ao reabrir.
+- Overlay de musica atual para OBS.
+- Logs e diagnostico no dashboard.
+- Launcher com instancia unica e botao `Encerrar`.
 
-## Setup
+## Instalar
 
-Start here:
-
-[docs/SETUP.md](docs/SETUP.md)
-
-Short version:
-
-1. Install with `./scripts/install-user-friendly --with-pear`.
-2. Open with `./scripts/song-request-linux-open`.
-3. Go to `http://127.0.0.1:7384/`.
-4. Fill the `Configuracao` tab.
-5. Add the overlay URL to OBS.
-
-Extra docs:
-
-- UI direction: [docs/UI_REFERENCES.md](docs/UI_REFERENCES.md)
-- Packaging plan: [docs/PACKAGING.md](docs/PACKAGING.md)
-
-## Run
-
-Install dependencies on CachyOS/Arch:
+No CachyOS/Arch, use o instalador amigavel:
 
 ```bash
-./scripts/install-cachyos-deps --with-pear
-```
-
-Use `--all` instead if you also want the OBS Browser Source fallback through
-`yt-dlp`.
-
-For the easiest local install, use the friendly installer:
-
-```bash
+git clone https://github.com/heyleao/song-request-linux.git
+cd song-request-linux
 ./scripts/install-user-friendly --with-pear
 ```
 
-Update from the current GitHub remote:
+Abrir:
 
 ```bash
-./scripts/update-from-github --restart
-```
-
-Manual desktop entry install remains available:
-
-```bash
-./scripts/install-desktop-entry
 ./scripts/song-request-linux-open
 ```
 
-Stop the app:
+Parar:
 
 ```bash
 ./scripts/song-request-linux-stop
 ```
 
-You can also stop it from the dashboard with `Encerrar`.
+Atualizar pelo GitHub:
 
-Remove the current user install while preserving config, tokens, logs and queue:
+```bash
+./scripts/update-from-github --restart
+```
+
+Remover o app mantendo configs, tokens, logs e fila:
 
 ```bash
 ./scripts/uninstall-user
 ```
 
-Remove everything, including local app data:
+Remover tudo, incluindo dados locais:
 
 ```bash
 ./scripts/uninstall-user --remove-data
 ```
 
-## Distribution
+## Distribuicao
 
-The simplest supported distribution path for now is CachyOS/Arch:
+Caminho recomendado agora:
+
+1. `tar.gz` portatil para qualquer Linux compativel com o binario.
+2. Pacote Arch/CachyOS/AUR.
+3. `.deb` e `.rpm` usando o mesmo binario e os mesmos scripts.
+4. Flatpak depois, quando as permissoes de localhost, OBS, Pear e Spotify
+   estiverem bem testadas no sandbox.
+
+Gerar pacote portatil local:
 
 ```bash
-git clone https://github.com/heyleao/song-request-linux.git
-cd song-request-linux
-./scripts/install-cachyos-deps --with-pear
-./scripts/install-desktop-entry
-./scripts/song-request-linux-open
+./scripts/package-portable
 ```
 
-This keeps Pear Desktop as an external player dependency instead of bundling it
-inside this app. That makes updates, audio capture, and Linux desktop
-integration simpler. A packaged release can later wrap these same steps in an
-Arch package or AppImage.
+O pacote gerado fica em `dist/` e inclui binario, scripts, logo, README, guia e
+prints. Ele nao inclui config, tokens, logs, fila, `.env`, `.secrets` ou dados do
+usuario.
 
-## URLs
+## Como Funciona
 
-- Dashboard: `http://127.0.0.1:7384/`
-- OBS overlay: `http://127.0.0.1:7384/overlay`
-- Compact OBS overlay: `http://127.0.0.1:7384/overlay?max=48&width=520&size=24&lines=1`
-- Compact overlay Browser Source size: `620x120`
-- OBS YouTube player/audio source: `http://127.0.0.1:7384/player`
-- Queue API: `http://127.0.0.1:7384/api/queue`
-- Events API: `http://127.0.0.1:7384/api/events`
-- Diagnostics API: `http://127.0.0.1:7384/api/diagnostics`
-- Health check: `http://127.0.0.1:7384/health`
+![Dashboard do Song Request Linux](docs/images/dashboard-overview.png)
 
-## Commands
+1. Abra o dashboard.
+2. Va em `Configuracao`.
+3. Escolha o modo de operacao:
+   - `Spotify`: pedidos por texto buscam no Spotify.
+   - `YouTube/Pear`: pedidos por texto buscam no YouTube e tocam no Pear.
+4. Configure apenas o bloco do provider escolhido.
+5. Conecte o bot da Twitch.
+6. Salve a configuracao.
+7. Teste um pedido no dashboard ou no chat.
+8. Adicione o overlay no OBS.
 
-Everyone:
+Importante: hoje o app trabalha melhor com um provider ativo por vez. Se o
+provider for Spotify, texto vai para Spotify. Se for YouTube/Pear, texto vai
+para YouTube. Links do YouTube continuam sendo detectados como YouTube.
+
+## Spotify
+
+Use Spotify quando quiser pedidos por busca no Spotify e playlist fallback.
+
+Requisitos:
+
+- Spotify Premium.
+- App Spotify aberto no PC da live.
+- Um device ativo no PC antes de aceitar pedidos.
+- `Client ID` criado no dashboard de desenvolvedor do Spotify.
+
+Redirect URI do Spotify:
+
+```text
+http://127.0.0.1:7384/auth/spotify/callback
+```
+
+O app evita transferir playback para celular. Se nao houver device valido no PC
+da live, o dashboard mostra erro e pede para abrir/tocar algo no Spotify local.
+
+## YouTube/Pear
+
+Use YouTube/Pear quando quiser tocar pedidos do YouTube.
+
+Requisitos:
+
+- YouTube Data API v3 ativa.
+- API Key salva no dashboard.
+- Pear Desktop / YouTube Music Desktop aberto.
+- Plugin `API Server` do Pear ativo.
+
+Config recomendada do Pear:
+
+```text
+Porta: 26538
+Authorization: No Authorization
+API: http://127.0.0.1:26538/api/v1
+```
+
+O app envia pedidos para a fila do Pear. O Pear e um app externo; se ele estiver
+fechado ou com API desligada, o pedido pode entrar na fila do SRL, mas nao vai
+tocar ate o Pear voltar.
+
+## Fila e Fallback
+
+![Fallback de playlist](docs/images/fallback-toggle.png)
+
+- Pedido aceito entra na fila do app.
+- Quando a fila tem pedidos, eles devem tocar antes da playlist fallback.
+- Quando a fila fica vazia, o fallback pode voltar.
+- A playlist fallback e opcional.
+- A persistencia da fila tambem e opcional.
+
+Persistencia marcada:
+
+```text
+O app salva a fila e continua depois de fechar/abrir.
+```
+
+Persistencia desmarcada:
+
+```text
+A proxima abertura comeca com fila limpa.
+```
+
+## OBS
+
+Dashboard:
+
+```text
+http://127.0.0.1:7384/
+```
+
+Overlay recomendado:
+
+```text
+http://127.0.0.1:7384/overlay?max=48&width=520&size=24&lines=1
+```
+
+Tamanho recomendado da Browser Source:
+
+```text
+Largura: 620
+Altura: 120
+```
+
+O parametro `width=520` controla a largura interna do texto. A fonte no OBS deve
+ser um pouco maior para sobrar area transparente e evitar corte.
+
+Player OBS para YouTube:
+
+```text
+http://127.0.0.1:7384/player
+```
+
+Use o player OBS apenas se voce escolheu `Browser Source OBS` como player do
+YouTube. Se usa Pear, normalmente nao precisa dessa fonte.
+
+## Comandos
+
+Padrao para todos:
 
 ```text
 !sr nome da musica
@@ -152,7 +238,7 @@ Everyone:
 !comandos
 ```
 
-Moderator/broadcaster:
+Padrao para moderador/streamer:
 
 ```text
 !skip
@@ -162,73 +248,62 @@ Moderator/broadcaster:
 !next
 ```
 
-Command aliases and access levels are configurable in the dashboard setup tab.
-Roles come from the official Twitch IRC tags/badges sent with each chat message
-(`broadcaster`, `moderator`, `vip`, `subscriber` and regular viewer), not from a local bot list.
-For example, `!sr` can be changed to `!ssr`, and moderator-only commands can be
-opened to everyone if the streamer wants that.
+Na aba `Configuracao`, cada comando tem sua propria caixa de aliases e permissao.
+Exemplo: voce pode trocar `!sr` por `!ssr`.
 
-## Request Routing
+Permissoes disponiveis:
 
-- Plain song names use the default provider, usually Spotify.
-- YouTube links are detected as exact YouTube requests and do not need search filtering.
-- YouTube text searches are checked against the configured duration limit.
-- By default, searched YouTube videos must be marked as Music by YouTube metadata.
-- Non-music YouTube search results can be allowed from the setup tab when needed.
+```text
+Todos
+Subscriber
+VIP
+Moderador
+Streamer
+```
 
-Spotify playback is limited to a stream-safe Spotify `Computer` device so the
-app does not transfer requested songs or fallback playback to a phone. The setup
-tab can store a Spotify fallback playlist and enable it when the local request
-queue is empty. If Spotify moves away from that selected fallback playlist while
-there are no requests, the app starts the selected playlist again.
+Limites de pedidos por cargo:
 
-For YouTube, the recommended mode is Pear Desktop with its API Server enabled at
-`http://127.0.0.1:26538/api/v1`; the app sends YouTube requests to Pear's queue.
-When Pear is used, the fallback playlist still belongs to Spotify: Pear is paused
-after YouTube requests finish and Spotify resumes or starts the fallback. The
-local browser player at `http://127.0.0.1:7384/player` remains available as the
-OBS Browser Source fallback and requires `yt-dlp` on the system.
+```text
+0 = sem limite
+1..100 = maximo de pedidos pendentes daquele cargo
+```
 
-Planned safety gates:
+O limite conta a musica atual e as proximas musicas do mesmo solicitante.
 
-- Optional Twitch live-online gate before accepting chat requests.
-- Visible app/server state gate so commands clearly fail when the service is not running.
-- Configurable Spotify device allowlist; current default is the live PC only.
+## Dados Locais
 
-## Local Data
-
-Public config:
+Config publica:
 
 ```text
 ~/.config/song-request-linux/config.json
 ```
 
-Local secrets/tokens:
+Estado, tokens, logs e fila:
 
 ```text
 ~/.local/state/song-request-linux/
 ```
 
-Do not commit real tokens, API keys, OAuth codes, exported config, `.env` files,
-or private planning/security notes.
+Nao suba tokens, API keys, OAuth codes, `.env`, configs reais exportadas, logs
+privados ou notas internas para o GitHub.
 
-## Development
+## Desenvolvimento
 
-Run checks:
-
-```bash
-cargo fmt
-cargo test
-cargo check
-```
-
-Run directly without the launcher:
+Rodar direto:
 
 ```bash
 cargo run
 ```
 
-Simulate a chat command:
+Checar:
+
+```bash
+cargo fmt
+cargo clippy --all-targets --all-features -- -D warnings
+cargo test
+```
+
+Simular comando de chat:
 
 ```bash
 curl -X POST http://127.0.0.1:7384/api/chat-command \
@@ -236,6 +311,6 @@ curl -X POST http://127.0.0.1:7384/api/chat-command \
   -d '{"requester":"viewer","message":"!song"}'
 ```
 
-## License
+## Licenca
 
 GPL-3.0-or-later.

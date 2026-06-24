@@ -24,9 +24,21 @@ if ss -ltn 'sport = :7384' | grep -q ':7384'; then
 fi
 
 cd "$APP_DIR"
-cargo build --release >>"$LOG_FILE" 2>&1
-TARGET_DIR="$(cargo metadata --no-deps --format-version=1 | sed -n 's/.*"target_directory":"\([^"]*\)".*/\1/p')"
-BIN="$TARGET_DIR/release/song-request-linux"
+
+BIN=""
+if [[ -x "$APP_DIR/bin/song-request-linux" ]]; then
+  BIN="$APP_DIR/bin/song-request-linux"
+elif [[ -x "$APP_DIR/target/release/song-request-linux" ]]; then
+  BIN="$APP_DIR/target/release/song-request-linux"
+elif command -v cargo >/dev/null 2>&1; then
+  cargo build --release >>"$LOG_FILE" 2>&1
+  TARGET_DIR="$(cargo metadata --no-deps --format-version=1 | sed -n 's/.*"target_directory":"\([^"]*\)".*/\1/p')"
+  BIN="$TARGET_DIR/release/song-request-linux"
+else
+  echo "Song Request Linux nao encontrou binario local e cargo nao esta instalado." >&2
+  echo "Reinstale pelo pacote oficial ou pelo repositorio Git." >&2
+  exit 1
+fi
 
 setsid "$BIN" >>"$LOG_FILE" 2>&1 < /dev/null &
 echo "$!" >"$PID_FILE"

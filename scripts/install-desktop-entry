@@ -9,7 +9,7 @@ ICON_NAME="song-request-linux"
 SOURCE_ICON="$APP_DIR/assets/logo-srl.png"
 
 mkdir -p "$DESKTOP_DIR"
-chmod +x "$APP_DIR/scripts/install-cachyos-deps" "$APP_DIR/scripts/install-user-friendly" "$APP_DIR/scripts/song-request-linux-open" "$APP_DIR/scripts/song-request-linux-stop" "$APP_DIR/scripts/update-from-github" "$APP_DIR/scripts/uninstall-user" 2>/dev/null || true
+chmod +x "$APP_DIR/scripts/install-cachyos-deps" "$APP_DIR/scripts/install-user-friendly" "$APP_DIR/scripts/package-portable" "$APP_DIR/scripts/song-request-linux-open" "$APP_DIR/scripts/song-request-linux-stop" "$APP_DIR/scripts/update-from-github" "$APP_DIR/scripts/uninstall-user" 2>/dev/null || true
 
 install_icon() {
   local size="$1"

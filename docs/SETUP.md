@@ -1,27 +1,68 @@
 # Guia Rapido
 
-Use este guia como uma receita. Faca um passo por vez.
+Este guia e a receita curta para deixar o Song Request Linux pronto para live.
+Faca um passo por vez.
 
-## 1. Abrir o app
+## 1. Instalar e abrir
 
-Abra o Song Request Linux pelo atalho do sistema ou rode:
+No CachyOS/Arch:
+
+```bash
+git clone https://github.com/heyleao/song-request-linux.git
+cd song-request-linux
+./scripts/install-user-friendly --with-pear
+```
+
+Abrir depois de instalado:
 
 ```bash
 ./scripts/song-request-linux-open
 ```
 
-Depois abra no navegador:
+Dashboard:
 
 ```text
 http://127.0.0.1:7384/
 ```
 
-## 2. Twitch
+## 2. Tela principal
 
-O Twitch serve para o bot ler o chat.
+![Dashboard principal](images/dashboard-overview.png)
 
-1. Abra: https://dev.twitch.tv/console/apps
-2. Crie um app novo.
+A tela principal mostra:
+
+- provider ativo;
+- musica tocando agora;
+- fila de pedidos;
+- eventos recentes;
+- botoes de play, pause, skip e volume.
+
+## 3. Escolher o modo
+
+Na aba `Configuracao`, escolha um provider principal.
+
+![Tela de configuracao](images/setup-provider.png)
+
+Use `Spotify` se voce quer:
+
+- buscar musica por nome no Spotify;
+- controlar play, pause, skip e volume no Spotify;
+- usar playlist fallback do Spotify quando a fila estiver vazia.
+
+Use `YouTube/Pear` se voce quer:
+
+- buscar musica por nome no YouTube;
+- tocar pelo Pear Desktop / YouTube Music Desktop;
+- aceitar links do YouTube direto.
+
+Por enquanto, use um modo por vez. Se trocar o provider, salve a configuracao.
+
+## 4. Twitch
+
+O bot da Twitch le o chat e responde aos comandos.
+
+1. Abra https://dev.twitch.tv/console/apps
+2. Crie um app.
 3. Tipo do app: `Public`.
 4. Redirect URL:
 
@@ -30,115 +71,137 @@ https://localhost:7443/auth/twitch/callback
 ```
 
 5. Copie o `Client ID`.
-6. No Song Request Linux, va em `Configuracao`.
-7. Preencha:
+6. No Song Request Linux, preencha:
    - `Twitch Client ID`
    - `Conta do bot`
    - `Canal`
+7. Clique em `Salvar`.
 8. Clique em `Conectar bot`.
 9. Entre com a conta do bot, nao com a conta principal.
 
-Pronto quando aparecer `Twitch configurado`.
+Esta pronto quando o topo mostrar `Twitch configurado`.
 
-## 3. Spotify
+## 5. Spotify
 
-O Spotify toca as musicas quando o provider for Spotify.
+Pule este passo se voce escolheu apenas YouTube/Pear.
 
-1. Abra: https://developer.spotify.com/dashboard
-2. Crie um app novo.
-3. Redirect URI:
+1. Abra https://developer.spotify.com/dashboard
+2. Crie um app.
+3. Adicione a Redirect URI:
 
 ```text
 http://127.0.0.1:7384/auth/spotify/callback
 ```
 
 4. Copie o `Client ID`.
-5. No Song Request Linux, cole em `Spotify Client ID`.
+5. Cole no campo `Spotify Client ID`.
 6. Clique em `Salvar`.
 7. Clique em `Login Spotify`.
-8. Entre com a sua conta Spotify.
+8. Entre com sua conta Spotify.
 
 Importante:
 
-- Precisa ser Spotify Premium.
-- Deixe o Spotify aberto no PC da live.
-- Se der erro de device, aperte play em qualquer musica no Spotify e tente de novo.
+- precisa ser Spotify Premium;
+- abra o Spotify no PC da live;
+- deixe uma musica pronta ou tocando;
+- o app nao deve mandar playback para celular.
 
-## 4. Playlist fallback
+Se aparecer erro de device, abra o Spotify no PC, aperte play em qualquer musica
+e tente de novo.
 
-A playlist fallback toca quando nao tem pedido na fila.
+## 6. Playlist fallback
 
-1. Marque `Ativar playlist fallback`.
+Use fallback se quiser musica tocando quando nao houver pedidos.
+
+![Fallback de playlist](images/fallback-toggle.png)
+
+1. Marque `Ativar playlist fallback quando a fila estiver vazia`.
 2. Clique em `Carregar playlists`.
 3. Escolha a playlist.
-4. Clique em `Salvar fallback`.
+4. Salve.
 
-Se desmarcar, a playlist nao toca sozinha.
+Se desmarcar, o app nao volta para playlist sozinho.
 
-## 5. Persistencia da fila
+## 7. Persistencia da fila
 
-Isso decide se os pedidos continuam depois que fechar e abrir o app.
+Essa opcao decide o que acontece ao fechar e abrir o app.
 
-- Marcado: guarda a fila para a proxima live.
-- Desmarcado: a proxima abertura comeca com fila vazia.
+![Persistencia da fila](images/queue-persistence.png)
 
-Use desmarcado se voce quer sempre comecar a live limpo.
+Marcado:
 
-## 6. YouTube
+```text
+A fila e salva e volta na proxima abertura.
+```
 
-Use YouTube se quiser aceitar links ou pedidos do YouTube.
+Desmarcado:
 
-1. Abra: https://console.cloud.google.com/apis/credentials
+```text
+A proxima abertura comeca com fila vazia.
+```
+
+Use desmarcado se voce quer sempre comecar uma live limpa.
+
+## 8. YouTube/Pear
+
+Pule este passo se voce escolheu apenas Spotify.
+
+### YouTube API
+
+1. Abra https://console.cloud.google.com/apis/credentials
 2. Crie ou escolha um projeto.
 3. Ative `YouTube Data API v3`.
 4. Crie uma `API Key`.
-5. Cole a key no Song Request Linux.
+5. Cole a key no campo de YouTube do Song Request Linux.
+6. Salve.
 
-Para tocar YouTube, o modo mais simples e estavel e o Pear Desktop.
-
-No Pear:
+### Pear Desktop
 
 1. Abra o Pear Desktop / YouTube Music Desktop.
 2. Ative o plugin `API Server`.
-3. Porta: `26538`.
-4. Authorization: `No Authorization`.
+3. Use a porta `26538`.
+4. Deixe `Authorization` como `No Authorization`.
 5. Reinicie o Pear.
 
-No Song Request Linux, deixe:
+No Song Request Linux, use:
 
 ```text
-Pear API: http://127.0.0.1:26538/api/v1
+http://127.0.0.1:26538/api/v1
 ```
 
-## 7. OBS
+Se o Pear estiver fechado, a musica pode entrar na fila do app, mas nao vai tocar
+ate o Pear abrir e a API estar ativa.
 
-Adicione estas fontes como `Browser Source` no OBS.
+## 9. OBS
 
-Overlay da musica:
+Adicione uma `Browser Source` para o overlay.
+
+URL:
 
 ```text
 http://127.0.0.1:7384/overlay?max=48&width=520&size=24&lines=1
 ```
 
-Tamanho da fonte no OBS:
+Tamanho da fonte:
 
 ```text
-Width/Largura: 620
-Height/Altura: 120
+Largura: 620
+Altura: 120
 ```
 
-O `width=520` da URL controla a largura interna do texto. A Browser Source deve
-ficar um pouco maior para sobrar area transparente e evitar corte.
+O `width=520` limita o texto dentro do overlay. A fonte no OBS fica maior para
+sobrar area transparente.
 
-Player YouTube OBS, use so se voce escolheu `Browser Source OBS` no player YouTube:
+Fonte de player YouTube:
 
 ```text
 http://127.0.0.1:7384/player
 ```
 
-Se voce usa Pear Desktop, normalmente nao precisa do `Player YouTube OBS`.
+Use essa fonte so se o player do YouTube estiver como `Browser Source OBS`. Se
+voce usa Pear, normalmente nao precisa dela.
 
-## 8. Comandos do chat
+## 10. Comandos do chat
 
 Pedidos:
 
@@ -147,15 +210,16 @@ Pedidos:
 !sr link_do_youtube
 ```
 
-Ver musica e fila:
+Musica atual e fila:
 
 ```text
 !song
 !fila
 !queue
+!q
 ```
 
-Remover seu ultimo pedido:
+Remover o ultimo pedido do usuario:
 
 ```text
 !rm
@@ -178,10 +242,54 @@ Controle para mod/streamer:
 !next
 ```
 
-Voce pode trocar os nomes dos comandos e escolher quem pode usar cada um na aba `Configuracao`.
-Cargos reconhecidos: streamer, moderador, VIP, subscriber e viewer/todos.
+Na configuracao voce pode trocar os comandos e escolher quem pode usar cada um.
 
-## 9. Fechar o app
+Cargos reconhecidos:
+
+```text
+Streamer
+Moderador
+VIP
+Subscriber
+Viewer/Todos
+```
+
+Os cargos vem das tags/badges oficiais da Twitch. Nao precisa uma lista manual
+de mods ou VIPs.
+
+## 11. Limites por cargo
+
+Na configuracao avancada, defina quantas musicas cada cargo pode ter pendente.
+
+Exemplo:
+
+```text
+Viewer: 1
+Subscriber: 3
+VIP: 3
+Moderador: 10
+Streamer: 0
+```
+
+`0` significa sem limite.
+
+O limite conta a musica atual e as proximas musicas do mesmo usuario.
+
+## 12. Testar antes da live
+
+1. Veja se o topo mostra Twitch, provider e API como configurados.
+2. No dashboard, mande um pedido manual.
+3. Veja se aparece em `Fila de pedidos`.
+4. Veja se o player toca.
+5. Teste no chat:
+
+```text
+!sr system of a down spiders
+!song
+!q
+```
+
+## 13. Fechar
 
 Pelo dashboard, clique em `Encerrar`.
 
@@ -191,13 +299,16 @@ Ou rode:
 ./scripts/song-request-linux-stop
 ```
 
-## 10. Se algo der errado
+## 14. Se algo der errado
 
 Veja a aba `Logs`.
 
-Coisas comuns:
+Problemas comuns:
 
 - Spotify nao toca: abra o Spotify no PC e aperte play.
-- Twitch nao responde: confira se entrou com a conta do bot.
-- YouTube nao toca no Pear: confira se o Pear esta aberto e o API Server esta ligado.
-- OBS nao mostra overlay: confira se a URL da Browser Source esta correta.
+- Spotify diz que nao tem device: o app nao encontrou um device valido no PC.
+- Twitch nao responde: confira se conectou com a conta do bot.
+- YouTube nao busca: confira a API Key e a YouTube Data API v3.
+- Pear nao toca: confira se o Pear esta aberto e o API Server ligado.
+- OBS nao mostra overlay: confira a URL e o tamanho da Browser Source.
+- Mod nao consegue pedir mais musica: confira o limite de pedidos por cargo.

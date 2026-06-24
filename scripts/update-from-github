@@ -5,16 +5,19 @@ APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LOG_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/song-request-linux/logs"
 LOG_FILE="$LOG_DIR/update.log"
 START_AFTER=0
+STOP_BEFORE=1
 
 for arg in "$@"; do
   case "$arg" in
     --restart|--start) START_AFTER=1 ;;
+    --no-stop) STOP_BEFORE=0 ;;
     -h|--help)
       cat <<HELP
-Usage: ./scripts/update-from-github [--restart]
+Usage: ./scripts/update-from-github [--restart] [--no-stop]
 
 Atualiza o Song Request Linux a partir do GitHub remoto configurado no repo.
 Config, tokens, logs e fila ficam preservados nos caminhos XDG do usuario.
+Use --no-stop apenas para teste/CI quando outro app local estiver rodando na porta 7384.
 HELP
       exit 0
       ;;
@@ -53,7 +56,9 @@ if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
   exit 1
 fi
 
-./scripts/song-request-linux-stop >>"$LOG_FILE" 2>&1 || true
+if (( STOP_BEFORE )); then
+  ./scripts/song-request-linux-stop >>"$LOG_FILE" 2>&1 || true
+fi
 
 git fetch --prune >>"$LOG_FILE" 2>&1
 
