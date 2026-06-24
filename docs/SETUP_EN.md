@@ -154,6 +154,16 @@ Text search uses the YouTube Data API and can hit quota limits. When multiple
 keys are saved, the app tries the next key if one fails. Direct YouTube links are
 the lighter path for exact requests.
 
+### Choose where YouTube plays
+
+In Setup, the `YouTube player` field has two options:
+
+- `Pear Desktop`: plays through Pear and uses Pear's local API.
+- `OBS Browser Source`: plays directly inside an OBS browser source.
+
+Use only one option at a time. If you choose Pear, do not add `/player` in OBS.
+If you choose OBS Browser, keep the `/player` source active in OBS during the stream.
+
 ### Pear Desktop
 
 1. Open Pear Desktop.
@@ -197,7 +207,15 @@ YouTube player source:
 http://127.0.0.1:7384/player
 ```
 
-Use this only if YouTube playback is set to `Browser Source OBS`. If you use Pear, you normally do not need it.
+Use this only if YouTube playback is set to `OBS Browser Source`.
+If you use Pear Desktop, do not add this source.
+
+OBS source setup:
+
+1. Add a new `Browser Source`.
+2. Paste `http://127.0.0.1:7384/player`.
+3. Enable `Control audio via OBS`.
+4. Keep the source active in your live scene.
 
 To let the streamer hear Browser Source music:
 

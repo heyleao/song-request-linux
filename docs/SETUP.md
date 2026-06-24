@@ -158,6 +158,16 @@ A busca por texto usa YouTube Data API e pode bater limite. Quando ha varias
 keys salvas, o app tenta a proxima se uma key falhar. Link direto do YouTube e o
 caminho mais leve para pedidos especificos.
 
+### Escolher onde o YouTube toca
+
+No Setup, o campo `Player YouTube` tem duas opcoes:
+
+- `Pear Desktop`: toca pelo app Pear e usa a API local do Pear.
+- `Browser Source OBS`: toca direto em uma fonte de navegador do OBS.
+
+Use apenas uma opcao por vez. Se escolher Pear, nao adicione o `/player` no OBS.
+Se escolher OBS Browser, mantenha a fonte `/player` aberta no OBS durante a live.
+
 ### Pear Desktop
 
 1. Abra o Pear Desktop.
@@ -204,8 +214,15 @@ Fonte de player YouTube:
 http://127.0.0.1:7384/player
 ```
 
-Use essa fonte so se o player do YouTube estiver como `Browser Source OBS`. Se
-voce usa Pear, normalmente nao precisa dela.
+Use essa fonte so se o player do YouTube estiver como `Browser Source OBS`.
+Se voce usa Pear Desktop, nao adicione essa fonte.
+
+Configuracao da fonte no OBS:
+
+1. Adicione uma nova `Browser Source`.
+2. Cole a URL `http://127.0.0.1:7384/player`.
+3. Marque `Controlar audio via OBS`.
+4. Mantenha a fonte ativa na cena da live.
 
 Para o streamer ouvir a musica do Browser Source:
 

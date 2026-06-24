@@ -1284,6 +1284,7 @@ pub async fn page() -> Html<&'static str> {
             <div class="endpoint-row with-action"><span>Redirect Spotify</span><code>http://127.0.0.1:7384/auth/spotify/callback</code><button class="secondary icon-button copy-button" type="button" data-copy-value="http://127.0.0.1:7384/auth/spotify/callback" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
             <div class="endpoint-row"><span>3. Configure YouTube</span><a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noreferrer">Abrir Google</a></div>
             <p class="endpoint-description">Ative YouTube Data API v3, crie uma API Key e cole no Setup.</p>
+            <p class="endpoint-description"><strong>Escolha o player no Setup:</strong> Pear Desktop ou Browser Source OBS. Use apenas um modo por vez.</p>
             <div class="endpoint-row"><span>Guia completo</span><a href="https://github.com/heyleao/song-request-linux/blob/main/docs/SETUP.md" target="_blank" rel="noreferrer">Abrir guia</a></div>
           </div>
         </section>
@@ -1298,9 +1299,10 @@ pub async fn page() -> Html<&'static str> {
               <div class="obs-size-card"><strong id="guide-overlay-height">120 px</strong><span>Altura da fonte no OBS</span></div>
             </div>
             <p class="endpoint-description">Use 2 linhas quando o nome da musica for maior. O parametro <code>width=520</code> limita o texto dentro do overlay.</p>
-            <div class="endpoint-row with-action"><span>Player YouTube</span><code>http://127.0.0.1:7384/player</code><button class="secondary icon-button copy-button" type="button" data-copy-value="http://127.0.0.1:7384/player" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button><a class="secondary" href="/player" target="_blank" rel="noreferrer">Abrir</a></div>
-            <p class="endpoint-description">Use so se o YouTube estiver em Browser Source OBS. Se usar Pear Desktop, nao precisa.</p>
+            <div class="endpoint-row with-action"><span>Player YouTube OBS</span><code>http://127.0.0.1:7384/player</code><button class="secondary icon-button copy-button" type="button" data-copy-value="http://127.0.0.1:7384/player" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button><a class="secondary" href="/player" target="_blank" rel="noreferrer">Abrir</a></div>
+            <p class="endpoint-description"><strong>Browser Source OBS:</strong> adicione a URL acima como Browser Source, marque <code>Controlar audio via OBS</code> e, nas propriedades avancadas de audio, use <code>Monitorar e enviar saida</code>. O volume fica no mixer do OBS.</p>
             <div class="endpoint-row with-action"><span>Pear API</span><code>http://127.0.0.1:26538/api/v1</code><button class="secondary icon-button copy-button" type="button" data-copy-value="http://127.0.0.1:26538/api/v1" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
+            <p class="endpoint-description"><strong>Pear Desktop:</strong> nao use a fonte <code>/player</code>. Abra o Pear, ative o plugin <code>API Server</code> na porta <code>26538</code> e deixe a Pear API salva no Setup.</p>
           </div>
         </section>
         <section>
@@ -1403,6 +1405,18 @@ pub async fn page() -> Html<&'static str> {
       'Salvar fallback': 'Save fallback',
       'YouTube: links e pedidos do YouTube': 'YouTube: links and YouTube requests',
       'Escolha onde o YouTube vai tocar: OBS Browser Source ou Pear Desktop.': 'Choose where YouTube plays: OBS Browser Source or Pear Desktop.',
+      'Escolha o player no Setup:': 'Choose the player in Setup:',
+      'Pear Desktop ou Browser Source OBS. Use apenas um modo por vez.': 'Pear Desktop or OBS Browser Source. Use only one mode at a time.',
+      'Player YouTube OBS': 'OBS YouTube player',
+      'Browser Source OBS:': 'OBS Browser Source:',
+      'adicione a URL acima como Browser Source, marque': 'add the URL above as a Browser Source, enable',
+      'e, nas propriedades avancadas de audio, use': 'and, in Advanced Audio Properties, use',
+      'O volume fica no mixer do OBS.': 'Volume is controlled in the OBS mixer.',
+      'Pear Desktop:': 'Pear Desktop:',
+      'nao use a fonte': 'do not use the',
+      'Abra o Pear, ative o plugin': 'Open Pear, enable the',
+      'na porta': 'plugin on port',
+      'e deixe a Pear API salva no Setup.': 'and keep the Pear API saved in Setup.',
       'Criar API Key': 'Create API key',
       'Player YouTube': 'YouTube player',
       'Pear API': 'Pear API',

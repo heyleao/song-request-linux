@@ -186,7 +186,13 @@ http://127.0.0.1:7384/player
 ```
 
 Use o player OBS apenas se voce escolheu `Browser Source OBS` como player do
-YouTube. Se usa Pear, normalmente nao precisa dessa fonte.
+YouTube. Se usa Pear Desktop, nao adicione essa fonte.
+
+No OBS Browser Source:
+
+1. Cole `http://127.0.0.1:7384/player`.
+2. Marque `Controlar audio via OBS`.
+3. Mantenha a fonte ativa na cena.
 
 Para ouvir essa musica no fone do streamer:
 
