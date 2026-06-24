@@ -2,11 +2,44 @@
 set -euo pipefail
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DESKTOP_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
+DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
+INSTALL_ROOT="$DATA_HOME/song-request-linux"
+PORTABLE_APP_DIR="$INSTALL_ROOT/app"
+DESKTOP_DIR="$DATA_HOME/applications"
 DESKTOP_FILE="$DESKTOP_DIR/song-request-linux.desktop"
 ICON_ROOT="${XDG_DATA_HOME:-$HOME/.local/share}/icons/hicolor"
 ICON_NAME="song-request-linux"
 SOURCE_ICON="$APP_DIR/assets/logo-srl.png"
+
+canonical_path() {
+  local target="$1"
+  if command -v realpath >/dev/null 2>&1; then
+    realpath -m "$target"
+  else
+    (cd "$(dirname "$target")" && printf '%s/%s\n' "$PWD" "$(basename "$target")")
+  fi
+}
+
+install_portable_app() {
+  [[ -d "$APP_DIR/.git" ]] && return 0
+
+  local current target tmp
+  current="$(canonical_path "$APP_DIR")"
+  target="$(canonical_path "$PORTABLE_APP_DIR")"
+  [[ "$current" == "$target" ]] && return 0
+
+  mkdir -p "$INSTALL_ROOT"
+  tmp="${PORTABLE_APP_DIR}.tmp.$$"
+  rm -rf "$tmp"
+  mkdir -p "$tmp"
+  cp -a "$APP_DIR/." "$tmp/"
+  rm -rf "$PORTABLE_APP_DIR"
+  mv "$tmp" "$PORTABLE_APP_DIR"
+  APP_DIR="$PORTABLE_APP_DIR"
+  SOURCE_ICON="$APP_DIR/assets/logo-srl.png"
+}
+
+install_portable_app
 
 mkdir -p "$DESKTOP_DIR"
 chmod +x "$APP_DIR/scripts/check-runtime-prereqs" "$APP_DIR/scripts/install-cachyos-deps" "$APP_DIR/scripts/install-user-friendly" "$APP_DIR/scripts/package-portable" "$APP_DIR/scripts/song-request-linux-open" "$APP_DIR/scripts/song-request-linux-stop" "$APP_DIR/scripts/update-from-github" "$APP_DIR/scripts/uninstall-user" 2>/dev/null || true
@@ -44,4 +77,5 @@ EOF
 
 update-desktop-database "$DESKTOP_DIR" >/dev/null 2>&1 || true
 gtk-update-icon-cache -f "$ICON_ROOT" >/dev/null 2>&1 || true
-echo "$DESKTOP_FILE"
+echo "Atalho instalado: $DESKTOP_FILE"
+echo "App instalado em: $APP_DIR"

@@ -83,11 +83,11 @@ cat > "$stage/INSTALL.md" <<INSTALL
 
 ## Instalar/abrir
 
-Extraia este pacote e rode:
+Extraia este pacote e rode. O instalador copia o app para ~/.local/share/song-request-linux/app:
 
 \`\`\`bash
 ./scripts/install-desktop-entry
-./scripts/song-request-linux-open
+~/.local/share/song-request-linux/app/scripts/song-request-linux-open
 \`\`\`
 
 Dashboard:

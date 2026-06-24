@@ -356,13 +356,6 @@ pub async fn page() -> Html<&'static str> {
       border-color: rgba(247, 185, 85, .38);
       box-shadow: 0 18px 42px rgba(0, 0, 0, .28);
     }
-    .setup-save-bar h2::after {
-      content: " sempre visível";
-      color: var(--warn);
-      font-size: 12px;
-      font-weight: 800;
-      margin-left: 8px;
-    }
     .unsaved-banner {
       position: fixed;
       left: max(18px, env(safe-area-inset-left));
@@ -1160,7 +1153,7 @@ pub async fn page() -> Html<&'static str> {
             <div class="step-head">
               <div>
                 <h2>Live: comportamento da fila</h2>
-                <p class="step-copy">Escolha se a fila deve continuar depois que a live acabar e o app abrir de novo.</p>
+                <p class="step-copy">Fila salva e overlay do OBS.</p>
               </div>
             </div>
             <div class="form-grid">
@@ -1177,10 +1170,8 @@ pub async fn page() -> Html<&'static str> {
               </label>
             </div>
             <div class="setup-quick-list">
-              <span>Marcado: pedidos pendentes voltam na próxima abertura.</span>
-              <span>Desmarcado: a próxima live começa com fila vazia.</span>
-              <span>No OBS, use o overlay: <code id="setup-overlay-url">http://127.0.0.1:7384/overlay?max=48&width=520&size=24&lines=1</code></span>
-              <span>Tamanho da Browser Source: largura <code>620</code>, altura <code id="setup-overlay-height">120</code>. Depois posicione e redimensione na cena se precisar.</span>
+              <div class="endpoint-row with-action"><span>Overlay OBS</span><code id="setup-overlay-url">http://127.0.0.1:7384/overlay?max=48&width=520&size=24&lines=1</code><button class="secondary icon-button copy-button" type="button" data-copy-target="setup-overlay-url" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
+              <span>Browser Source: largura <code>620</code>, altura <code id="setup-overlay-height">120</code>.</span>
             </div>
           </div>
         </section>
@@ -1325,7 +1316,7 @@ pub async fn page() -> Html<&'static str> {
         <section class="setup-save-bar" id="setup-save-bar">
           <div>
             <h2>Salvar configuração</h2>
-            <p class="field-note" id="setup-save-hint">Sem alterações pendentes. Quando mudar algo, salve antes de sair da tela.</p>
+            <p class="field-note" id="setup-save-hint"></p>
           </div>
           <div class="actions">
             <button id="setup-save-button" type="submit">Salvar configuração</button>
@@ -1389,9 +1380,11 @@ pub async fn page() -> Html<&'static str> {
             <button class="secondary" id="update-app" type="button">Atualizar pelo GitHub</button>
           </div>
           <div class="endpoints">
-            <div class="endpoint-row with-action"><span>Instalar</span><code>./scripts/install-user-friendly --with-pear</code><button class="secondary icon-button copy-button" type="button" data-copy-value="./scripts/install-user-friendly --with-pear" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
+            <div class="endpoint-row with-action"><span>Instalar pacote</span><code>./scripts/install-desktop-entry</code><button class="secondary icon-button copy-button" type="button" data-copy-value="./scripts/install-desktop-entry" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
+            <div class="endpoint-row guide-note"><span>Pasta do app</span><code>~/.local/share/song-request-linux/app</code></div>
             <div class="endpoint-row with-action"><span>Fechar</span><code>./scripts/song-request-linux-stop</code><button class="secondary icon-button copy-button" type="button" data-copy-value="./scripts/song-request-linux-stop" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
-            <div class="endpoint-row with-action"><span>Atualizar manual</span><code>./scripts/update-from-github --restart</code><button class="secondary icon-button copy-button" type="button" data-copy-value="./scripts/update-from-github --restart" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
+            <div class="endpoint-row with-action"><span>Instalar via Git</span><code>./scripts/install-user-friendly --with-pear</code><button class="secondary icon-button copy-button" type="button" data-copy-value="./scripts/install-user-friendly --with-pear" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
+            <div class="endpoint-row with-action"><span>Atualizar Git</span><code>./scripts/update-from-github --restart</code><button class="secondary icon-button copy-button" type="button" data-copy-value="./scripts/update-from-github --restart" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
             <div class="endpoint-row with-action"><span>Remover app</span><code>./scripts/uninstall-user</code><button class="secondary icon-button copy-button" type="button" data-copy-value="./scripts/uninstall-user" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
           </div>
           <p class="hint">Atualizar preserva configuracao, tokens e logs. A fila so volta se a persistencia da fila estiver ligada.</p>
@@ -2103,7 +2096,7 @@ pub async fn page() -> Html<&'static str> {
       if ($('setup-save-hint')) {
         $('setup-save-hint').textContent = setupDirty
           ? (reason || 'Existem alterações pendentes. Clique em Salvar configuração.')
-          : 'Sem alterações pendentes. Quando mudar algo, salve antes de sair da tela.';
+          : '';
       }
       if (setupDirty && reason) setMessage('setup-message', reason);
     }

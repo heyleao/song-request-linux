@@ -14,7 +14,7 @@ cd song-request-linux-0.1.8-linux-x86_64
 ./scripts/song-request-linux-open
 ```
 
-The package already includes the compiled app. Rust, Cargo, and Git are only needed for repository installs.
+The package already includes the compiled app. Rust, Cargo, and Git are only needed for repository installs. The portable installer copies the app to `~/.local/share/song-request-linux/app`.
 
 Optional by mode:
 
