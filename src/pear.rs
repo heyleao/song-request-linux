@@ -16,7 +16,7 @@ pub struct PearStatus {
     pub now_playing: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct PearNowPlaying {
     #[serde(default, alias = "videoId", alias = "id")]
     pub video_id: Option<String>,
@@ -158,6 +158,38 @@ pub async fn next(config: &AppConfig) -> Result<()> {
     empty_post(config, "next").await
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PearSkipOutcome {
+    pub changed: bool,
+    pub fallback_used: bool,
+    pub before: Option<String>,
+    pub after: Option<String>,
+}
+
+pub async fn skip_next(config: &AppConfig) -> Result<PearSkipOutcome> {
+    let before = now_playing(config).await.ok();
+    let before_video_id = before.as_ref().and_then(|song| song.video_id.clone());
+    next(config).await?;
+    sleep(Duration::from_millis(1200)).await;
+
+    let mut after = now_playing(config).await.ok();
+    if song_changed(before.as_ref(), after.as_ref()) {
+        return Ok(PearSkipOutcome::new(before, after, false));
+    }
+
+    if let Some(next_video_id) =
+        next_queue_video_after_current(config, before_video_id.as_deref()).await?
+    {
+        select_video_from_queue(config, &next_video_id).await?;
+        play(config).await?;
+        sleep(Duration::from_millis(1200)).await;
+        after = now_playing(config).await.ok();
+        return Ok(PearSkipOutcome::new(before, after, true));
+    }
+
+    Ok(PearSkipOutcome::new(before, after, false))
+}
+
 pub async fn clear_queue(config: &AppConfig) -> Result<()> {
     let response = client()?
         .delete(endpoint(config, "queue"))
@@ -269,6 +301,26 @@ async fn queue_video_ids(config: &AppConfig) -> Result<Vec<String>> {
         .collect())
 }
 
+async fn next_queue_video_after_current(
+    config: &AppConfig,
+    current_video_id: Option<&str>,
+) -> Result<Option<String>> {
+    let items = queue_items(config).await?;
+    let selected_index = items.iter().position(|item| item.selected).or_else(|| {
+        current_video_id.and_then(|current_video_id| {
+            items
+                .iter()
+                .position(|item| item.video_id.as_deref() == Some(current_video_id))
+        })
+    });
+
+    let start_index = selected_index.map_or(0, |index| index.saturating_add(1));
+    Ok(items
+        .into_iter()
+        .skip(start_index)
+        .find_map(|item| item.video_id))
+}
+
 async fn queue_items(config: &AppConfig) -> Result<Vec<PearQueueItem>> {
     let response = client()?
         .get(endpoint(config, "queue"))
@@ -369,6 +421,22 @@ fn pear_volume_command_for_state(target: u8) -> u8 {
         .unwrap_or(target)
 }
 
+impl PearSkipOutcome {
+    fn new(
+        before: Option<PearNowPlaying>,
+        after: Option<PearNowPlaying>,
+        fallback_used: bool,
+    ) -> Self {
+        let changed = song_changed(before.as_ref(), after.as_ref());
+        Self {
+            changed,
+            fallback_used,
+            before: before.and_then(PearNowPlaying::display_name),
+            after: after.and_then(PearNowPlaying::display_name),
+        }
+    }
+}
+
 impl PearNowPlaying {
     fn display_name(self) -> Option<String> {
         match (self.artist, self.title, self.video_id) {
@@ -379,6 +447,14 @@ impl PearNowPlaying {
             (_, _, Some(video_id)) if !video_id.is_empty() => Some(format!("YouTube {video_id}")),
             _ => None,
         }
+    }
+}
+
+fn song_changed(before: Option<&PearNowPlaying>, after: Option<&PearNowPlaying>) -> bool {
+    match (before, after) {
+        (Some(before), Some(after)) => before.video_id != after.video_id,
+        (None, Some(_)) => true,
+        _ => false,
     }
 }
 
@@ -459,5 +535,24 @@ mod tests {
         assert_eq!(pear_volume_command_for_state(35), 65);
         assert_eq!(pear_volume_command_for_state(50), 77);
         assert_eq!(pear_volume_command_for_state(100), 100);
+    }
+
+    #[test]
+    fn detects_song_change_by_video_id() {
+        let before = PearNowPlaying {
+            video_id: Some("a".to_string()),
+            title: Some("Before".to_string()),
+            artist: None,
+            is_paused: false,
+        };
+        let after = PearNowPlaying {
+            video_id: Some("b".to_string()),
+            title: Some("After".to_string()),
+            artist: None,
+            is_paused: false,
+        };
+
+        assert!(song_changed(Some(&before), Some(&after)));
+        assert!(!song_changed(Some(&before), Some(&before)));
     }
 }

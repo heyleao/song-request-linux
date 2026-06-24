@@ -124,7 +124,20 @@ async fn handle_privmsg(
         },
         &settings,
     );
+    if !matches!(command, ChatCommand::Ignored) {
+        state
+            .record_event(
+                "chat",
+                format!(
+                    "{} ({:?}): {}",
+                    privmsg.sender, privmsg.role, privmsg.message
+                ),
+            )
+            .await;
+    }
+
     if let Some(reply) = rate_limiter.check(&privmsg, &command) {
+        state.record_event("chat", reply.clone()).await;
         return Some(reply);
     }
 
@@ -303,10 +316,7 @@ async fn skip_reply(state: &AppState, requester: String) -> String {
     if matches!(current_provider(state), MusicProvider::Youtube)
         && matches!(state.config.youtube.playback, YoutubePlayback::Pear)
     {
-        let message = match crate::pear::next(&state.config).await {
-            Ok(()) => format!("@{requester} pulei no Pear."),
-            Err(error) => format!("@{requester} nao consegui pular no Pear: {error}"),
-        };
+        let message = pear_skip_reply(state, &requester).await;
         state.record_event("player", message.clone()).await;
         return message;
     }
@@ -330,6 +340,31 @@ async fn skip_reply(state: &AppState, requester: String) -> String {
     message
 }
 
+async fn pear_skip_reply(state: &AppState, requester: &str) -> String {
+    match crate::pear::skip_next(&state.config).await {
+        Ok(outcome) if outcome.changed => {
+            let suffix = if outcome.fallback_used {
+                " usando fila interna"
+            } else {
+                ""
+            };
+            match outcome.after {
+                Some(after) => format!("@{requester} pulei no Pear{suffix}. Agora: {after}."),
+                None => format!("@{requester} pulei no Pear{suffix}."),
+            }
+        }
+        Ok(outcome) => {
+            let current = outcome
+                .after
+                .or(outcome.before)
+                .map(|song| format!(" Musica atual: {song}."))
+                .unwrap_or_default();
+            format!("@{requester} enviei skip ao Pear, mas a musica nao mudou.{current}")
+        }
+        Err(error) => format!("@{requester} nao consegui pular no Pear: {error}"),
+    }
+}
+
 fn help_commands(settings: &crate::commands::CommandSettings) -> Vec<String> {
     let aliases = &settings.aliases;
     vec![
@@ -349,18 +384,16 @@ async fn playback_reply(state: &AppState, requester: String, action: PlaybackAct
     if matches!(current_provider(state), MusicProvider::Youtube)
         && matches!(state.config.youtube.playback, YoutubePlayback::Pear)
     {
-        let result = match action {
-            PlaybackAction::Play => crate::pear::play(&state.config).await,
-            PlaybackAction::Pause => crate::pear::pause(&state.config).await,
-            PlaybackAction::Next => crate::pear::next(&state.config).await,
-        };
-        let message = match result {
-            Ok(()) => match action {
-                PlaybackAction::Play => format!("@{requester} Pear retomado."),
-                PlaybackAction::Pause => format!("@{requester} Pear pausado."),
-                PlaybackAction::Next => format!("@{requester} pulei no Pear."),
+        let message = match action {
+            PlaybackAction::Play => match crate::pear::play(&state.config).await {
+                Ok(()) => format!("@{requester} Pear retomado."),
+                Err(error) => format!("@{requester} nao consegui controlar o Pear: {error}"),
             },
-            Err(error) => format!("@{requester} nao consegui controlar o Pear: {error}"),
+            PlaybackAction::Pause => match crate::pear::pause(&state.config).await {
+                Ok(()) => format!("@{requester} Pear pausado."),
+                Err(error) => format!("@{requester} nao consegui controlar o Pear: {error}"),
+            },
+            PlaybackAction::Next => pear_skip_reply(state, &requester).await,
         };
         state.record_event("player", message.clone()).await;
         return message;
