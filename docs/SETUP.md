@@ -1,5 +1,7 @@
 # Guia Rapido
 
+[English](SETUP_EN.md)
+
 Este guia e a receita curta para deixar o Song Request Linux pronto para live.
 Faca um passo por vez.
 

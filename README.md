@@ -9,6 +9,7 @@
 </p>
 
 <p align="center">
+  <a href="README_EN.md">English</a> ·
   <a href="docs/SETUP.md">Guia rapido</a> ·
   <a href="#instalar">Instalar</a> ·
   <a href="#como-funciona">Como funciona</a> ·
