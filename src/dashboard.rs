@@ -1568,22 +1568,22 @@ pub async fn page() -> Html<&'static str> {
       isActiveInstance = false;
       document.body.classList.add('stale-instance');
       $('instance-notice').hidden = false;
-      $('instance-message').textContent = 'Se quiser continuar por aqui, clique em Usar esta aba. A outra aba entrará em espera.';
-      if ($('refresh-state')) $('refresh-state').textContent = 'ABA ANTIGA';
+      $('instance-message').textContent = t('Se quiser continuar por aqui, clique em Usar esta aba. A outra aba entrará em espera.');
+      if ($('refresh-state')) $('refresh-state').textContent = t('ABA ANTIGA');
     }
 
     function closeThisTab() {
-      $('instance-message').textContent = 'Tentando fechar a aba. Se o navegador bloquear, pode fechar manualmente.';
+      $('instance-message').textContent = t('Tentando fechar a aba. Se o navegador bloquear, pode fechar manualmente.');
       window.close();
       setTimeout(() => {
-        document.body.innerHTML = '<main><section><h2>Aba em espera</h2><p class="muted">Esta aba pode ser fechada. O painel ativo está em outra aba.</p></section></main>';
+        document.body.innerHTML = translatedStatusPage('Aba em espera', 'Esta aba pode ser fechada. O painel ativo está em outra aba.');
       }, 250);
     }
 
     instanceChannel?.addEventListener('message', (event) => {
       if (event.data?.type === 'activate' && event.data.id !== instanceId) markStaleInstance();
       if (event.data?.type === 'shutdown' && event.data.id !== instanceId) {
-        document.body.innerHTML = '<main><section><h2>Song Request Linux encerrando</h2><p class="muted">Outra aba solicitou o encerramento do app.</p></section></main>';
+        document.body.innerHTML = translatedStatusPage('Song Request Linux encerrando', 'Outra aba solicitou o encerramento do app.');
       }
     });
 
@@ -1614,7 +1614,7 @@ pub async fn page() -> Html<&'static str> {
       });
       const text = await response.text();
       const data = text ? JSON.parse(text) : null;
-      if (!response.ok) throw new Error(data?.error || text || 'Falha na requisição');
+      if (!response.ok) throw new Error(data?.error || text || t('Falha na requisição'));
       return data;
     }
 
@@ -1625,6 +1625,10 @@ pub async fn page() -> Html<&'static str> {
         .replaceAll('>', '&gt;')
         .replaceAll('"', '&quot;')
         .replaceAll("'", '&#039;');
+    }
+
+    function translatedStatusPage(title, message) {
+      return `<main><section><h2>${escapeHtml(t(title))}</h2><p class="muted">${escapeHtml(t(message))}</p></section></main>`;
     }
 
     function aliasesToText(values) {
@@ -1812,22 +1816,22 @@ pub async fn page() -> Html<&'static str> {
       $('provider-youtube-pear').classList.toggle('active', mode === 'youtube_pear');
       $('provider-youtube-browser').classList.toggle('active', mode === 'youtube_browser');
       if (pending) {
-        const suffix = ' selecionado. Clique em Salvar configuração para aplicar na live.';
+        const suffix = t(' selecionado. Clique em Salvar configuração para aplicar na live.');
         $('setup-provider-help').textContent = operationModeLabel(mode) + suffix;
         if (mode === 'spotify') {
           $('setup-provider-requirements').innerHTML = [
-            requirementRow('warn', 'Spotify', 'Salve para ativar busca, fila, volume e fallback pelo Spotify.'),
-            requirementRow('warn', 'YouTube', 'Ficará inativo enquanto Spotify for o modo da live.')
+            requirementRow('warn', 'Spotify', t('Salve para ativar busca, fila, volume e fallback pelo Spotify.')),
+            requirementRow('warn', 'YouTube', t('Ficará inativo enquanto Spotify for o modo da live.'))
           ].join('');
         } else if (mode === 'youtube_pear') {
           $('setup-provider-requirements').innerHTML = [
-            requirementRow('warn', 'YouTube API para busca', 'Necessária para pedidos por nome; links diretos tambem exigem modo YouTube ativo.'),
-            requirementRow(diagnostics.runtime?.pear?.available ? 'ok' : 'warn', 'Playback Pear Desktop', diagnostics.runtime?.pear?.available ? 'Pear Desktop encontrado. Confira se o API Server esta ativo na porta 26538.' : 'Abra o Pear, faça login no Pear/YouTube se necessário e ative o API Server na porta 26538.')
+            requirementRow('warn', t('YouTube API para busca'), t('Necessária para pedidos por nome; links diretos tambem exigem modo YouTube ativo.')),
+            requirementRow(diagnostics.runtime?.pear?.available ? 'ok' : 'warn', 'Playback Pear Desktop', diagnostics.runtime?.pear?.available ? t('Pear Desktop encontrado. Confira se o API Server esta ativo na porta 26538.') : t('Abra o Pear, faça login no Pear/YouTube se necessário e ative o API Server na porta 26538.'))
           ].join('');
         } else {
           $('setup-provider-requirements').innerHTML = [
-            requirementRow('warn', 'YouTube API para busca', 'Necessária para pedidos por nome; links diretos tambem exigem modo YouTube ativo.'),
-            requirementRow(diagnostics.runtime?.yt_dlp?.available ? 'ok' : 'bad', 'yt-dlp para OBS Browser', diagnostics.runtime?.yt_dlp?.available ? 'yt-dlp encontrado. O player /player consegue resolver audio do YouTube.' : 'Instale yt-dlp para o modo YouTube/OBS Browser tocar audio no /player.')
+            requirementRow('warn', t('YouTube API para busca'), t('Necessária para pedidos por nome; links diretos tambem exigem modo YouTube ativo.')),
+            requirementRow(diagnostics.runtime?.yt_dlp?.available ? 'ok' : 'bad', 'yt-dlp para OBS Browser', diagnostics.runtime?.yt_dlp?.available ? t('yt-dlp encontrado. O player /player consegue resolver audio do YouTube.') : t('Instale yt-dlp para o modo YouTube/OBS Browser tocar audio no /player.'))
           ].join('');
         }
       }
@@ -1842,7 +1846,7 @@ pub async fn page() -> Html<&'static str> {
       updateProviderStepVisibility({ default_provider: provider, youtube_playback: playback });
       paintOperationMode(mode, Boolean(options.dirty));
       if (options.dirty) {
-        setSetupDirty(true, `Modo alterado para ${operationModeLabel(mode)}. Clique em Salvar configuração.`);
+        setSetupDirty(true, `${t('Modo alterado para')} ${operationModeLabel(mode)}. ${t('Clique em Salvar configuração.')}`);
       }
     }
 
@@ -1887,7 +1891,7 @@ pub async fn page() -> Html<&'static str> {
     }
 
     function songMeta(song, connections) {
-      if (!song) return 'Nenhuma música tocando';
+      if (!song) return t('Nenhuma música tocando');
       if (isSpotifyFallbackSong(song)) return `Playlist - ${fallbackPlaylistName(connections)}`;
       return `${song.artist} - pedido por ${song.requester}`;
     }
@@ -1900,7 +1904,7 @@ pub async fn page() -> Html<&'static str> {
     function requirementRow(state, label, detail) {
       return `
         <div class="requirement-row ${state}">
-          <strong>${state === 'ok' ? 'OK' : state === 'warn' ? 'Atenção' : 'Falta'}</strong>
+          <strong>${state === 'ok' ? 'OK' : state === 'warn' ? t('Atenção') : t('Falta')}</strong>
           <span><b>${escapeHtml(label)}</b><br>${escapeHtml(detail)}</span>
         </div>
       `;
@@ -1922,7 +1926,7 @@ pub async fn page() -> Html<&'static str> {
             : connections.spotify.product_check_error
               ? 'Nao consegui validar o plano. Clique em Login Spotify para conceder o escopo user-read-private.'
               : 'Plano ainda nao validado. Clique em Login Spotify se esta mensagem continuar aparecendo.';
-        $('setup-provider-help').textContent = 'Modo Spotify ativo: pedidos por texto entram no Spotify. YouTube fica parado até você trocar o provider.';
+        $('setup-provider-help').textContent = t('Modo Spotify ativo: pedidos por texto entram no Spotify. YouTube fica parado até você trocar o provider.');
         $('setup-provider-requirements').innerHTML = [
           requirementRow(
             connections.spotify.client_id_configured ? 'ok' : 'bad',
@@ -1945,26 +1949,26 @@ pub async fn page() -> Html<&'static str> {
 
       const pearMode = config.youtube_playback === 'pear';
       $('setup-provider-help').textContent = pearMode
-        ? 'Modo YouTube/Pear ativo: o SRL usa YouTube Data API para buscar por texto e manda tocar no Pear. O Pear usa a conta logada nele.'
-        : 'Modo YouTube/OBS ativo: o SRL usa YouTube Data API para buscar por texto e toca no Browser Source /player dentro do OBS.';
+        ? t('Modo YouTube/Pear ativo: o SRL usa YouTube Data API para buscar por texto e manda tocar no Pear. O Pear usa a conta logada nele.')
+        : t('Modo YouTube/OBS ativo: o SRL usa YouTube Data API para buscar por texto e toca no Browser Source /player dentro do OBS.');
       $('setup-provider-requirements').innerHTML = [
         requirementRow(
           config.youtube_api_key_configured ? 'ok' : 'bad',
           'YouTube API para busca',
           config.youtube_api_key_configured
-            ? `${config.youtube_api_key_count || 1} chave(s) salva(s). Necessária para pedidos por nome; links diretos exigem modo YouTube ativo.`
-            : 'Preencha ao menos uma API Key para buscar música por nome. Links diretos só entram no modo YouTube.'
+            ? `${config.youtube_api_key_count || 1} ${t('chave(s) salva(s). Necessária para pedidos por nome; links diretos exigem modo YouTube ativo.')}`
+            : t('Preencha ao menos uma API Key para buscar música por nome. Links diretos só entram no modo YouTube.')
         ),
         requirementRow(
           pearMode ? pear.reachable ? 'ok' : 'bad' : diagnostics.runtime?.yt_dlp?.available ? 'ok' : 'bad',
           pearMode ? 'Playback Pear Desktop' : 'yt-dlp para OBS Browser',
           pearMode
-            ? pear.reachable ? 'Pear respondeu na API local. Login Google/YouTube fica dentro do Pear, não na API Key do SRL.' : 'Abra o Pear Desktop e confira o plugin API Server na porta 26538.'
-            : diagnostics.runtime?.yt_dlp?.available ? 'yt-dlp encontrado. O player /player consegue resolver audio do YouTube.' : 'Instale yt-dlp para o modo YouTube/OBS Browser tocar audio no /player.'
+            ? pear.reachable ? t('Pear respondeu na API local. Login Google/YouTube fica dentro do Pear, não na API Key do SRL.') : t('Abra o Pear Desktop e confira o plugin API Server na porta 26538.')
+            : diagnostics.runtime?.yt_dlp?.available ? t('yt-dlp encontrado. O player /player consegue resolver audio do YouTube.') : t('Instale yt-dlp para o modo YouTube/OBS Browser tocar audio no /player.')
         ),
         requirementRow(
           'warn',
-          'Filtro de duração',
+          t('Filtro de duração'),
           `Limite atual: ${config.youtube_max_duration_seconds || 360}s. Ajuste para evitar videos longos na fila.`
         )
       ].join('');
@@ -1972,7 +1976,7 @@ pub async fn page() -> Html<&'static str> {
 
     function setMessage(id, text, isError = false) {
       const element = $(id);
-      element.textContent = text;
+      element.textContent = t(text);
       element.classList.toggle('error', isError);
     }
 
@@ -1981,7 +1985,7 @@ pub async fn page() -> Html<&'static str> {
       $('update-overlay').hidden = !running;
       $('update-progress')?.classList.toggle('visible', running);
       $('update-progress')?.setAttribute('aria-hidden', running ? 'false' : 'true');
-      $('update-cancel').textContent = running ? 'Cancelar' : 'Fechar';
+      $('update-cancel').textContent = running ? t('Cancelar') : t('Fechar');
     }
 
     function showUpdateOverlay(message = '') {
@@ -1991,25 +1995,25 @@ pub async fn page() -> Html<&'static str> {
     }
 
     function renderUpdateChangelog() {
-      const text = latestUpdate?.changelog?.trim() || 'Changelog indisponível.';
+      const text = latestUpdate?.changelog?.trim() || t('Changelog indisponível.');
       $('update-changelog-text').textContent = text;
     }
 
     async function showInstalledChangelog() {
-      $('update-overlay-title').textContent = 'Changelog da instalação';
-      $('update-overlay-message').textContent = 'Carregando notas da versão instalada.';
+      $('update-overlay-title').textContent = t('Changelog da instalação');
+      $('update-overlay-message').textContent = t('Carregando notas da versão instalada.');
       $('update-log-panel').classList.remove('visible');
       $('update-changelog-panel').classList.add('visible');
       setUpdateProgress(false);
       $('update-overlay').hidden = false;
       if (!installedUpdate) installedUpdate = await api('/api/update/installed');
       const version = installedUpdate.current_version ? `v${installedUpdate.current_version}` : installedUpdate.current_tag;
-      $('update-overlay-message').textContent = `Notas da versão instalada ${version || ''}.`;
-      $('update-changelog-text').textContent = installedUpdate.changelog?.trim() || 'Changelog indisponível para esta versão.';
+      $('update-overlay-message').textContent = `${t('Notas da versão instalada')} ${version || ''}.`;
+      $('update-changelog-text').textContent = installedUpdate.changelog?.trim() || t('Changelog indisponível para esta versão.');
     }
 
     function setUpdateLog(text) {
-      $('update-log-text').textContent = text?.trim() || 'Log ainda não disponível.';
+      $('update-log-text').textContent = text?.trim() || t('Log ainda não disponível.');
     }
 
     function stopUpdatePolling() {
@@ -2035,9 +2039,9 @@ pub async fn page() -> Html<&'static str> {
         button.classList.toggle('visible', available);
         button.hidden = !available;
       }
-      text.textContent = available ? `v${update.latest_version}` : (update.message || 'Atualizado');
+      text.textContent = available ? `v${update.latest_version}` : (update.message || t('Atualizado'));
       if (!available && !localStorage.getItem('song-request-linux-update-pending')) {
-        setMessage('update-message', update.message || 'Voce ja esta na versao mais recente.');
+        setMessage('update-message', update.message || t('Voce ja esta na versao mais recente.'));
       }
     }
 
@@ -2045,7 +2049,7 @@ pub async fn page() -> Html<&'static str> {
       try {
         const update = await api('/api/update/latest');
         renderLatestUpdate(update);
-        if (showMessage) setMessage('update-message', update.message || 'Verificacao concluida.');
+        if (showMessage) setMessage('update-message', update.message || t('Verificacao concluida.'));
       } catch (error) {
         if (showMessage) setMessage('update-message', `Nao consegui verificar atualizacao: ${error.message}`, true);
       }
@@ -2093,14 +2097,14 @@ pub async fn page() -> Html<&'static str> {
         } else if (status.status !== 'none') {
           stopUpdatePolling();
           showUpdateOverlay(status.message || 'Atualizacao finalizada.');
-          $('update-overlay-title').textContent = isError ? 'Atualização falhou' : 'Atualização finalizada';
+          $('update-overlay-title').textContent = isError ? t('Atualização falhou') : t('Atualização finalizada');
           $('update-changelog-panel').classList.add('visible');
           localStorage.removeItem('song-request-linux-update-pending');
           $('update-app').disabled = false;
         }
-        setMessage('update-message', status.message || 'Status de atualizacao indisponivel.', isError);
+        setMessage('update-message', status.message || t('Status de atualizacao indisponivel.'), isError);
       } catch (_) {
-        if (showEmpty) setMessage('update-message', 'Nao foi possivel ler o status da atualizacao.', true);
+        if (showEmpty) setMessage('update-message', t('Nao foi possivel ler o status da atualizacao.'), true);
       }
     }
 
@@ -2112,7 +2116,7 @@ pub async fn page() -> Html<&'static str> {
       $('setup-save-bar')?.classList.toggle('dirty', setupDirty);
       if ($('setup-save-hint')) {
         $('setup-save-hint').textContent = setupDirty
-          ? (reason || 'Existem alterações pendentes. Clique em Salvar configuração.')
+          ? (reason || t('Existem alterações pendentes. Clique em Salvar configuração.'))
           : '';
       }
       if (setupDirty && reason) setMessage('setup-message', reason);
@@ -2120,7 +2124,7 @@ pub async fn page() -> Html<&'static str> {
 
     async function discardSetupChanges() {
       setSetupDirty(false);
-      setMessage('setup-message', 'Alterações descartadas.');
+      setMessage('setup-message', t('Alterações descartadas.'));
       await refresh();
     }
 
@@ -2160,10 +2164,10 @@ pub async fn page() -> Html<&'static str> {
         $('queue-persistence').innerHTML = `<span><strong>${escapeHtml(t('Persistência desativada'))}</strong> - ${escapeHtml(t('a fila atual não será restaurada ao reabrir o app.'))}</span>`;
         return;
       }
-      const saved = `${persistence.saved_items} item(ns) salvo(s)`;
-      const state = persistence.exists ? 'arquivo encontrado' : 'arquivo será criado no próximo pedido';
+      const saved = `${persistence.saved_items} ${t('item(ns) salvo(s)')}`;
+      const state = persistence.exists ? t('arquivo encontrado') : t('arquivo será criado no próximo pedido');
       $('queue-persistence').innerHTML = `
-        <span><strong>${escapeHtml(t('Persistência ativa'))}</strong> - ${escapeHtml(saved)} - ${escapeHtml(state)} - armazenamento local do app</span>
+        <span><strong>${escapeHtml(t('Persistência ativa'))}</strong> - ${escapeHtml(saved)} - ${escapeHtml(state)} - ${escapeHtml(t('armazenamento local do app'))}</span>
       `;
     }
 
@@ -2230,9 +2234,9 @@ pub async fn page() -> Html<&'static str> {
       const spotifyConfigured = connections.spotify.client_id_configured;
       const youtubeReady = config.default_provider !== 'youtube' || (config.youtube_api_key_configured && (config.youtube_playback !== 'pear' || pear.reachable));
 
-      $('twitch-state').textContent = twitchReady ? 'configurado' : 'pendente';
+      $('twitch-state').textContent = twitchReady ? t('configurado') : t('pendente');
       $('twitch-dot').className = stateClass(twitchReady);
-      $('spotify-state').textContent = spotifyReady ? 'conectado' : spotifyConfigured ? 'login' : 'pendente';
+      $('spotify-state').textContent = spotifyReady ? t('conectado') : spotifyConfigured ? 'login' : t('pendente');
       $('spotify-dot').className = stateClass(spotifyReady, spotifyConfigured);
       $('youtube-state').textContent = config.default_provider !== 'youtube'
         ? 'inativo'
@@ -2246,10 +2250,10 @@ pub async fn page() -> Html<&'static str> {
       renderSpotifyFallback(connections, config);
 
       const rows = [
-        ['Bot Twitch', twitchReady ? 'configurado' : 'não configurado'],
+        ['Bot Twitch', twitchReady ? t('configurado') : t('não configurado')],
         ['Spotify', spotifyReady ? 'conectado' : spotifyConfigured ? 'login pendente' : 'client id pendente'],
-        ['YouTube', config.default_provider === 'youtube' ? `${config.youtube_playback === 'pear' ? 'Pear Desktop' : 'OBS Browser'} - ${config.youtube_api_key_configured ? `${config.youtube_api_key_count || 1} api key(s)` : 'api key pendente'}` : 'inativo'],
-        ['Pear Desktop', pear.configured ? pear.reachable ? 'conectado' : 'não encontrado' : 'desativado'],
+        ['YouTube', config.default_provider === 'youtube' ? `${config.youtube_playback === 'pear' ? 'Pear Desktop' : 'OBS Browser'} - ${config.youtube_api_key_configured ? `${config.youtube_api_key_count || 1} ${t('api key(s)')}` : t('api key pendente')}` : 'inativo'],
+        ['Pear Desktop', pear.configured ? pear.reachable ? t('conectado') : t('não encontrado') : t('desativado')],
         ['Pear atual', pear.now_playing || '-'],
         ['Logs', diagnostics.storage.log_dir.exists ? 'ok' : 'pendente'],
         ['Runtime', diagnostics.runtime?.setsid?.available ? 'launcher ok' : 'setsid ausente'],
@@ -2290,7 +2294,7 @@ pub async fn page() -> Html<&'static str> {
         $('queue-count').textContent = `${queue.queue_length} pedido(s)`;
         $('app-version').textContent = status.version ? `v${status.version}` : 'v?';
         $('refresh-state').textContent = 'OK';
-        $('playback-mode').textContent = config.default_provider === 'youtube' ? (config.youtube_playback === 'pear' ? 'Pear Desktop' : 'OBS Browser') : 'Inativo';
+        $('playback-mode').textContent = config.default_provider === 'youtube' ? (config.youtube_playback === 'pear' ? 'Pear Desktop' : 'OBS Browser') : t('Inativo');
         await refreshVolume();
         renderDiagnostics(diagnostics, connections, pear, config);
 
@@ -2311,7 +2315,7 @@ pub async fn page() -> Html<&'static str> {
         }
 
         const current = queue.current_song;
-        $('current-title').textContent = current ? current.title : 'Aguardando pedido';
+        $('current-title').textContent = current ? current.title : t('Aguardando pedido');
         $('current-meta').textContent = songMeta(current, connections);
         $('current-source').textContent = sourceLabel(current?.source);
         renderQueuePersistence(queue);
@@ -2328,11 +2332,11 @@ pub async fn page() -> Html<&'static str> {
                 <span class="queue-meta">${escapeHtml(songMeta(item, connections))}</span>
               </div>
             `).join('')
-          : '<div class="queue-item muted">Fila vazia</div>';
+          : `<div class="queue-item muted">${escapeHtml(t('Fila vazia'))}</div>`;
         renderEvents(events);
         translateTree();
       } catch (error) {
-        $('refresh-state').textContent = 'ERRO';
+        $('refresh-state').textContent = t('ERRO');
       }
     }
 
@@ -2352,7 +2356,7 @@ pub async fn page() -> Html<&'static str> {
     function showTab(tabId, options = {}) {
       const current = document.querySelector('.tab.active')?.id;
       if (!options.force && setupDirty && current === 'setup-tab' && tabId !== 'setup-tab') {
-        const leave = window.confirm('Existem alterações não salvas. Sair da configuração sem salvar?');
+        const leave = window.confirm(t('Existem alterações não salvas. Sair da configuração sem salvar?'));
         if (!leave) return false;
       }
       const button = document.querySelector(`.tab-button[data-tab="${tabId}"]`);
@@ -2395,7 +2399,7 @@ pub async fn page() -> Html<&'static str> {
             query: $('query').value
           })
         });
-        setMessage('request-message', `Adicionado: ${request.title}`);
+        setMessage('request-message', `${t('Adicionado')}: ${request.title}`);
         $('query').value = '';
         await refresh();
       } catch (error) {
@@ -2434,7 +2438,7 @@ pub async fn page() -> Html<&'static str> {
       const base = desiredVolume ?? currentVolumeLevel();
       desiredVolume = clampVolume(base + delta);
       renderVolume({ level: desiredVolume, message: 'Volume desejado; aplicando em segundo plano...' });
-      setMessage('player-message', `Volume desejado: ${desiredVolume}%`);
+      setMessage('player-message', `${t('Volume desejado')}: ${desiredVolume}%`);
       scheduleVolumeApply();
     }
 
@@ -2450,7 +2454,7 @@ pub async fn page() -> Html<&'static str> {
         if (desiredVolume === target) {
           desiredVolume = null;
           renderVolume(result.level === target ? result : { ...result, level: target });
-          setMessage('player-message', result.message || `Volume ajustado para ${target}%.`);
+          setMessage('player-message', result.message || `${t('Volume ajustado para')} ${target}%.`);
         }
       } catch (error) {
         setMessage('player-message', `Volume ${target}% pendente: ${error.message}`, true);
@@ -2509,7 +2513,7 @@ pub async fn page() -> Html<&'static str> {
     $('clear-events').addEventListener('click', async () => {
       try {
         await api('/api/events', { method: 'DELETE' });
-        setMessage('events-message', 'Logs apagados.');
+        setMessage('events-message', t('Logs apagados.'));
         await refresh();
       } catch (error) {
         setMessage('events-message', error.message, true);
@@ -2518,7 +2522,7 @@ pub async fn page() -> Html<&'static str> {
     $('clear-queue').addEventListener('click', async () => {
       try {
         await api('/api/queue', { method: 'DELETE' });
-        setMessage('queue-message', 'Fila zerada.');
+        setMessage('queue-message', t('Fila zerada.'));
         await refresh();
       } catch (error) {
         setMessage('queue-message', error.message, true);
@@ -2533,12 +2537,12 @@ pub async fn page() -> Html<&'static str> {
       if (item) {
         item.remove();
         if (!$('queue').querySelector('.queue-item')) {
-          $('queue').innerHTML = '<div class="queue-item muted">Fila vazia</div>';
+          $('queue').innerHTML = `<div class="queue-item muted">${escapeHtml(t('Fila vazia'))}</div>`;
         }
       }
       try {
         await api(`/api/queue/${button.dataset.id}`, { method: 'DELETE' });
-        setMessage('queue-message', 'Música removida da fila.');
+        setMessage('queue-message', t('Música removida da fila.'));
         await refresh();
       } catch (error) {
         setMessage('queue-message', error.message, true);
@@ -2546,7 +2550,7 @@ pub async fn page() -> Html<&'static str> {
       }
     });
 
-    async function saveSetup(message = 'Configuração salva.') {
+    async function saveSetup(message = t('Configuração salva.')) {
       const result = await api('/api/config', {
         method: 'POST',
         body: JSON.stringify({
@@ -2570,20 +2574,20 @@ pub async fn page() -> Html<&'static str> {
       });
       $('setup-youtube-api-key').value = '';
       setSetupDirty(false);
-      setMessage('setup-message', message);
+      setMessage('setup-message', t(message));
       await refresh();
       return result;
     }
 
     $('setup-form').addEventListener('input', (event) => {
       if (event.target.matches('input, select, textarea')) {
-        setSetupDirty(true, 'Alteração pendente. Clique em Salvar configuração.');
+        setSetupDirty(true, t('Alteração pendente. Clique em Salvar configuração.'));
       }
     });
 
     $('setup-form').addEventListener('change', (event) => {
       if (event.target.matches('input, select, textarea')) {
-        setSetupDirty(true, 'Alteração pendente. Clique em Salvar configuração.');
+        setSetupDirty(true, t('Alteração pendente. Clique em Salvar configuração.'));
       }
     });
 
@@ -2594,8 +2598,8 @@ pub async fn page() -> Html<&'static str> {
     $('setup-spotify-fallback-enabled').addEventListener('change', () => {
       setSpotifyFallbackControls($('setup-spotify-fallback-enabled').checked);
       setSetupDirty(true, $('setup-spotify-fallback-enabled').checked
-        ? 'Playlist fallback marcada. Clique em Salvar configuração.'
-        : 'Playlist fallback desmarcada. Clique em Salvar configuração.');
+        ? t('Playlist fallback marcada. Clique em Salvar configuração.')
+        : t('Playlist fallback desmarcada. Clique em Salvar configuração.'));
     });
 
     ['setup-overlay-label', 'setup-overlay-lines'].forEach((id) => {
@@ -2605,8 +2609,8 @@ pub async fn page() -> Html<&'static str> {
 
     $('setup-queue-persistence-enabled').addEventListener('change', () => {
       setSetupDirty(true, $('setup-queue-persistence-enabled').checked
-        ? 'Persistência da fila marcada. Clique em Salvar configuração.'
-        : 'Persistência da fila desmarcada. Clique em Salvar configuração.');
+        ? t('Persistência da fila marcada. Clique em Salvar configuração.')
+        : t('Persistência da fila desmarcada. Clique em Salvar configuração.'));
     });
 
     $('global-save-setup').addEventListener('click', () => {
@@ -2629,7 +2633,7 @@ pub async fn page() -> Html<&'static str> {
     $('setup-spotify-login').addEventListener('click', async () => {
       try {
         const result = await api('/api/connections/spotify/start', { method: 'POST' });
-        setMessage('setup-message', 'Abrindo login Spotify.');
+        setMessage('setup-message', t('Abrindo login Spotify.'));
         window.open(result.auth_url, '_blank', 'noopener,noreferrer');
       } catch (error) {
         setMessage('setup-message', error.message, true);
@@ -2641,7 +2645,7 @@ pub async fn page() -> Html<&'static str> {
         spotifyPlaylists = await api('/api/spotify/playlists');
         const current = (await api('/api/connections/status')).spotify.fallback_playlist;
         fillSpotifyPlaylistOptions(spotifyPlaylists, current?.id || '');
-        setMessage('setup-message', `${spotifyPlaylists.length} playlist(s) carregada(s).`);
+        setMessage('setup-message', `${spotifyPlaylists.length} ${t('playlist(s) carregada(s).')}`);
       } catch (error) {
         setMessage('setup-message', error.message, true);
       }
@@ -2668,7 +2672,7 @@ pub async fn page() -> Html<&'static str> {
     $('setup-twitch-login').addEventListener('click', async () => {
       try {
         const result = await api('/api/connections/twitch/start', { method: 'POST' });
-        setMessage('setup-message', 'Abrindo login Twitch Bot.');
+        setMessage('setup-message', t('Abrindo login Twitch Bot.'));
         window.open(result.auth_url, '_blank', 'noopener,noreferrer');
       } catch (error) {
         setMessage('setup-message', error.message, true);
@@ -2677,8 +2681,8 @@ pub async fn page() -> Html<&'static str> {
 
     $('version-changelog')?.addEventListener('click', () => {
       showInstalledChangelog().catch((error) => {
-        $('update-overlay-title').textContent = 'Changelog da instalação';
-        $('update-overlay-message').textContent = `Não consegui carregar o changelog: ${error.message}`;
+        $('update-overlay-title').textContent = t('Changelog da instalação');
+        $('update-overlay-message').textContent = `${t('Não consegui carregar o changelog')}: ${error.message}`;
         $('update-changelog-panel').classList.add('visible');
         $('update-overlay').hidden = false;
       });
@@ -2687,18 +2691,18 @@ pub async fn page() -> Html<&'static str> {
     $('update-app')?.addEventListener('click', async () => {
       try {
         $('update-app').disabled = true;
-        $('update-overlay-title').textContent = 'Atualizando SRL';
+        $('update-overlay-title').textContent = t('Atualizando SRL');
         $('update-log-panel').classList.remove('visible');
         $('update-changelog-panel').classList.remove('visible');
-        setUpdateLog('Iniciando atualização...');
+        setUpdateLog(t('Iniciando atualização...'));
         setUpdateProgress(true);
-        showUpdateOverlay('Baixando e aplicando atualização. O app pode reiniciar automaticamente.');
-        setMessage('update-message', 'Atualizacao em andamento. Pode fechar esta pagina; o app vai reiniciar e abrir novamente quando terminar.');
+        showUpdateOverlay(t('Baixando e aplicando atualização. O app pode reiniciar automaticamente.'));
+        setMessage('update-message', t('Atualizacao em andamento. Pode fechar esta pagina; o app vai reiniciar e abrir novamente quando terminar.'));
         const result = await api('/api/update', {
           method: 'POST',
           headers: { 'x-song-request-action': 'update' }
         });
-        setMessage('update-message', result.message || 'Atualizacao iniciada. Pode fechar esta pagina; o app vai abrir novamente.');
+        setMessage('update-message', result.message || t('Atualizacao iniciada. Pode fechar esta pagina; o app vai abrir novamente.'));
         localStorage.setItem('song-request-linux-update-pending', '1');
         startUpdatePolling();
         setTimeout(() => refreshUpdateStatus(false), 1200);
@@ -2707,7 +2711,7 @@ pub async fn page() -> Html<&'static str> {
         $('update-app').disabled = false;
         setUpdateProgress(false);
         showUpdateOverlay(error.message);
-        $('update-overlay-title').textContent = 'Atualização falhou';
+        $('update-overlay-title').textContent = t('Atualização falhou');
         $('update-changelog-panel').classList.add('visible');
         setMessage('update-message', error.message, true);
       }
@@ -2732,9 +2736,9 @@ pub async fn page() -> Html<&'static str> {
     $('instance-close').addEventListener('click', closeThisTab);
 
     $('shutdown-app').addEventListener('click', () => {
-      if (!confirm('Encerrar o Song Request Linux agora? Isso para o bot, a fila e o player local.')) return;
-      $('refresh-state').textContent = 'SAINDO';
-      setMessage('player-message', 'App encerrando. Esta aba pode ser fechada.');
+      if (!confirm(t('Encerrar o Song Request Linux agora? Isso para o bot, a fila e o player local.'))) return;
+      $('refresh-state').textContent = t('SAINDO');
+      setMessage('player-message', t('App encerrando. Esta aba pode ser fechada.'));
       $('shutdown-app').disabled = true;
       instanceChannel?.postMessage({ type: 'shutdown', id: instanceId });
 
@@ -2744,7 +2748,7 @@ pub async fn page() -> Html<&'static str> {
         headers: { 'x-song-request-action': 'shutdown' }
       }).catch(() => {});
       setTimeout(() => {
-        document.body.innerHTML = '<main><section><h2>Song Request Linux encerrado</h2><p class="muted">Esta aba pode ser fechada.</p></section></main>';
+        document.body.innerHTML = translatedStatusPage('Song Request Linux encerrado', 'Esta aba pode ser fechada.');
         window.close();
       }, 600);
     });
