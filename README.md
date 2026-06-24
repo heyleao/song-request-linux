@@ -34,8 +34,8 @@ configure o player e adicione o overlay no OBS.
 O pacote `.tar.gz` ja traz o binario compilado. O usuario comum nao precisa instalar Rust, Cargo ou Git.
 
 ```bash
-tar -xzf song-request-linux-0.1.7-linux-x86_64.tar.gz
-cd song-request-linux-0.1.7-linux-x86_64
+tar -xzf song-request-linux-0.1.8-linux-x86_64.tar.gz
+cd song-request-linux-0.1.8-linux-x86_64
 ./scripts/check-runtime-prereqs
 ./scripts/install-desktop-entry
 ./scripts/song-request-linux-open
@@ -286,23 +286,6 @@ Limites de pedidos por cargo:
 ```
 
 O limite conta a musica atual e as proximas musicas do mesmo solicitante.
-
-## Dados Locais
-
-Config publica:
-
-```text
-~/.config/song-request-linux/config.json
-```
-
-Estado, tokens, logs e fila:
-
-```text
-~/.local/state/song-request-linux/
-```
-
-Nao suba tokens, API keys, OAuth codes, `.env`, configs reais exportadas, logs
-privados ou notas internas para o GitHub.
 
 ## Licenca
 
