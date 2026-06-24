@@ -79,6 +79,7 @@ pub async fn page() -> Html<&'static str> {
       min-height: 100dvh;
       width: 100%;
       overflow-x: hidden;
+      background: linear-gradient(to right, #0b1118 0 284px, transparent 284px);
     }
     .brand {
       display: flex;
@@ -100,25 +101,16 @@ pub async fn page() -> Html<&'static str> {
     .sidebar {
       position: sticky;
       top: 0;
-      align-self: start;
-      height: 100dvh;
+      align-self: stretch;
+      min-height: 100dvh;
       padding: 18px 16px;
       border-right: 1px solid rgba(90, 169, 255, .14);
       background: linear-gradient(180deg, #111a24 0%, #0b1118 100%);
       display: grid;
-      grid-template-rows: auto 1fr auto;
+      grid-template-rows: auto 1fr;
       gap: 18px;
     }
     .nav-section { display: grid; gap: 7px; }
-    .side-note {
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: var(--surface);
-      padding: 10px;
-      color: var(--muted);
-      line-height: 1.45;
-      font-size: 12px;
-    }
     .top-status, .tabs, .actions, .toolbar, .inline-status, .provider-options {
       display: flex;
       flex-wrap: wrap;
@@ -676,16 +668,16 @@ pub async fn page() -> Html<&'static str> {
       * { transition: none !important; }
     }
     @media (max-width: 1100px) {
-      .app-shell { grid-template-columns: 1fr; }
+      .app-shell { grid-template-columns: 1fr; background: transparent; }
       .sidebar {
         position: static;
+        min-height: auto;
         height: auto;
         width: 100%;
         border-right: 0;
         border-bottom: 1px solid var(--line);
       }
       .tabs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-      .side-note { display: none; }
       .setup-card, .setup-card.wide { grid-column: span 6; }
       .form-grid.compact { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .status-board { grid-template-columns: 1fr 1fr; }
@@ -747,7 +739,6 @@ pub async fn page() -> Html<&'static str> {
         <button class="tab-button" data-tab="logs-tab" type="button"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg></span>Logs</button>
         <button class="tab-button" data-tab="guide-tab" type="button"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15Z"/></svg></span>Guia</button>
       </nav>
-      <div class="side-note">Use um provider por vez. Links do YouTube entram direto no YouTube/Pear; texto segue o provider ativo.</div>
     </aside>
 
     <div class="content">
