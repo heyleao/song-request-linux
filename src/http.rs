@@ -957,10 +957,17 @@ async fn add_request_to_queue_for_role(
 }
 
 async fn effective_queue_view(state: &AppState) -> QueueView {
-    if matches!(current_provider(state), MusicProvider::Spotify) {
+    let provider = current_provider(state);
+    if matches!(provider, MusicProvider::Spotify) {
         if let Some(view) = spotify_queue_view(state).await {
             return merge_spotify_and_app_queue(state, view).await;
         }
+    }
+
+    if matches!(provider, MusicProvider::Youtube)
+        && matches!(state.config.youtube.playback, YoutubePlayback::Pear)
+    {
+        return merge_pear_and_app_queue(state).await;
     }
 
     state.queue.read().await.view()
@@ -968,6 +975,55 @@ async fn effective_queue_view(state: &AppState) -> QueueView {
 
 fn current_provider(state: &AppState) -> MusicProvider {
     config::UiConfigView::load(&state.config.paths).default_provider
+}
+
+async fn merge_pear_and_app_queue(state: &AppState) -> QueueView {
+    let app_view = state.queue.read().await.view();
+    let Some(pear_current) = pear::now_playing_request(&state.config)
+        .await
+        .ok()
+        .flatten()
+    else {
+        return app_view;
+    };
+
+    let Some(app_current) = app_view.current_song.clone() else {
+        return QueueView {
+            current_song: Some(pear_current),
+            ..app_view
+        };
+    };
+
+    if same_youtube_video(&app_current, &pear_current) {
+        return QueueView {
+            current_song: Some(SongRequest {
+                title: pear_current.title,
+                artist: pear_current.artist,
+                ..app_current
+            }),
+            ..app_view
+        };
+    }
+
+    let mut pending = app_pending_requests(app_view.clone());
+    pending.retain(|song| !same_youtube_video(song, &pear_current));
+    let queue_length = pending.len();
+
+    QueueView {
+        current_song: Some(pear_current),
+        queue: pending,
+        queue_length,
+        persistence: app_view.persistence,
+    }
+}
+
+fn same_youtube_video(left: &SongRequest, right: &SongRequest) -> bool {
+    match (&left.source, &right.source) {
+        (RequestSource::Youtube { video_id: left }, RequestSource::Youtube { video_id: right }) => {
+            left == right
+        }
+        _ => false,
+    }
 }
 
 async fn save_current_queue_state(state: &AppState) -> Result<(), ApiError> {

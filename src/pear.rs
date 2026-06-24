@@ -6,7 +6,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tokio::time::sleep;
 
-use crate::config::AppConfig;
+use crate::{
+    config::AppConfig,
+    song_requests::{MusicProvider, RequestSource, SongRequest},
+};
 
 #[derive(Clone, Debug, Serialize)]
 pub struct PearStatus {
@@ -22,6 +25,8 @@ pub struct PearNowPlaying {
     pub video_id: Option<String>,
     #[serde(default)]
     pub title: Option<String>,
+    #[serde(default, rename = "alternativeTitle")]
+    pub alternative_title: Option<String>,
     #[serde(default)]
     pub artist: Option<String>,
     #[serde(default, rename = "isPaused")]
@@ -92,6 +97,11 @@ struct PearQueueIndexRequest {
 enum PearInsertPosition {
     #[serde(rename = "INSERT_AFTER_CURRENT_VIDEO")]
     InsertAfterCurrentVideo,
+}
+
+pub async fn now_playing_request(config: &AppConfig) -> Result<Option<SongRequest>> {
+    let song = now_playing(config).await?;
+    Ok(song.into_song_request())
 }
 
 pub async fn status(config: &AppConfig) -> PearStatus {
@@ -464,8 +474,35 @@ impl PearSkipOutcome {
 }
 
 impl PearNowPlaying {
+    fn into_song_request(self) -> Option<SongRequest> {
+        let video_id = self.video_id.clone();
+        let title = self
+            .title
+            .or(self.alternative_title)
+            .or_else(|| video_id.as_ref().map(|id| format!("YouTube {id}")))?;
+        let artist = self
+            .artist
+            .filter(|artist| !artist.trim().is_empty())
+            .unwrap_or_else(|| "YouTube Music".to_string());
+        let source = video_id
+            .map(|video_id| RequestSource::Youtube { video_id })
+            .unwrap_or(RequestSource::Search {
+                provider: MusicProvider::Youtube,
+            });
+
+        Some(SongRequest {
+            id: 0,
+            requester: "Pear / A seguir".to_string(),
+            query: title.clone(),
+            source,
+            title,
+            artist,
+        })
+    }
+
     pub(crate) fn display_name(self) -> Option<String> {
-        match (self.artist, self.title, self.video_id) {
+        let title = self.title.or(self.alternative_title);
+        match (self.artist, title, self.video_id) {
             (Some(artist), Some(title), _) if !artist.is_empty() && !title.is_empty() => {
                 Some(format!("{artist} - {title}"))
             }
@@ -599,16 +636,36 @@ mod tests {
     }
 
     #[test]
+    fn converts_now_playing_to_song_request() {
+        let song = PearNowPlaying {
+            video_id: Some("abc123_def0".to_string()),
+            title: Some("Pelados em Santos".to_string()),
+            alternative_title: Some("Mamonas Assassinas - Pelados em Santos".to_string()),
+            artist: Some("Mamonas Assassinas".to_string()),
+            is_paused: false,
+        }
+        .into_song_request()
+        .expect("song request");
+
+        assert_eq!(song.title, "Pelados em Santos");
+        assert_eq!(song.artist, "Mamonas Assassinas");
+        assert_eq!(song.requester, "Pear / A seguir");
+        assert!(matches!(song.source, RequestSource::Youtube { .. }));
+    }
+
+    #[test]
     fn detects_song_change_by_video_id() {
         let before = PearNowPlaying {
             video_id: Some("a".to_string()),
             title: Some("Before".to_string()),
+            alternative_title: None,
             artist: None,
             is_paused: false,
         };
         let after = PearNowPlaying {
             video_id: Some("b".to_string()),
             title: Some("After".to_string()),
+            alternative_title: None,
             artist: None,
             is_paused: false,
         };

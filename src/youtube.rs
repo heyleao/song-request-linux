@@ -41,8 +41,8 @@ struct SearchItem {
 
 #[derive(Debug, Deserialize)]
 struct SearchItemId {
-    #[serde(rename = "videoId")]
-    video_id: String,
+    #[serde(default, rename = "videoId")]
+    video_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -143,10 +143,11 @@ async fn search_videos(config: &AppConfig, query: &str) -> Result<Vec<String>> {
 
     let video_ids = response
         .json::<SearchResponse>()
-        .await?
+        .await
+        .context("failed to decode YouTube search response")?
         .items
         .into_iter()
-        .map(|item| item.id.video_id)
+        .filter_map(|item| item.id.video_id)
         .filter(|video_id| is_valid_video_id(video_id))
         .collect::<Vec<_>>();
 
@@ -178,7 +179,8 @@ async fn fetch_video_metadata(config: &AppConfig, video_id: &str) -> Result<Yout
 
     let item = response
         .json::<VideosResponse>()
-        .await?
+        .await
+        .context("failed to decode YouTube metadata response")?
         .items
         .into_iter()
         .next()
@@ -347,12 +349,35 @@ fn score_video(query_tokens: &[String], video: &YoutubeVideoMetadata, index: usi
     if combined_joined.contains(&query_joined) {
         score += 35;
     }
+    if title_joined.starts_with(&query_joined) {
+        score += 25;
+    }
     if !query_tokens.is_empty()
         && query_tokens
             .iter()
             .all(|token| combined_tokens.contains(token))
     {
         score += 65;
+    }
+
+    if video.category_id == MUSIC_CATEGORY_ID {
+        score += 35;
+    } else {
+        score -= 45;
+    }
+
+    if channel_joined.contains("vevo") || channel_joined.contains("topic") {
+        score += 20;
+    }
+
+    for noise in [
+        "aovivo", "live", "faustao", "cover", "karaoke", "react", "reaction",
+    ] {
+        if !query_tokens.iter().any(|token| token == noise)
+            && (title_joined.contains(noise) || channel_joined.contains(noise))
+        {
+            score -= 30;
+        }
     }
 
     score - index as i64
@@ -382,6 +407,30 @@ fn normalize(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ranks_music_category_above_unrequested_live_clip() {
+        let videos = vec![
+            YoutubeVideoMetadata {
+                video_id: "live".to_string(),
+                title: "Mamonas Assassinas- Robocop Gay (Ao vivo no Faustao) HD".to_string(),
+                channel_title: "Falando de Mamonas".to_string(),
+                duration_seconds: 210,
+                category_id: "22".to_string(),
+            },
+            YoutubeVideoMetadata {
+                video_id: "music".to_string(),
+                title: "Mamonas Assassinas - Pelados em Santos (Videoclipe)".to_string(),
+                channel_title: "Musicalidade".to_string(),
+                duration_seconds: 200,
+                category_id: MUSIC_CATEGORY_ID.to_string(),
+            },
+        ];
+
+        let selected = choose_best_video("mamonas assassinas", videos).expect("selected");
+
+        assert_eq!(selected.video_id, "music");
+    }
 
     #[test]
     fn parses_short_youtube_url() {
