@@ -116,5 +116,5 @@ INSTALL
 
 rm -rf "$stage"
 
-echo "Pacote criado: $archive"
-echo "Checksum: $archive.sha256"
+echo "Pacote criado: $(basename "$archive")"
+echo "Checksum criado."

@@ -19,7 +19,7 @@ want_cmd() {
 }
 
 printf '== Song Request Linux pre-flight ==\n'
-printf 'Pasta: %s\n' "$APP_DIR"
+printf 'Instalacao local detectada.\n'
 
 arch="$(uname -m 2>/dev/null || echo unknown)"
 case "$arch" in

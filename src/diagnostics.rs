@@ -23,7 +23,6 @@ pub struct StorageDiagnostics {
 
 #[derive(Clone, Debug, Serialize)]
 pub struct PathCheck {
-    pub path: String,
     pub exists: bool,
 }
 
@@ -130,7 +129,6 @@ fn command_exists(command: &str) -> bool {
 impl PathCheck {
     fn new(path: &std::path::Path) -> Self {
         Self {
-            path: path.display().to_string(),
             exists: path.exists(),
         }
     }

@@ -286,7 +286,12 @@ async fn update_status(State(state): State<AppState>) -> Json<UpdateStatusRespon
 async fn read_update_log_tail(path: &std::path::Path) -> String {
     match tokio::fs::read_to_string(path).await {
         Ok(contents) => {
-            let lines: Vec<&str> = contents.lines().rev().take(80).collect();
+            let lines: Vec<String> = contents
+                .lines()
+                .rev()
+                .take(80)
+                .map(redact_local_paths)
+                .collect();
             lines.into_iter().rev().collect::<Vec<_>>().join(
                 "
 ",
@@ -294,6 +299,18 @@ async fn read_update_log_tail(path: &std::path::Path) -> String {
         }
         Err(_) => String::new(),
     }
+}
+
+fn redact_local_paths(line: &str) -> String {
+    if line.contains("/home/")
+        || line.contains("/run/media/")
+        || line.contains("/mnt/")
+        || line.contains("/tmp/")
+    {
+        return "[local path redacted]".to_string();
+    }
+
+    line.to_string()
 }
 
 async fn events(State(state): State<AppState>) -> Json<Vec<crate::state::AppEvent>> {
@@ -1324,7 +1341,6 @@ async fn queue_persistence(state: &AppState) -> QueuePersistence {
     let view = state.queue.read().await.view();
     QueuePersistence {
         enabled,
-        path: state.config.paths.queue_file.display().to_string(),
         exists: state.config.paths.queue_file.exists(),
         saved_items: if enabled {
             usize::from(view.current_song.is_some()) + view.queue.len()

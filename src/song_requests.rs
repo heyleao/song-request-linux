@@ -48,7 +48,6 @@ pub struct QueueView {
 #[derive(Clone, Debug, Serialize)]
 pub struct QueuePersistence {
     pub enabled: bool,
-    pub path: String,
     pub exists: bool,
     pub saved_items: usize,
 }

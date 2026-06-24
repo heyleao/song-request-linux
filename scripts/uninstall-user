@@ -45,7 +45,5 @@ if (( REMOVE_DATA )); then
   rm -rf "$CONFIG_DIR" "$STATE_DIR"
   echo "Removido com dados locais."
 else
-  echo "Removido. Dados preservados em:"
-  echo "  $CONFIG_DIR"
-  echo "  $STATE_DIR"
+  echo "Removido. Dados locais preservados."
 fi

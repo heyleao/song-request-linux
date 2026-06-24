@@ -39,8 +39,8 @@ done
 mkdir -p "$LOG_DIR"
 
 echo "== Song Request Linux Setup =="
-echo "Projeto: $APP_DIR"
-echo "Log: $LOG_FILE"
+echo "Instalacao local do Song Request Linux"
+echo "Log: diretorio local de estado do usuario"
 
 if [[ ! -f "$APP_DIR/assets/logo-srl.png" ]]; then
   echo "ERRO: assets/logo-srl.png nao encontrado." >&2

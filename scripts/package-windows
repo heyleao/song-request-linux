@@ -132,5 +132,5 @@ sed -i "s/VERSION_PLACEHOLDER/${version}/g" "$stage/INSTALL-WINDOWS.md"
 )
 rm -rf "$stage"
 
-echo "Pacote criado: $archive"
-echo "Checksum: $archive.sha256"
+echo "Pacote criado: $(basename "$archive")"
+echo "Checksum criado."

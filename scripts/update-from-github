@@ -65,7 +65,7 @@ write_status "running" "Atualizacao em andamento. O app pode reiniciar em alguns
 {
   echo "== Song Request Linux Update =="
   date -Is
-  echo "Projeto: $APP_DIR"
+  echo "Modo: instalacao local"
 } >>"$LOG_FILE"
 
 update_git_repo() {
@@ -153,7 +153,8 @@ update_portable_release() {
   after_rev="$tag"
   tmp="$(mktemp -d "${TMPDIR:-/tmp}/song-request-linux-update.XXXXXX")"
   archive="$tmp/update.tar.gz"
-  curl -fL "$url" -o "$archive" >>"$LOG_FILE" 2>&1
+  echo "Baixando pacote da release $tag..." >>"$LOG_FILE"
+  curl -fsSL "$url" -o "$archive" 2>>"$LOG_FILE"
   tar -xzf "$archive" -C "$tmp"
   new_dir="$(find "$tmp" -maxdepth 1 -type d -name 'song-request-linux-*-linux-*' | head -1)"
   if [[ -z "$new_dir" || ! -x "$new_dir/scripts/install-desktop-entry" ]]; then

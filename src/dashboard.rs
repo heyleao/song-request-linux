@@ -2138,8 +2138,7 @@ pub async fn page() -> Html<&'static str> {
       const saved = `${persistence.saved_items} item(ns) salvo(s)`;
       const state = persistence.exists ? 'arquivo encontrado' : 'arquivo será criado no próximo pedido';
       $('queue-persistence').innerHTML = `
-        <span><strong>${escapeHtml(t('Persistência ativa'))}</strong> - ${escapeHtml(saved)} - ${escapeHtml(state)}</span>
-        <code>${escapeHtml(persistence.path)}</code>
+        <span><strong>${escapeHtml(t('Persistência ativa'))}</strong> - ${escapeHtml(saved)} - ${escapeHtml(state)} - armazenamento local do app</span>
       `;
     }
 

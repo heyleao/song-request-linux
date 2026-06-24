@@ -77,5 +77,5 @@ EOF
 
 update-desktop-database "$DESKTOP_DIR" >/dev/null 2>&1 || true
 gtk-update-icon-cache -f "$ICON_ROOT" >/dev/null 2>&1 || true
-echo "Atalho instalado: $DESKTOP_FILE"
-echo "App instalado em: $APP_DIR"
+echo "Atalho instalado."
+echo "App instalado."
