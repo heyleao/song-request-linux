@@ -34,8 +34,8 @@ configure o player e adicione o overlay no OBS.
 O pacote `.tar.gz` ja traz o binario compilado. O usuario comum nao precisa instalar Rust, Cargo ou Git. Ao instalar, o app fica em `~/.local/share/song-request-linux/app`.
 
 ```bash
-tar -xzf song-request-linux-0.1.17-linux-x86_64.tar.gz
-cd song-request-linux-0.1.17-linux-x86_64
+tar -xzf song-request-linux-0.1.18-linux-x86_64.tar.gz
+cd song-request-linux-0.1.18-linux-x86_64
 ./scripts/check-runtime-prereqs
 ./scripts/install-desktop-entry
 ./scripts/song-request-linux-open
@@ -127,8 +127,8 @@ Remover tudo, incluindo dados locais:
 8. Adicione o overlay no OBS.
 
 Importante: use um modo ativo por vez: Spotify, YouTube via Pear ou YouTube via
-OBS Browser. Texto segue o modo ativo. Links diretos do YouTube entram como
-YouTube e usam menos API.
+OBS Browser. Texto segue o modo ativo. Links do YouTube so entram quando o modo
+ativo for YouTube/Pear ou YouTube/OBS.
 
 ## Spotify
 

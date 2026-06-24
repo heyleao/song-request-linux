@@ -28,6 +28,11 @@ async fn add_request_unchecked(state: &AppState, input: SongRequestInput) -> Res
     if let RequestSource::Youtube { video_id } =
         RequestSource::from_query_public(&input.query, default_provider)
     {
+        if matches!(default_provider, MusicProvider::Spotify) {
+            bail!(
+                "modo Spotify ativo: link do YouTube nao entra na fila. Troque o provider para YouTube/Pear ou YouTube/OBS, ou peça por texto para buscar no Spotify."
+            );
+        }
         return add_youtube_url_request(state, input, video_id).await;
     }
 
@@ -196,7 +201,7 @@ mod tests {
         crate::config::save_ui_config(
             &config.paths,
             crate::config::UiConfigInput {
-                default_provider: MusicProvider::Spotify,
+                default_provider: MusicProvider::Youtube,
                 youtube_playback: crate::config::YoutubePlayback::Browser,
                 pear_base_url: None,
                 spotify_client_id: None,
@@ -254,7 +259,7 @@ mod tests {
         crate::config::save_ui_config(
             &config.paths,
             crate::config::UiConfigInput {
-                default_provider: MusicProvider::Spotify,
+                default_provider: MusicProvider::Youtube,
                 youtube_playback: crate::config::YoutubePlayback::Browser,
                 pear_base_url: None,
                 spotify_client_id: None,
@@ -302,14 +307,33 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn youtube_link_requires_metadata_validation_even_when_spotify_is_default() {
-        let mut config = AppConfig::from_env().expect("config");
-        config.default_provider = MusicProvider::Spotify;
-        config.youtube.api_key = None;
-        config.youtube.playback = crate::config::YoutubePlayback::Browser;
+    async fn youtube_link_is_rejected_when_spotify_is_default() {
+        let config = isolated_config("youtube-link-spotify-mode");
+        crate::config::save_ui_config(
+            &config.paths,
+            crate::config::UiConfigInput {
+                default_provider: MusicProvider::Spotify,
+                youtube_playback: crate::config::YoutubePlayback::Browser,
+                pear_base_url: None,
+                spotify_client_id: None,
+                spotify_fallback_enabled: false,
+                queue_persistence_enabled: false,
+                twitch_client_id: None,
+                twitch_bot_username: None,
+                twitch_channel: None,
+                twitch_bot_oauth_token: None,
+                youtube_api_key: None,
+                youtube_max_duration_seconds: Some(360),
+                youtube_allow_non_music: false,
+                command_settings: None,
+                queue_limits: Some(crate::config::QueueLimitConfig::default()),
+                overlay: None,
+            },
+        )
+        .expect("save config");
         let state = AppState::new(config);
 
-        let request = add_request(
+        let error = add_request(
             &state,
             SongRequestInput {
                 requester: "viewer".to_string(),
@@ -317,9 +341,9 @@ mod tests {
             },
         )
         .await
-        .expect("youtube urls should not require api key");
+        .expect_err("youtube urls should be blocked in spotify mode");
 
-        assert_eq!(request.title, "YouTube URL");
+        assert!(error.to_string().contains("modo Spotify ativo"));
     }
 
     #[test]

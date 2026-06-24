@@ -10,8 +10,8 @@ Faca um passo por vez.
 Pacote `.tar.gz`:
 
 ```bash
-tar -xzf song-request-linux-0.1.17-linux-x86_64.tar.gz
-cd song-request-linux-0.1.17-linux-x86_64
+tar -xzf song-request-linux-0.1.18-linux-x86_64.tar.gz
+cd song-request-linux-0.1.18-linux-x86_64
 ./scripts/check-runtime-prereqs
 ./scripts/install-desktop-entry
 ./scripts/song-request-linux-open
@@ -47,7 +47,7 @@ http://127.0.0.1:7384/
 
 ### Windows experimental
 
-1. Baixe `song-request-linux-0.1.17-windows-x86_64.zip`.
+1. Baixe `song-request-linux-0.1.18-windows-x86_64.zip`.
 2. Extraia o `.zip`.
 3. Dê dois cliques em `Start-SongRequestLinux.cmd`.
 4. O painel abre em `http://127.0.0.1:7384/`.
@@ -89,7 +89,7 @@ Use `YouTube via Pear` se voce quer:
 
 - buscar musica por nome no YouTube;
 - tocar pelo Pear Desktop;
-- aceitar links do YouTube direto.
+- aceitar links do YouTube direto quando o modo ativo for YouTube/Pear ou YouTube/OBS.
 
 Use `YouTube via OBS Browser` se voce quer:
 
@@ -199,7 +199,7 @@ O Pear nao usa essa API Key como login. O Pear toca usando a conta Google/YouTub
 7. Salve.
 
 A busca por texto usa YouTube Data API e pode bater limite. Quando ha varias
-keys salvas, o app tenta a proxima se uma key falhar. Link direto do YouTube e o
+keys salvas, o app tenta a proxima se uma key falhar. No modo YouTube, link direto do YouTube e o
 caminho mais leve para pedidos especificos.
 
 ### Escolher onde o YouTube toca

@@ -527,15 +527,21 @@ async fn first_pending_youtube(state: &AppState) -> Option<SongRequest> {
 }
 
 async fn first_pending_spotify(state: &AppState) -> Option<SongRequest> {
-    state.queue.read().await.view().current_song.filter(|song| {
-        matches!(
-            song.source,
-            RequestSource::Spotify { .. }
-                | RequestSource::Search {
-                    provider: MusicProvider::Spotify
-                }
-        )
-    })
+    let view = state.queue.read().await.view();
+    view.current_song
+        .into_iter()
+        .chain(view.queue)
+        .find(is_spotify_request)
+}
+
+fn is_spotify_request(song: &SongRequest) -> bool {
+    matches!(
+        song.source,
+        RequestSource::Spotify { .. }
+            | RequestSource::Search {
+                provider: MusicProvider::Spotify
+            }
+    )
 }
 
 async fn next_youtube_after(state: &AppState, current_id: u64) -> Option<SongRequest> {
@@ -576,8 +582,15 @@ async fn has_pending_youtube(state: &AppState) -> bool {
 }
 
 async fn has_local_requests(state: &AppState) -> bool {
+    let provider = config::UiConfigView::load(&state.config.paths).default_provider;
     let view = state.queue.read().await.view();
-    view.current_song.is_some() || !view.queue.is_empty()
+    view.current_song
+        .iter()
+        .chain(view.queue.iter())
+        .any(|song| match provider {
+            MusicProvider::Spotify => is_spotify_request(song),
+            MusicProvider::Youtube => matches!(song.source, RequestSource::Youtube { .. }),
+        })
 }
 
 async fn start_spotify_fallback_if_idle(state: &AppState) {
@@ -935,6 +948,37 @@ mod tests {
             Some(179_000),
             Some(180_000)
         )));
+    }
+
+    #[tokio::test]
+    async fn spotify_mode_finds_spotify_request_behind_stale_youtube() {
+        let mut config = AppConfig::from_env().expect("config");
+        config.default_provider = MusicProvider::Spotify;
+        let state = AppState::new(config);
+        state.queue.write().await.clear();
+        state.queue.write().await.add_resolved(SongRequest {
+            id: 0,
+            requester: "viewer".to_string(),
+            query: "https://youtu.be/UFFa0QoHWvE".to_string(),
+            source: RequestSource::Youtube {
+                video_id: "UFFa0QoHWvE".to_string(),
+            },
+            title: "Tank!".to_string(),
+            artist: "SEATBELTS".to_string(),
+        });
+        let spotify = state.queue.write().await.add_resolved(SongRequest {
+            id: 0,
+            requester: "viewer".to_string(),
+            query: "metallica one".to_string(),
+            source: RequestSource::Search {
+                provider: MusicProvider::Spotify,
+            },
+            title: "One - Metallica".to_string(),
+            artist: "Spotify".to_string(),
+        });
+
+        assert_eq!(first_pending_spotify(&state).await, Some(spotify));
+        assert!(has_local_requests(&state).await);
     }
 
     #[tokio::test]

@@ -1189,7 +1189,7 @@ pub async fn page() -> Html<&'static str> {
             <div class="setup-quick-list">
               <span>Escolha um modo de operação: Spotify, YouTube via Pear ou YouTube via OBS Browser.</span>
               <span>Texto como <code>system of a down spiders</code> usa YouTube Data API v3 para buscar o vídeo.</span>
-              <span>Link direto do YouTube vai direto para o player escolhido e usa menos API.</span>
+              <span>Link direto do YouTube so entra quando o modo ativo for YouTube/Pear ou YouTube/OBS.</span>
             </div>
             <div class="form-grid">
               <label class="full">YouTube API Keys
@@ -1821,12 +1821,12 @@ pub async fn page() -> Html<&'static str> {
           ].join('');
         } else if (mode === 'youtube_pear') {
           $('setup-provider-requirements').innerHTML = [
-            requirementRow('warn', 'YouTube API para busca', 'Necessária para pedidos por nome. Links diretos do YouTube usam menos API.'),
+            requirementRow('warn', 'YouTube API para busca', 'Necessária para pedidos por nome; links diretos tambem exigem modo YouTube ativo.'),
             requirementRow(diagnostics.runtime?.pear?.available ? 'ok' : 'warn', 'Playback Pear Desktop', diagnostics.runtime?.pear?.available ? 'Pear Desktop encontrado. Confira se o API Server esta ativo na porta 26538.' : 'Abra o Pear, faça login no Pear/YouTube se necessário e ative o API Server na porta 26538.')
           ].join('');
         } else {
           $('setup-provider-requirements').innerHTML = [
-            requirementRow('warn', 'YouTube API para busca', 'Necessária para pedidos por nome. Links diretos do YouTube usam menos API.'),
+            requirementRow('warn', 'YouTube API para busca', 'Necessária para pedidos por nome; links diretos tambem exigem modo YouTube ativo.'),
             requirementRow(diagnostics.runtime?.yt_dlp?.available ? 'ok' : 'bad', 'yt-dlp para OBS Browser', diagnostics.runtime?.yt_dlp?.available ? 'yt-dlp encontrado. O player /player consegue resolver audio do YouTube.' : 'Instale yt-dlp para o modo YouTube/OBS Browser tocar audio no /player.')
           ].join('');
         }
@@ -1952,8 +1952,8 @@ pub async fn page() -> Html<&'static str> {
           config.youtube_api_key_configured ? 'ok' : 'bad',
           'YouTube API para busca',
           config.youtube_api_key_configured
-            ? `${config.youtube_api_key_count || 1} chave(s) salva(s). Necessária para pedidos por nome; links diretos usam menos API.`
-            : 'Preencha ao menos uma API Key para buscar música por nome. Link direto do YouTube ainda é o caminho mais leve.'
+            ? `${config.youtube_api_key_count || 1} chave(s) salva(s). Necessária para pedidos por nome; links diretos exigem modo YouTube ativo.`
+            : 'Preencha ao menos uma API Key para buscar música por nome. Links diretos só entram no modo YouTube.'
         ),
         requirementRow(
           pearMode ? pear.reachable ? 'ok' : 'bad' : diagnostics.runtime?.yt_dlp?.available ? 'ok' : 'bad',

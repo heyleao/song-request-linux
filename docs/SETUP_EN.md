@@ -7,8 +7,8 @@ This is the short recipe to get Song Request Linux ready for a stream. Do one st
 `.tar.gz` package:
 
 ```bash
-tar -xzf song-request-linux-0.1.17-linux-x86_64.tar.gz
-cd song-request-linux-0.1.17-linux-x86_64
+tar -xzf song-request-linux-0.1.18-linux-x86_64.tar.gz
+cd song-request-linux-0.1.18-linux-x86_64
 ./scripts/check-runtime-prereqs
 ./scripts/install-desktop-entry
 ./scripts/song-request-linux-open
@@ -44,7 +44,7 @@ http://127.0.0.1:7384/
 
 ### Experimental Windows
 
-1. Download `song-request-linux-0.1.17-windows-x86_64.zip`.
+1. Download `song-request-linux-0.1.18-windows-x86_64.zip`.
 2. Extract the `.zip`.
 3. Double-click `Start-SongRequestLinux.cmd`.
 4. The dashboard opens at `http://127.0.0.1:7384/`.
@@ -86,7 +86,7 @@ Use `YouTube via Pear` if you want to:
 
 - search songs by name on YouTube;
 - play through Pear Desktop;
-- accept direct YouTube links.
+- accept direct YouTube links when the active mode is YouTube/Pear or YouTube/OBS.
 
 Use `YouTube via OBS Browser` if you want to:
 
@@ -195,7 +195,7 @@ Pear does not use this API key as login. Pear plays using the Google/YouTube acc
 7. Save.
 
 Text search uses the YouTube Data API and can hit quota limits. When multiple
-keys are saved, the app tries the next key if one fails. Direct YouTube links are
+keys are saved, the app tries the next key if one fails. In YouTube mode, direct YouTube links are
 the lighter path for exact requests.
 
 ### Choose where YouTube plays

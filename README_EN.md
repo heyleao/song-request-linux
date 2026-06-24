@@ -68,8 +68,8 @@ Remove everything, including local data:
 The Linux `.tar.gz` package includes the compiled app. Regular users do not need Rust, Cargo, or Git.
 
 ```bash
-tar -xzf song-request-linux-0.1.17-linux-x86_64.tar.gz
-cd song-request-linux-0.1.17-linux-x86_64
+tar -xzf song-request-linux-0.1.18-linux-x86_64.tar.gz
+cd song-request-linux-0.1.18-linux-x86_64
 ./scripts/check-runtime-prereqs
 ./scripts/install-desktop-entry
 ./scripts/song-request-linux-open
@@ -107,7 +107,7 @@ Windows local data paths:
 7. Test a request in the dashboard or chat.
 8. Add the OBS overlay.
 
-Important: the app currently works best with one active provider at a time. If the provider is Spotify, text goes to Spotify. If it is YouTube/Pear, text goes to YouTube. YouTube links are still detected as YouTube.
+Important: use one active provider at a time. If the provider is Spotify, text goes to Spotify. If it is YouTube/Pear or YouTube/OBS, text and YouTube links go to YouTube.
 
 ## Spotify
 
