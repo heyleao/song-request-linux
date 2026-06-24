@@ -28,16 +28,7 @@ async fn add_request_unchecked(state: &AppState, input: SongRequestInput) -> Res
     if let RequestSource::Youtube { video_id } =
         RequestSource::from_query_public(&input.query, default_provider)
     {
-        let request = SongRequest {
-            id: 0,
-            requester: input.requester.trim().to_string(),
-            query: input.query.trim().to_string(),
-            source: RequestSource::Youtube { video_id },
-            title: "YouTube URL".to_string(),
-            artist: "YouTube".to_string(),
-        };
-
-        return add_resolved_and_persist(state, request).await;
+        return add_youtube_url_request(state, input, video_id).await;
     }
 
     if should_use_spotify(default_provider, &input) {
@@ -59,6 +50,44 @@ async fn add_request_unchecked(state: &AppState, input: SongRequestInput) -> Res
     let request = state.queue.write().await.add(input)?;
     persist_queue_if_enabled(state).await?;
     Ok(request)
+}
+
+async fn add_youtube_url_request(
+    state: &AppState,
+    input: SongRequestInput,
+    video_id: String,
+) -> Result<SongRequest> {
+    let metadata = youtube::video_metadata(
+        &state.config,
+        &youtube::YoutubeVideoRef {
+            video_id: video_id.clone(),
+        },
+    )
+    .await;
+
+    let (title, artist) = match metadata {
+        Ok(metadata) => (metadata.title, metadata.channel_title),
+        Err(error) => {
+            state
+                .record_event(
+                    "youtube",
+                    format!("Nao consegui ler metadata do link YouTube {video_id}: {error}"),
+                )
+                .await;
+            ("YouTube URL".to_string(), "YouTube".to_string())
+        }
+    };
+
+    let request = SongRequest {
+        id: 0,
+        requester: input.requester.trim().to_string(),
+        query: input.query.trim().to_string(),
+        source: RequestSource::Youtube { video_id },
+        title,
+        artist,
+    };
+
+    add_resolved_and_persist(state, request).await
 }
 
 async fn add_youtube_search_request(

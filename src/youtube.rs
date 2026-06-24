@@ -78,11 +78,18 @@ impl YoutubeVideoRef {
     }
 }
 
+pub async fn video_metadata(
+    config: &AppConfig,
+    video: &YoutubeVideoRef,
+) -> Result<YoutubeVideoMetadata> {
+    fetch_video_metadata(config, &video.video_id).await
+}
+
 pub async fn validate_video(
     config: &AppConfig,
     video: &YoutubeVideoRef,
 ) -> Result<YoutubeVideoMetadata> {
-    let metadata = fetch_video_metadata(config, &video.video_id).await?;
+    let metadata = video_metadata(config, video).await?;
 
     if metadata.duration_seconds > config.youtube.max_duration_seconds {
         bail!(
