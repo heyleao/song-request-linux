@@ -49,6 +49,7 @@ pub enum ChatCommand {
 pub enum CommandAccess {
     #[default]
     Everyone,
+    Subscriber,
     Vip,
     Moderator,
     Streamer,
@@ -59,6 +60,7 @@ pub enum CommandAccess {
 pub enum ChatUserRole {
     #[default]
     Viewer,
+    Subscriber,
     Vip,
     Moderator,
     Streamer,
@@ -365,9 +367,15 @@ impl ChatUserRole {
             .any(|tag| tag == "mod=1" || tag == "user-type=mod")
         {
             Self::Moderator
+        } else if tags.split(';').any(|tag| tag == "subscriber=1") {
+            Self::Subscriber
         } else {
             Self::Viewer
         };
+
+        if tags.split(';').any(|tag| tag == "vip=1" || tag == "vip") {
+            role = role.max(Self::Vip);
+        }
 
         if let Some(badges) = twitch_tag_value(tags, "badges") {
             for badge in badges.split(',') {
@@ -376,6 +384,9 @@ impl ChatUserRole {
                 }
                 if badge.starts_with("moderator/") {
                     role = role.max(Self::Moderator);
+                }
+                if badge.starts_with("subscriber/") || badge.starts_with("founder/") {
+                    role = role.max(Self::Subscriber);
                 }
                 if badge.starts_with("vip/") {
                     role = role.max(Self::Vip);
@@ -389,6 +400,7 @@ impl ChatUserRole {
     fn allows(self, access: CommandAccess) -> bool {
         match access {
             CommandAccess::Everyone => true,
+            CommandAccess::Subscriber => self >= Self::Subscriber,
             CommandAccess::Vip => self >= Self::Vip,
             CommandAccess::Moderator => self >= Self::Moderator,
             CommandAccess::Streamer => self >= Self::Streamer,
@@ -576,6 +588,41 @@ mod tests {
             command,
             ChatCommand::RemoveLast {
                 requester: "viewer".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn subscriber_access_allows_subscriber_and_blocks_viewer() {
+        let mut settings = CommandSettings::default();
+        settings.access.song_request = CommandAccess::Subscriber;
+
+        let subscriber = parse_chat_command(
+            ChatCommandInput {
+                requester: "sub".to_string(),
+                message: "!sr spiders".to_string(),
+                is_moderator: false,
+                role: ChatUserRole::Subscriber,
+            },
+            &settings,
+        );
+        let viewer = parse_chat_command(
+            ChatCommandInput {
+                requester: "viewer".to_string(),
+                message: "!sr spiders".to_string(),
+                is_moderator: false,
+                role: ChatUserRole::Viewer,
+            },
+            &settings,
+        );
+
+        assert!(matches!(subscriber, ChatCommand::SongRequest { .. }));
+        assert_eq!(
+            viewer,
+            ChatCommand::AccessDenied {
+                requester: "viewer".to_string(),
+                command: "!sr".to_string(),
+                required: CommandAccess::Subscriber
             }
         );
     }

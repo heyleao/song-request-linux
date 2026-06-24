@@ -178,7 +178,8 @@ Controle para mod/streamer:
 !next
 ```
 
-Voce pode trocar os nomes dos comandos na aba `Configuracao`.
+Voce pode trocar os nomes dos comandos e escolher quem pode usar cada um na aba `Configuracao`.
+Cargos reconhecidos: streamer, moderador, VIP, subscriber e viewer/todos.
 
 ## 9. Fechar o app
 

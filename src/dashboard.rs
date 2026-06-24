@@ -1141,6 +1141,9 @@ pub async fn page() -> Html<&'static str> {
                 <label>Limite viewer
                   <input id="setup-limit-viewer" type="number" inputmode="numeric" min="0" max="100" step="1" value="1">
                 </label>
+                <label>Limite subscriber
+                  <input id="setup-limit-subscriber" type="number" inputmode="numeric" min="0" max="100" step="1" value="2">
+                </label>
                 <label>Limite VIP
                   <input id="setup-limit-vip" type="number" inputmode="numeric" min="0" max="100" step="1" value="3">
                 </label>
@@ -1349,6 +1352,7 @@ pub async fn page() -> Html<&'static str> {
     function queueLimitsFromForm() {
       return {
         viewer: numberFromInput('setup-limit-viewer', 1),
+        subscriber: numberFromInput('setup-limit-subscriber', 2),
         vip: numberFromInput('setup-limit-vip', 3),
         moderator: numberFromInput('setup-limit-moderator', 10),
         streamer: numberFromInput('setup-limit-streamer', 0)
@@ -1419,6 +1423,7 @@ pub async fn page() -> Html<&'static str> {
       $('setup-access-help').value = access.help || 'everyone';
       const limits = config.queue_limits || {};
       $('setup-limit-viewer').value = limits.viewer ?? 1;
+      $('setup-limit-subscriber').value = limits.subscriber ?? 2;
       $('setup-limit-vip').value = limits.vip ?? 3;
       $('setup-limit-moderator').value = limits.moderator ?? 10;
       $('setup-limit-streamer').value = limits.streamer ?? 0;
@@ -1427,6 +1432,7 @@ pub async fn page() -> Html<&'static str> {
     function fillPermissionSelects() {
       const labels = [
         ['everyone', 'Viewer / todos'],
+        ['subscriber', 'Subscriber / sub'],
         ['vip', 'VIP'],
         ['moderator', 'Moderador'],
         ['streamer', 'Streamer']
@@ -1617,6 +1623,7 @@ pub async fn page() -> Html<&'static str> {
       if (access === 'streamer') return 'streamer';
       if (access === 'moderator') return 'moderador';
       if (access === 'vip') return 'VIP';
+      if (access === 'subscriber') return 'subscriber / sub';
       return 'viewer / todos';
     }
 
@@ -1693,7 +1700,7 @@ pub async fn page() -> Html<&'static str> {
       `).join('');
       const limits = config.queue_limits || {};
       const limitHtml = `
-        <div class="diagnostic-row"><span>Limites da fila</span><code>viewer ${limits.viewer ?? 1} · VIP ${limits.vip ?? 3} · mod ${limits.moderator ?? 10} · streamer ${limits.streamer ?? 0}</code></div>
+        <div class="diagnostic-row"><span>Limites da fila</span><code>viewer ${limits.viewer ?? 1} · sub ${limits.subscriber ?? 2} · VIP ${limits.vip ?? 3} · mod ${limits.moderator ?? 10} · streamer ${limits.streamer ?? 0}</code></div>
       `;
       $('setup-diagnostics').innerHTML = html;
       $('setup-summary').innerHTML = `${html}<div class="divider"></div>${limitHtml}${commandHtml}`;

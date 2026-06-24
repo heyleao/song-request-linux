@@ -183,6 +183,7 @@ mod tests {
                 command_settings: None,
                 queue_limits: Some(crate::config::QueueLimitConfig {
                     viewer: 1,
+                    subscriber: 2,
                     vip: 3,
                     moderator: 10,
                     streamer: 0,

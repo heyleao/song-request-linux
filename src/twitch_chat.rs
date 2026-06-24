@@ -617,6 +617,9 @@ fn access_denied_reply(
         crate::commands::CommandAccess::Everyone => {
             format!("@{requester} {command} esta liberado para todos.")
         }
+        crate::commands::CommandAccess::Subscriber => {
+            format!("@{requester} {command} precisa de sub, VIP, moderador ou streamer.")
+        }
         crate::commands::CommandAccess::Vip => {
             format!("@{requester} {command} precisa de VIP, moderador ou streamer.")
         }
@@ -692,6 +695,14 @@ mod tests {
         assert_eq!(message.sender, "viewer");
         assert_eq!(message.message, "!sr one more time");
         assert_eq!(message.role, ChatUserRole::Moderator);
+    }
+
+    #[test]
+    fn parses_privmsg_with_subscriber_tag() {
+        let line = "@badge-info=subscriber/12;badges=subscriber/12;color=#fff;mod=0;subscriber=1 :viewer!viewer@viewer.tmi.twitch.tv PRIVMSG #heyleao :!sr spiders";
+        let message = Privmsg::parse(line).expect("privmsg");
+
+        assert_eq!(message.role, ChatUserRole::Subscriber);
     }
 
     #[test]

@@ -898,6 +898,9 @@ fn access_denied_message(
         crate::commands::CommandAccess::Everyone => {
             format!("@{requester} {command} esta liberado para todos.")
         }
+        crate::commands::CommandAccess::Subscriber => {
+            format!("@{requester} {command} precisa de sub, VIP, moderador ou streamer.")
+        }
         crate::commands::CommandAccess::Vip => {
             format!("@{requester} {command} precisa de VIP, moderador ou streamer.")
         }
