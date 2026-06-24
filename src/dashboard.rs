@@ -415,6 +415,16 @@ pub async fn page() -> Html<&'static str> {
     }
     .provider-option strong { font-size: 15px; }
     .provider-option span { color: var(--muted); font-size: 12px; line-height: 1.35; }
+    .provider-exclusive-note {
+      border: 1px solid rgba(247, 185, 85, .34);
+      border-radius: 8px;
+      background: rgba(247, 185, 85, .08);
+      color: var(--soft);
+      padding: 10px;
+      line-height: 1.4;
+      font-size: 13px;
+    }
+    .provider-exclusive-note strong { color: var(--warn); }
     form { display: grid; gap: 14px; }
     label {
       display: grid;
@@ -768,6 +778,7 @@ pub async fn page() -> Html<&'static str> {
               <div class="provider-option" id="provider-spotify"><strong>Spotify</strong><span>Busca e fila pelo app Spotify.</span></div>
               <div class="provider-option" id="provider-youtube"><strong>YouTube/Pear</strong><span>Pedidos via YouTube Music ou Browser Source.</span></div>
             </div>
+            <div class="provider-exclusive-note"><strong>Modo exclusivo:</strong> escolha Spotify ou YouTube/Pear. O app ainda não usa os dois providers ao mesmo tempo.</div>
             <div class="hint" id="provider-detail">Carregando modo atual...</div>
           </section>
 
@@ -860,6 +871,7 @@ pub async fn page() -> Html<&'static str> {
           <div>
             <h2>Configuração para iniciar a live</h2>
             <p id="setup-provider-help">Siga os passos em ordem. Preencha, conecte as contas e clique em Salvar.</p>
+            <p class="field-note"><strong>Escolha um modo por live:</strong> Spotify ou YouTube/Pear. Integração mista fica para planejamento futuro.</p>
             <p class="field-note">Provider atual: <strong id="setup-active-provider">...</strong></p>
           </div>
           <div class="requirement-list" id="setup-provider-requirements"></div>
@@ -1391,7 +1403,7 @@ pub async fn page() -> Html<&'static str> {
             : connections.spotify.product_check_error
               ? 'Nao consegui validar o plano. Clique em Login Spotify para conceder o escopo user-read-private.'
               : 'Plano ainda nao validado. Clique em Login Spotify se esta mensagem continuar aparecendo.';
-        $('setup-provider-help').textContent = 'Pedidos por texto entram no Spotify. Para tocar de primeira, mantenha Client ID, login e um device ativo.';
+        $('setup-provider-help').textContent = 'Modo Spotify ativo: pedidos por texto entram no Spotify. YouTube/Pear fica parado até você trocar o provider.';
         $('setup-provider-requirements').innerHTML = [
           requirementRow(
             connections.spotify.client_id_configured ? 'ok' : 'bad',
@@ -1414,8 +1426,8 @@ pub async fn page() -> Html<&'static str> {
 
       const pearMode = config.youtube_playback === 'pear';
       $('setup-provider-help').textContent = pearMode
-        ? 'Pedidos por texto entram no YouTube e tocam pelo Pear Desktop. Links do YouTube entram direto.'
-        : 'Pedidos por texto entram no YouTube e tocam pela fonte Browser Source do OBS.';
+        ? 'Modo YouTube/Pear ativo: pedidos entram no YouTube e tocam pelo Pear Desktop. Spotify fica fora da fila até você trocar o provider.'
+        : 'Modo YouTube ativo: pedidos entram no YouTube e tocam pela fonte Browser Source do OBS. Spotify fica fora da fila até você trocar o provider.';
       $('setup-provider-requirements').innerHTML = [
         requirementRow(
           config.youtube_api_key_configured ? 'ok' : 'bad',
@@ -1556,8 +1568,8 @@ pub async fn page() -> Html<&'static str> {
       $('provider-spotify').classList.toggle('active', config.default_provider === 'spotify');
       $('provider-youtube').classList.toggle('active', config.default_provider === 'youtube');
       $('provider-detail').textContent = config.default_provider === 'spotify'
-        ? 'Texto do !sr busca no Spotify. Links do YouTube continuam entrando direto no YouTube/Pear.'
-        : 'Texto do !sr busca no YouTube. Use Spotify apenas quando trocar o provider para Spotify.';
+        ? 'Modo Spotify: todos os pedidos usam Spotify. Para YouTube/Pear, troque o provider.'
+        : 'Modo YouTube/Pear: todos os pedidos usam YouTube. Para Spotify, troque o provider.';
       renderProviderRequirements(config, connections, pear);
       renderSpotifyFallback(connections, config);
 
