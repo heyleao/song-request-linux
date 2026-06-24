@@ -498,8 +498,10 @@ pub async fn page() -> Html<&'static str> {
       font-weight: 700;
       min-width: 0;
     }
-    input, select {
+    input, select, textarea {
       width: 100%;
+      max-width: 100%;
+      min-width: 0;
       min-height: 40px;
       border: 1px solid var(--line);
       border-radius: 6px;
@@ -507,6 +509,11 @@ pub async fn page() -> Html<&'static str> {
       color: var(--text);
       padding: 8px 10px;
       font: inherit;
+    }
+    textarea {
+      display: block;
+      resize: vertical;
+      overflow: auto;
     }
     input[type="checkbox"] {
       width: auto;
