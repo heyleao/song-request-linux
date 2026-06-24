@@ -40,6 +40,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/diagnostics", get(diagnostics))
         .route("/api/update", post(update_from_github))
         .route("/api/update/status", get(update_status))
+        .route("/api/update/latest", get(update_latest))
         .route("/api/config", get(get_config).post(save_config))
         .route("/api/connections/status", get(connections_status))
         .route("/api/connections/spotify/start", post(spotify_start))
@@ -146,8 +147,7 @@ async fn update_from_github(headers: HeaderMap) -> Result<Json<UpdateResponse>, 
     let script = app_dir.join("scripts/update-from-github");
     if !script.is_file() {
         return Err(ApiError::bad_request(anyhow!(
-            "update script not found at {}",
-            script.display()
+            "Esta instalacao nao tem atualizacao pelo GitHub. Use uma instalacao via Git ou baixe o tar.gz mais recente na pagina de releases."
         )));
     }
 
@@ -164,6 +164,47 @@ async fn update_from_github(headers: HeaderMap) -> Result<Json<UpdateResponse>, 
     Ok(Json(UpdateResponse {
         status: "updating",
         message: "Atualizacao iniciada. O app vai reiniciar em alguns segundos.",
+    }))
+}
+
+async fn update_latest() -> Result<Json<UpdateLatestResponse>, ApiError> {
+    let current_version = env!("CARGO_PKG_VERSION").to_string();
+    let client = reqwest::Client::builder()
+        .user_agent(format!("song-request-linux/{current_version}"))
+        .timeout(Duration::from_secs(4))
+        .build()
+        .map_err(|error| ApiError::bad_request(error.into()))?;
+    let response = client
+        .get("https://api.github.com/repos/heyleao/song-request-linux/releases/latest")
+        .send()
+        .await
+        .map_err(|error| ApiError::bad_request(error.into()))?;
+    if !response.status().is_success() {
+        return Err(ApiError::bad_request(anyhow!(
+            "GitHub releases returned {}",
+            response.status()
+        )));
+    }
+
+    let release = response
+        .json::<GithubReleaseResponse>()
+        .await
+        .map_err(|error| ApiError::bad_request(error.into()))?;
+    let latest_version = release.tag_name.trim_start_matches('v').to_string();
+    let update_available = version_is_newer(&latest_version, &current_version);
+    let message = if update_available {
+        format!("Nova versao disponivel: v{latest_version}.")
+    } else {
+        format!("Voce ja esta na versao mais recente: v{current_version}.")
+    };
+
+    Ok(Json(UpdateLatestResponse {
+        current_version,
+        latest_version,
+        latest_tag: release.tag_name,
+        release_url: release.html_url,
+        update_available,
+        message,
     }))
 }
 
@@ -1584,8 +1625,46 @@ async fn resolve_youtube_audio_url(video_id: &str) -> anyhow::Result<String> {
         .ok_or_else(|| anyhow!("yt-dlp nao retornou uma URL de audio"))
 }
 
+fn version_is_newer(latest: &str, current: &str) -> bool {
+    let parse = |version: &str| -> Vec<u64> {
+        version
+            .split('.')
+            .map(|part| part.parse::<u64>().unwrap_or(0))
+            .collect()
+    };
+    let latest_parts = parse(latest);
+    let current_parts = parse(current);
+    let len = latest_parts.len().max(current_parts.len());
+
+    for index in 0..len {
+        let latest_part = *latest_parts.get(index).unwrap_or(&0);
+        let current_part = *current_parts.get(index).unwrap_or(&0);
+        if latest_part != current_part {
+            return latest_part > current_part;
+        }
+    }
+
+    false
+}
+
 async fn not_found() -> impl IntoResponse {
     (StatusCode::NOT_FOUND, "not found")
+}
+
+#[derive(Debug, Deserialize)]
+struct GithubReleaseResponse {
+    tag_name: String,
+    html_url: String,
+}
+
+#[derive(Debug, Serialize)]
+struct UpdateLatestResponse {
+    current_version: String,
+    latest_version: String,
+    latest_tag: String,
+    release_url: String,
+    update_available: bool,
+    message: String,
 }
 
 #[derive(Debug, Serialize)]

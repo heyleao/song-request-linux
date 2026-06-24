@@ -774,6 +774,41 @@ pub async fn page() -> Html<&'static str> {
       overflow-wrap: anywhere;
     }
     .message.error { color: var(--bad); }
+    .update-notice {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+      padding: 10px 12px;
+      border: 1px solid rgba(247, 185, 85, .45);
+      border-radius: 8px;
+      background: rgba(247, 185, 85, .10);
+      color: var(--text);
+      font-size: 13px;
+      line-height: 1.35;
+    }
+    .update-notice.visible { display: flex; }
+    .update-notice strong { color: var(--warn); text-transform: uppercase; font-size: 12px; }
+    .update-progress {
+      display: none;
+      height: 8px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: rgba(154, 166, 181, .16);
+      margin-top: 10px;
+    }
+    .update-progress.visible { display: block; }
+    .update-progress-bar {
+      width: 40%;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--action), var(--ok));
+      animation: update-progress-move 1.1s ease-in-out infinite;
+    }
+    @keyframes update-progress-move {
+      0% { transform: translateX(-110%); }
+      100% { transform: translateX(260%); }
+    }
     .hint { color: var(--muted); font-size: 13px; line-height: 1.45; }
     .muted { color: var(--muted); }
     .divider {
@@ -1360,6 +1395,8 @@ pub async fn page() -> Html<&'static str> {
             <div class="endpoint-row with-action"><span>Remover app</span><code>./scripts/uninstall-user</code><button class="secondary icon-button copy-button" type="button" data-copy-value="./scripts/uninstall-user" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
           </div>
           <p class="hint">Atualizar preserva configuracao, tokens e logs. A fila so volta se a persistencia da fila estiver ligada.</p>
+          <div class="update-notice" id="update-notice"><strong>Update</strong><span id="update-notice-text">Verificando atualizacao...</span></div>
+          <div class="update-progress" id="update-progress" aria-hidden="true"><div class="update-progress-bar"></div></div>
           <div class="message" id="update-message"></div>
         </section>
       </div>
@@ -1529,6 +1566,7 @@ pub async fn page() -> Html<&'static str> {
       'Copiar': 'Copy',
       'Instalar e atualizar': 'Install and update',
       'Atualizar pelo GitHub': 'Update from GitHub',
+      'Verificando atualizacao...': 'Checking for updates...',
       'Instalar': 'Install',
       'Abrir': 'Open',
       'Fechar': 'Close',
@@ -2016,12 +2054,41 @@ pub async fn page() -> Html<&'static str> {
       element.classList.toggle('error', isError);
     }
 
+    function setUpdateProgress(active) {
+      $('update-progress')?.classList.toggle('visible', Boolean(active));
+      $('update-progress')?.setAttribute('aria-hidden', active ? 'false' : 'true');
+    }
+
+    function renderLatestUpdate(update) {
+      const notice = $('update-notice');
+      const text = $('update-notice-text');
+      if (!notice || !text || !update) return;
+      notice.classList.toggle('visible', Boolean(update.update_available));
+      text.textContent = update.message || 'Nova versao disponivel.';
+      if (!update.update_available && !localStorage.getItem('song-request-linux-update-pending')) {
+        setMessage('update-message', update.message || 'Voce ja esta na versao mais recente.');
+      }
+    }
+
+    async function refreshLatestUpdate(showMessage = false) {
+      try {
+        const update = await api('/api/update/latest');
+        renderLatestUpdate(update);
+        if (showMessage) setMessage('update-message', update.message || 'Verificacao concluida.');
+      } catch (error) {
+        if (showMessage) setMessage('update-message', `Nao consegui verificar atualizacao: ${error.message}`, true);
+      }
+    }
+
     async function refreshUpdateStatus(showEmpty = false) {
       try {
         const status = await api('/api/update/status');
         if (!showEmpty && (!status || status.status === 'none')) return;
+        const isRunning = status.status === 'running';
         const isError = status.status === 'failed' || status.status === 'unknown';
+        setUpdateProgress(isRunning);
         setMessage('update-message', status.message || 'Status de atualizacao indisponivel.', isError);
+        if (!isRunning && status.status !== 'none') localStorage.removeItem('song-request-linux-update-pending');
       } catch (_) {
         if (showEmpty) setMessage('update-message', 'Nao foi possivel ler o status da atualizacao.', true);
       }
@@ -2617,16 +2684,19 @@ pub async fn page() -> Html<&'static str> {
     $('update-app').addEventListener('click', async () => {
       try {
         $('update-app').disabled = true;
-        setMessage('update-message', 'Atualização iniciada. O app pode reiniciar e esta página pode cair por alguns segundos.');
+        setUpdateProgress(true);
+        setMessage('update-message', 'Atualizacao em andamento. Pode fechar esta pagina; o app vai reiniciar e abrir novamente quando terminar.');
         const result = await api('/api/update', {
           method: 'POST',
           headers: { 'x-song-request-action': 'update' }
         });
-        setMessage('update-message', result.message || 'Atualização iniciada.');
+        setMessage('update-message', result.message || 'Atualizacao iniciada. Pode fechar esta pagina; o app vai abrir novamente.');
         localStorage.setItem('song-request-linux-update-pending', '1');
+        setTimeout(() => refreshUpdateStatus(false), 2500);
         setTimeout(() => refreshUpdateStatus(false), 8000);
       } catch (error) {
         $('update-app').disabled = false;
+        setUpdateProgress(false);
         setMessage('update-message', error.message, true);
       }
     });
@@ -2656,8 +2726,11 @@ pub async fn page() -> Html<&'static str> {
     });
 
     markActiveInstance();
-    refreshUpdateStatus(localStorage.getItem('song-request-linux-update-pending') === '1')
-      .finally(() => localStorage.removeItem('song-request-linux-update-pending'));
+    const pendingUpdate = localStorage.getItem('song-request-linux-update-pending') === '1';
+    setUpdateProgress(pendingUpdate);
+    refreshUpdateStatus(pendingUpdate);
+    refreshLatestUpdate(false);
+    setInterval(() => refreshLatestUpdate(false), 30 * 60 * 1000);
     refresh();
     setInterval(refresh, 2500);
   </script>
