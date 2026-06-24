@@ -42,6 +42,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/update", post(update_from_github))
         .route("/api/update/status", get(update_status))
         .route("/api/update/latest", get(update_latest))
+        .route("/api/update/installed", get(update_installed))
         .route("/api/config", get(get_config).post(save_config))
         .route("/api/connections/status", get(connections_status))
         .route("/api/connections/spotify/start", post(spotify_start))
@@ -250,6 +251,41 @@ async fn update_latest() -> Result<Json<UpdateLatestResponse>, ApiError> {
         release_url: release.html_url,
         update_available,
         message,
+        changelog: release.body.unwrap_or_default(),
+    }))
+}
+
+async fn update_installed() -> Result<Json<UpdateInstalledResponse>, ApiError> {
+    let current_version = env!("CARGO_PKG_VERSION").to_string();
+    let tag = format!("v{current_version}");
+    let client = reqwest::Client::builder()
+        .user_agent(format!("song-request-linux/{current_version}"))
+        .timeout(Duration::from_secs(4))
+        .build()
+        .map_err(|error| ApiError::bad_request(error.into()))?;
+    let response = client
+        .get(format!(
+            "https://api.github.com/repos/heyleao/song-request-linux/releases/tags/{tag}"
+        ))
+        .send()
+        .await
+        .map_err(|error| ApiError::bad_request(error.into()))?;
+    if !response.status().is_success() {
+        return Err(ApiError::bad_request(anyhow!(
+            "GitHub release {tag} returned {}",
+            response.status()
+        )));
+    }
+
+    let release = response
+        .json::<GithubReleaseResponse>()
+        .await
+        .map_err(|error| ApiError::bad_request(error.into()))?;
+
+    Ok(Json(UpdateInstalledResponse {
+        current_version,
+        current_tag: release.tag_name,
+        release_url: release.html_url,
         changelog: release.body.unwrap_or_default(),
     }))
 }
@@ -1791,6 +1827,14 @@ struct GithubReleaseResponse {
     tag_name: String,
     html_url: String,
     body: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct UpdateInstalledResponse {
+    current_version: String,
+    current_tag: String,
+    release_url: String,
+    changelog: String,
 }
 
 #[derive(Debug, Serialize)]

@@ -139,6 +139,17 @@ pub async fn page() -> Html<&'static str> {
     .top-status .version-pill {
       color: var(--soft);
       font-weight: 800;
+      cursor: pointer;
+    }
+    button.version-pill {
+      font-family: inherit;
+      appearance: none;
+    }
+    button.version-pill:hover,
+    button.version-pill:focus-visible {
+      border-color: var(--accent);
+      color: var(--text);
+      outline: none;
     }
     .pill strong { color: var(--text); }
     .pill.compact { min-height: 26px; padding: 4px 8px; font-size: 12px; }
@@ -966,7 +977,7 @@ pub async fn page() -> Html<&'static str> {
           <p>Fila, player, eventos e conexões em uma tela.</p>
         </div>
         <div class="top-status">
-          <span class="pill version-pill">SRL <strong id="app-version">v...</strong></span>
+          <button class="pill version-pill" id="version-changelog" type="button" title="Ver changelog desta instalação">SRL <strong id="app-version">v...</strong></button>
           <span class="pill update-notice" id="update-notice"><strong>Update</strong><span id="update-notice-text">Nova versao disponivel.</span></span>
           <button class="secondary top-update-button" id="update-app" type="button" hidden>Atualizar</button>
           <span class="pill"><span class="dot" id="twitch-dot"></span>Twitch <strong id="twitch-state">verificando</strong></span>
@@ -1460,6 +1471,7 @@ pub async fn page() -> Html<&'static str> {
     let setupDirty = false;
     let lastConfig = null;
     let latestUpdate = null;
+    let installedUpdate = null;
     let updateStatusTimer = null;
     let desiredVolume = null;
     let volumeTimer = null;
@@ -1981,6 +1993,19 @@ pub async fn page() -> Html<&'static str> {
     function renderUpdateChangelog() {
       const text = latestUpdate?.changelog?.trim() || 'Changelog indisponível.';
       $('update-changelog-text').textContent = text;
+    }
+
+    async function showInstalledChangelog() {
+      $('update-overlay-title').textContent = 'Changelog da instalação';
+      $('update-overlay-message').textContent = 'Carregando notas da versão instalada.';
+      $('update-log-panel').classList.remove('visible');
+      $('update-changelog-panel').classList.add('visible');
+      setUpdateProgress(false);
+      $('update-overlay').hidden = false;
+      if (!installedUpdate) installedUpdate = await api('/api/update/installed');
+      const version = installedUpdate.current_version ? `v${installedUpdate.current_version}` : installedUpdate.current_tag;
+      $('update-overlay-message').textContent = `Notas da versão instalada ${version || ''}.`;
+      $('update-changelog-text').textContent = installedUpdate.changelog?.trim() || 'Changelog indisponível para esta versão.';
     }
 
     function setUpdateLog(text) {
@@ -2648,6 +2673,15 @@ pub async fn page() -> Html<&'static str> {
       } catch (error) {
         setMessage('setup-message', error.message, true);
       }
+    });
+
+    $('version-changelog')?.addEventListener('click', () => {
+      showInstalledChangelog().catch((error) => {
+        $('update-overlay-title').textContent = 'Changelog da instalação';
+        $('update-overlay-message').textContent = `Não consegui carregar o changelog: ${error.message}`;
+        $('update-changelog-panel').classList.add('visible');
+        $('update-overlay').hidden = false;
+      });
     });
 
     $('update-app')?.addEventListener('click', async () => {
