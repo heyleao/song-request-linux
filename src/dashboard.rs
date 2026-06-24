@@ -117,7 +117,10 @@ pub async fn page() -> Html<&'static str> {
       align-items: center;
       gap: 8px;
     }
-    .top-status { justify-content: flex-end; }
+    .top-status {
+      justify-content: flex-end;
+      min-width: 360px;
+    }
     .pill {
       display: inline-flex;
       align-items: center;
@@ -130,8 +133,9 @@ pub async fn page() -> Html<&'static str> {
       color: var(--muted);
       font-size: 13px;
       white-space: nowrap;
-      min-width: 0;
+      min-width: max-content;
     }
+    .top-status .pill { max-width: none; }
     .pill strong { color: var(--text); }
     .pill.compact { min-height: 26px; padding: 4px 8px; font-size: 12px; }
     .dot { width: 8px; height: 8px; border-radius: 999px; background: var(--warn); flex: 0 0 auto; }
@@ -766,6 +770,7 @@ pub async fn page() -> Html<&'static str> {
       header { align-items: flex-start; }
       .page-title, .top-status { width: 100%; min-width: 0; }
       .top-status { justify-content: flex-start; }
+      .top-status .pill { max-width: 100%; }
       main { padding: 10px; }
       .toolbar { align-items: flex-start; }
     }
@@ -832,9 +837,9 @@ pub async fn page() -> Html<&'static str> {
           <p>Fila, player, eventos e conexões em uma tela.</p>
         </div>
         <div class="top-status">
-          <span class="pill"><span class="dot" id="twitch-dot"></span>Twitch <strong id="twitch-state">...</strong></span>
-          <span class="pill"><span class="dot" id="spotify-dot"></span>Spotify <strong id="spotify-state">...</strong></span>
-          <span class="pill"><span class="dot" id="youtube-dot"></span>YouTube <strong id="youtube-state">...</strong></span>
+          <span class="pill"><span class="dot" id="twitch-dot"></span>Twitch <strong id="twitch-state">verificando</strong></span>
+          <span class="pill"><span class="dot" id="spotify-dot"></span>Spotify <strong id="spotify-state">verificando</strong></span>
+          <span class="pill"><span class="dot" id="youtube-dot"></span>YouTube <strong id="youtube-state">verificando</strong></span>
           <button class="secondary" id="shutdown-app" type="button">Encerrar</button>
         </div>
       </header>
@@ -846,7 +851,7 @@ pub async fn page() -> Html<&'static str> {
           <section class="provider-card">
             <div class="toolbar">
               <h2>Provider ativo</h2>
-              <span class="pill compact"><span class="dot ok"></span>Modo <strong id="provider-mode">...</strong></span>
+              <span class="pill compact"><span class="dot ok"></span>Modo <strong id="provider-mode">verificando</strong></span>
             </div>
             <div class="provider-options">
               <div class="provider-option" id="provider-spotify"><strong>Spotify</strong><span>Busca e fila pelo app Spotify.</span></div>
@@ -946,7 +951,7 @@ pub async fn page() -> Html<&'static str> {
             <h2>Configuração para iniciar a live</h2>
             <p id="setup-provider-help">Siga os passos em ordem. Preencha, conecte as contas e clique em Salvar.</p>
             <p class="field-note"><strong>Escolha um modo por live:</strong> Spotify ou YouTube/Pear. Integração mista fica para planejamento futuro.</p>
-            <p class="field-note">Provider atual: <strong id="setup-active-provider">...</strong></p>
+            <p class="field-note">Provider atual: <strong id="setup-active-provider">verificando</strong></p>
           </div>
           <div class="requirement-list" id="setup-provider-requirements"></div>
         </section>
@@ -1873,12 +1878,23 @@ pub async fn page() -> Html<&'static str> {
       document.querySelectorAll('.tab').forEach((item) => item.classList.remove('active'));
       button.classList.add('active');
       document.getElementById(tabId).classList.add('active');
+      if (options.updateHash !== false && window.location.hash !== `#${tabId}`) {
+        history.replaceState(null, '', `#${tabId}`);
+      }
       return true;
+    }
+
+    function tabFromHash() {
+      const tabId = window.location.hash.replace('#', '');
+      return document.querySelector(`.tab-button[data-tab="${tabId}"]`) ? tabId : 'operation-tab';
     }
 
     document.querySelectorAll('.tab-button[data-tab]').forEach((button) => {
       button.addEventListener('click', () => showTab(button.dataset.tab));
     });
+
+    window.addEventListener('hashchange', () => showTab(tabFromHash(), { force: true, updateHash: false }));
+    showTab(tabFromHash(), { force: true, updateHash: false });
 
     $('request-form').addEventListener('submit', async (event) => {
       event.preventDefault();

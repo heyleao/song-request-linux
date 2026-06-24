@@ -113,8 +113,6 @@ e tente de novo.
 
 Use fallback se quiser musica tocando quando nao houver pedidos.
 
-![Fallback de playlist](images/fallback-toggle.png)
-
 1. Marque `Ativar playlist fallback quando a fila estiver vazia`.
 2. Clique em `Carregar playlists`.
 3. Escolha a playlist.
@@ -125,8 +123,6 @@ Se desmarcar, o app nao volta para playlist sozinho.
 ## 7. Persistencia da fila
 
 Essa opcao decide o que acontece ao fechar e abrir o app.
-
-![Persistencia da fila](images/queue-persistence.png)
 
 Marcado:
 
@@ -175,6 +171,8 @@ ate o Pear abrir e a API estar ativa.
 ## 9. OBS
 
 Adicione uma `Browser Source` para o overlay.
+
+![Guia e URLs do OBS](images/guide-tab.png)
 
 URL:
 

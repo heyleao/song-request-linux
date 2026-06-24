@@ -168,8 +168,6 @@ tocar ate o Pear voltar.
 
 ## Fila e Fallback
 
-![Fallback de playlist](docs/images/fallback-toggle.png)
-
 - Pedido aceito entra na fila do app.
 - Quando a fila tem pedidos, eles devem tocar antes da playlist fallback.
 - Quando a fila fica vazia, o fallback pode voltar.
