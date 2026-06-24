@@ -654,9 +654,9 @@ fn command_summary(settings: &CommandSettings) -> Vec<CommandSummary> {
 
 impl AppPaths {
     fn from_env() -> Result<Self> {
-        let config_base = env_path("XDG_CONFIG_HOME").unwrap_or_else(|| home_path(".config"));
-        let cache_base = env_path("XDG_CACHE_HOME").unwrap_or_else(|| home_path(".cache"));
-        let state_base = env_path("XDG_STATE_HOME").unwrap_or_else(|| home_path(".local/state"));
+        let config_base = config_base_path();
+        let cache_base = cache_base_path();
+        let state_base = state_base_path();
 
         let config_dir = config_base.join(APP_ID);
         let cache_dir = cache_base.join(APP_ID);
@@ -744,10 +744,43 @@ fn restrict_file_permissions(_path: &std::path::Path) {}
 
 fn home_path(relative: impl AsRef<Path>) -> PathBuf {
     let home = env::var_os("HOME")
+        .or_else(|| env::var_os("USERPROFILE"))
         .map(PathBuf::from)
         .unwrap_or_else(|| env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
 
     home.join(relative)
+}
+
+#[cfg(windows)]
+fn config_base_path() -> PathBuf {
+    env_path("APPDATA").unwrap_or_else(|| home_path("AppData/Roaming"))
+}
+
+#[cfg(windows)]
+fn cache_base_path() -> PathBuf {
+    env_path("LOCALAPPDATA")
+        .map(|path| path.join("Cache"))
+        .unwrap_or_else(|| home_path("AppData/Local/Cache"))
+}
+
+#[cfg(windows)]
+fn state_base_path() -> PathBuf {
+    env_path("LOCALAPPDATA").unwrap_or_else(|| home_path("AppData/Local"))
+}
+
+#[cfg(not(windows))]
+fn config_base_path() -> PathBuf {
+    env_path("XDG_CONFIG_HOME").unwrap_or_else(|| home_path(".config"))
+}
+
+#[cfg(not(windows))]
+fn cache_base_path() -> PathBuf {
+    env_path("XDG_CACHE_HOME").unwrap_or_else(|| home_path(".cache"))
+}
+
+#[cfg(not(windows))]
+fn state_base_path() -> PathBuf {
+    env_path("XDG_STATE_HOME").unwrap_or_else(|| home_path(".local/state"))
 }
 
 #[cfg(test)]

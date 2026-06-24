@@ -63,6 +63,35 @@ Remove everything, including local data:
 ./scripts/uninstall-user --remove-data
 ```
 
+### Portable `.tar.gz`
+
+The Linux `.tar.gz` package includes the compiled app. Regular users do not need Rust, Cargo, or Git.
+
+```bash
+tar -xzf song-request-linux-0.1.9-linux-x86_64.tar.gz
+cd song-request-linux-0.1.9-linux-x86_64
+./scripts/check-runtime-prereqs
+./scripts/install-desktop-entry
+./scripts/song-request-linux-open
+```
+
+### Experimental Windows `.zip`
+
+Download the `.zip`, extract it into a simple folder, and open:
+
+```text
+Start-SongRequestLinux.cmd
+```
+
+The dashboard opens at `http://127.0.0.1:7384/`. To stop it, use `Shutdown` in the dashboard or `Stop-SongRequestLinux.cmd`.
+
+Windows local data paths:
+
+```text
+%APPDATA%\song-request-linux
+%LOCALAPPDATA%\song-request-linux
+```
+
 ## How It Works
 
 ![Song Request Linux dashboard](docs/images/dashboard-overview.png)

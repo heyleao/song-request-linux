@@ -1,0 +1,135 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+DIST_DIR="$APP_DIR/dist"
+TARGET="x86_64-pc-windows-gnullvm"
+BUILD=1
+
+for arg in "$@"; do
+  case "$arg" in
+    --no-build) BUILD=0 ;;
+    -h|--help)
+      cat <<HELP
+Usage: ./scripts/package-windows [--no-build]
+
+Gera um pacote .zip portatil para Windows com:
+  - binario release .exe
+  - scripts Start/Stop para abrir o dashboard e encerrar o app
+  - assets, README, guia e imagens
+  - checksum SHA256
+
+Esse pacote nao inclui configs, tokens, logs, fila, .env ou arquivos locais.
+HELP
+      exit 0
+      ;;
+    *) echo "Opcao desconhecida: $arg" >&2; exit 2 ;;
+  esac
+done
+
+cd "$APP_DIR"
+
+if [[ -f "$HOME/.cargo/env" ]]; then
+  # shellcheck disable=SC1091
+  . "$HOME/.cargo/env"
+fi
+
+if [[ -d "$HOME/.local/toolchains/llvm-mingw/bin" ]]; then
+  export PATH="$HOME/.local/toolchains/llvm-mingw/bin:$PATH"
+fi
+
+export CC_x86_64_pc_windows_gnullvm="${CC_x86_64_pc_windows_gnullvm:-x86_64-w64-mingw32-clang}"
+export AR_x86_64_pc_windows_gnullvm="${AR_x86_64_pc_windows_gnullvm:-x86_64-w64-mingw32-ar}"
+export CARGO_TARGET_X86_64_PC_WINDOWS_GNULLVM_LINKER="${CARGO_TARGET_X86_64_PC_WINDOWS_GNULLVM_LINKER:-x86_64-w64-mingw32-clang}"
+
+if (( BUILD )); then
+  cargo build --release --target "$TARGET"
+fi
+
+version="$(sed -n 's/^version = "\([^"]*\)"/\1/p' Cargo.toml | head -1)"
+if [[ -z "$version" ]]; then
+  echo "ERRO: nao consegui ler a versao no Cargo.toml." >&2
+  exit 1
+fi
+
+target_dir="$(cargo metadata --no-deps --format-version=1 | sed -n 's/.*"target_directory":"\([^"]*\)".*/\1/p')"
+bin="$target_dir/$TARGET/release/song-request-linux.exe"
+if [[ ! -f "$bin" ]]; then
+  echo "ERRO: binario Windows nao encontrado: $bin" >&2
+  exit 1
+fi
+
+name="song-request-linux-${version}-windows-x86_64"
+stage="$DIST_DIR/$name"
+archive="$DIST_DIR/$name.zip"
+
+rm -rf "$stage" "$archive" "$archive.sha256"
+mkdir -p "$stage/bin" "$stage/scripts/windows" "$stage/assets" "$stage/docs/images"
+
+install -m 0644 "$bin" "$stage/bin/song-request-linux.exe"
+
+runtime_dir="$(dirname "$(command -v x86_64-w64-mingw32-clang 2>/dev/null || true)")/../x86_64-w64-mingw32/bin"
+if [[ -f "$runtime_dir/libunwind.dll" ]]; then
+  install -m 0644 "$runtime_dir/libunwind.dll" "$stage/bin/libunwind.dll"
+elif [[ -f "$HOME/.local/toolchains/llvm-mingw/x86_64-w64-mingw32/bin/libunwind.dll" ]]; then
+  install -m 0644 "$HOME/.local/toolchains/llvm-mingw/x86_64-w64-mingw32/bin/libunwind.dll" "$stage/bin/libunwind.dll"
+fi
+install -m 0644 scripts/windows/open.ps1 "$stage/scripts/windows/open.ps1"
+install -m 0644 scripts/windows/stop.ps1 "$stage/scripts/windows/stop.ps1"
+install -m 0644 assets/logo-srl.png "$stage/assets/logo-srl.png"
+install -m 0644 README.md "$stage/README.md"
+install -m 0644 README_EN.md "$stage/README_EN.md"
+install -m 0644 LICENSE "$stage/LICENSE"
+install -m 0644 docs/SETUP.md "$stage/docs/SETUP.md"
+install -m 0644 docs/SETUP_EN.md "$stage/docs/SETUP_EN.md"
+if compgen -G "docs/images/*.png" >/dev/null; then
+  install -m 0644 docs/images/*.png "$stage/docs/images/"
+fi
+
+printf '@echo off\r\npowershell -NoProfile -ExecutionPolicy Bypass -File "%%~dp0scripts\\windows\\open.ps1"\r\n' > "$stage/Start-SongRequestLinux.cmd"
+printf '@echo off\r\npowershell -NoProfile -ExecutionPolicy Bypass -File "%%~dp0scripts\\windows\\stop.ps1"\r\npause\r\n' > "$stage/Stop-SongRequestLinux.cmd"
+
+cat > "$stage/INSTALL-WINDOWS.md" <<'INSTALL'
+# Song Request Linux VERSION_PLACEHOLDER para Windows
+
+## Abrir
+
+1. Extraia o .zip em uma pasta simples, por exemplo Downloads ou Documentos.
+2. De dois cliques em `Start-SongRequestLinux.cmd`.
+3. O painel abre em `http://127.0.0.1:7384/`.
+
+## Fechar
+
+Use o botao `Encerrar` no painel ou rode `Stop-SongRequestLinux.cmd`.
+
+## Dados locais
+
+Configs, tokens, logs e fila ficam em:
+
+```text
+%APPDATA%\song-request-linux
+%LOCALAPPDATA%\song-request-linux
+```
+
+## Requisitos por modo
+
+- Spotify: app Spotify aberto no PC e conta Premium.
+- YouTube/OBS Browser: `yt-dlp.exe` no PATH do Windows.
+- YouTube/Pear: Pear Desktop aberto com API Server ativo.
+
+Esta build Windows e experimental. O fluxo principal validado continua sendo Linux.
+INSTALL
+sed -i "s/VERSION_PLACEHOLDER/${version}/g" "$stage/INSTALL-WINDOWS.md"
+
+(
+  cd "$DIST_DIR"
+  python -m zipfile -c "$(basename "$archive")" "$name"
+)
+(
+  cd "$DIST_DIR"
+  sha256sum "$(basename "$archive")" > "$(basename "$archive").sha256"
+)
+rm -rf "$stage"
+
+echo "Pacote criado: $archive"
+echo "Checksum: $archive.sha256"

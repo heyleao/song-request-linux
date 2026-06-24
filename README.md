@@ -34,8 +34,8 @@ configure o player e adicione o overlay no OBS.
 O pacote `.tar.gz` ja traz o binario compilado. O usuario comum nao precisa instalar Rust, Cargo ou Git. Ao instalar, o app fica em `~/.local/share/song-request-linux/app`.
 
 ```bash
-tar -xzf song-request-linux-0.1.8-linux-x86_64.tar.gz
-cd song-request-linux-0.1.8-linux-x86_64
+tar -xzf song-request-linux-0.1.9-linux-x86_64.tar.gz
+cd song-request-linux-0.1.9-linux-x86_64
 ./scripts/check-runtime-prereqs
 ./scripts/install-desktop-entry
 ./scripts/song-request-linux-open
@@ -46,6 +46,23 @@ Pre-requisitos opcionais por modo:
 - `Spotify`: app Spotify aberto no PC e conta Premium.
 - `YouTube/Pear`: Pear Desktop instalado, aberto e com API Server ativo.
 - `YouTube/OBS`: `yt-dlp` instalado para o player `/player` resolver audio do YouTube.
+
+### Windows experimental
+
+Baixe o pacote `.zip`, extraia em uma pasta simples e abra:
+
+```text
+Start-SongRequestLinux.cmd
+```
+
+O painel abre em `http://127.0.0.1:7384/`. Para fechar, use `Encerrar` no painel ou `Stop-SongRequestLinux.cmd`.
+
+Dados locais no Windows:
+
+```text
+%APPDATA%\song-request-linux
+%LOCALAPPDATA%\song-request-linux
+```
 
 ### CachyOS/Arch via Git
 

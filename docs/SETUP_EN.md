@@ -7,8 +7,8 @@ This is the short recipe to get Song Request Linux ready for a stream. Do one st
 `.tar.gz` package:
 
 ```bash
-tar -xzf song-request-linux-0.1.8-linux-x86_64.tar.gz
-cd song-request-linux-0.1.8-linux-x86_64
+tar -xzf song-request-linux-0.1.9-linux-x86_64.tar.gz
+cd song-request-linux-0.1.9-linux-x86_64
 ./scripts/check-runtime-prereqs
 ./scripts/install-desktop-entry
 ./scripts/song-request-linux-open
@@ -40,6 +40,22 @@ Dashboard:
 
 ```text
 http://127.0.0.1:7384/
+```
+
+### Experimental Windows
+
+1. Download `song-request-linux-0.1.9-windows-x86_64.zip`.
+2. Extract the `.zip`.
+3. Double-click `Start-SongRequestLinux.cmd`.
+4. The dashboard opens at `http://127.0.0.1:7384/`.
+
+To stop it, click `Shutdown` in the dashboard or run `Stop-SongRequestLinux.cmd`.
+
+Local data is stored in:
+
+```text
+%APPDATA%\song-request-linux
+%LOCALAPPDATA%\song-request-linux
 ```
 
 ## 2. Main Screen

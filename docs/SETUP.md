@@ -10,8 +10,8 @@ Faca um passo por vez.
 Pacote `.tar.gz`:
 
 ```bash
-tar -xzf song-request-linux-0.1.8-linux-x86_64.tar.gz
-cd song-request-linux-0.1.8-linux-x86_64
+tar -xzf song-request-linux-0.1.9-linux-x86_64.tar.gz
+cd song-request-linux-0.1.9-linux-x86_64
 ./scripts/check-runtime-prereqs
 ./scripts/install-desktop-entry
 ./scripts/song-request-linux-open
@@ -43,6 +43,22 @@ Dashboard:
 
 ```text
 http://127.0.0.1:7384/
+```
+
+### Windows experimental
+
+1. Baixe `song-request-linux-0.1.9-windows-x86_64.zip`.
+2. Extraia o `.zip`.
+3. Dê dois cliques em `Start-SongRequestLinux.cmd`.
+4. O painel abre em `http://127.0.0.1:7384/`.
+
+Para fechar, clique em `Encerrar` no painel ou rode `Stop-SongRequestLinux.cmd`.
+
+Dados locais ficam em:
+
+```text
+%APPDATA%\song-request-linux
+%LOCALAPPDATA%\song-request-linux
 ```
 
 ## 2. Tela principal
