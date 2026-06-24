@@ -60,6 +60,20 @@ struct PearVolumeRequest {
     volume: u8,
 }
 
+const PEAR_VOLUME_SCALE: &[(u8, u8)] = &[
+    (0, 0),
+    (10, 2),
+    (20, 5),
+    (30, 8),
+    (40, 13),
+    (50, 20),
+    (60, 29),
+    (70, 40),
+    (80, 55),
+    (90, 74),
+    (100, 100),
+];
+
 #[derive(Debug, Serialize)]
 struct PearQueueIndexRequest {
     index: usize,
@@ -315,19 +329,44 @@ pub async fn current_volume(config: &AppConfig) -> Result<PearVolume> {
 
 pub async fn set_volume(config: &AppConfig, level: u8) -> Result<u8> {
     let level = level.min(100);
+    let pear_level = pear_volume_command_for_state(level);
     let response = client()?
         .post(endpoint(config, "volume"))
-        .json(&PearVolumeRequest { volume: level })
+        .json(&PearVolumeRequest { volume: pear_level })
         .send()
         .await
         .context("Pear nao respondeu em /volume")?;
     let status = response.status();
     if status.is_success() {
-        return Ok(level);
+        sleep(Duration::from_millis(250)).await;
+        return Ok(current_volume(config).await?.state);
     }
 
     let body = response.text().await.unwrap_or_default();
     bail!("Pear nao aceitou mudar volume ({status}): {}", body.trim());
+}
+
+fn pear_volume_command_for_state(target: u8) -> u8 {
+    let target = target.min(100);
+    for window in PEAR_VOLUME_SCALE.windows(2) {
+        let [(command_a, state_a), (command_b, state_b)] = window else {
+            continue;
+        };
+        if target >= *state_a && target <= *state_b {
+            let state_span = (*state_b).saturating_sub(*state_a);
+            if state_span == 0 {
+                return *command_b;
+            }
+            let ratio = f32::from(target.saturating_sub(*state_a)) / f32::from(state_span);
+            let command = f32::from(*command_a) + ratio * f32::from(command_b - command_a);
+            return command.round().clamp(0.0, 100.0) as u8;
+        }
+    }
+
+    PEAR_VOLUME_SCALE
+        .last()
+        .map(|(command, _)| *command)
+        .unwrap_or(target)
 }
 
 impl PearNowPlaying {
@@ -412,5 +451,13 @@ mod tests {
             Some("Ph8Qt3DHVwo")
         );
         assert!(extract_queue_selected(&item));
+    }
+
+    #[test]
+    fn maps_display_volume_to_pear_command_scale() {
+        assert_eq!(pear_volume_command_for_state(1), 5);
+        assert_eq!(pear_volume_command_for_state(35), 65);
+        assert_eq!(pear_volume_command_for_state(50), 77);
+        assert_eq!(pear_volume_command_for_state(100), 100);
     }
 }

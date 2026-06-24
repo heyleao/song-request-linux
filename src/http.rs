@@ -757,7 +757,7 @@ async fn volume_message(state: &AppState, requester: String, level: Option<u8>) 
             }
 
             if !changed.is_empty() {
-                let message = format!("@{requester} volume ajustado para {level}%.");
+                let message = format!("@{requester} volume ajustado: {}.", changed.join(", "));
                 state.record_event("volume", message.clone()).await;
                 if !errors.is_empty() {
                     state
