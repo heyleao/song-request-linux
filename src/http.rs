@@ -1166,8 +1166,8 @@ async fn add_request_to_queue(
     match request_flow::add_request(state, input).await {
         Ok(request) => {
             save_current_queue_state(state).await?;
-            if matches!(request.source, RequestSource::Youtube { .. })
-                && matches!(current_youtube_playback(state), YoutubePlayback::Browser)
+            if is_youtube_browser_mode(state)
+                && matches!(request.source, RequestSource::Youtube { .. })
             {
                 arm_youtube_after_current_spotify(state).await;
             }
@@ -1188,8 +1188,8 @@ async fn add_request_to_queue_for_role(
     match request_flow::add_request_for_role(state, input, role).await {
         Ok(request) => {
             save_current_queue_state(state).await?;
-            if matches!(request.source, RequestSource::Youtube { .. })
-                && matches!(current_youtube_playback(state), YoutubePlayback::Browser)
+            if is_youtube_browser_mode(state)
+                && matches!(request.source, RequestSource::Youtube { .. })
             {
                 arm_youtube_after_current_spotify(state).await;
             }
@@ -1615,7 +1615,8 @@ async fn pause_spotify_for_youtube(state: &AppState) {
 }
 
 async fn arm_youtube_after_current_spotify(state: &AppState) {
-    if state.youtube_player_paused_spotify.load(Ordering::SeqCst) {
+    if !is_youtube_browser_mode(state) || state.youtube_player_paused_spotify.load(Ordering::SeqCst)
+    {
         return;
     }
 

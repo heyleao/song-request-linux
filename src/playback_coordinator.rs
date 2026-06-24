@@ -40,7 +40,13 @@ async fn coordinate_once(state: &AppState) {
     }
 
     if matches!(ui_config.default_provider, MusicProvider::Spotify) {
+        *state.youtube_waiting_spotify_title.lock().await = None;
+        state
+            .youtube_player_paused_spotify
+            .store(false, Ordering::SeqCst);
         coordinate_spotify_requests_once(state).await;
+        start_spotify_fallback_if_idle(state).await;
+        return;
     }
 
     if matches!(ui_config.default_provider, MusicProvider::Youtube)
@@ -894,6 +900,10 @@ async fn resume_spotify_after_youtube(state: &AppState) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{
+        config::{AppConfig, YoutubePlayback},
+        song_requests::{RequestSource, SongRequest},
+    };
 
     fn playback(
         is_playing: bool,
@@ -925,5 +935,29 @@ mod tests {
             Some(179_000),
             Some(180_000)
         )));
+    }
+
+    #[tokio::test]
+    async fn spotify_mode_does_not_pause_for_pending_youtube() {
+        let mut config = AppConfig::from_env().expect("config");
+        config.default_provider = MusicProvider::Spotify;
+        config.youtube.playback = YoutubePlayback::Pear;
+        let state = AppState::new(config);
+        state.queue.write().await.clear();
+        state.queue.write().await.add_resolved(SongRequest {
+            id: 0,
+            requester: "viewer".to_string(),
+            query: "https://youtu.be/UFFa0QoHWvE".to_string(),
+            source: RequestSource::Youtube {
+                video_id: "UFFa0QoHWvE".to_string(),
+            },
+            title: "Tank!".to_string(),
+            artist: "Seatbelts".to_string(),
+        });
+
+        coordinate_once(&state).await;
+
+        assert!(!state.youtube_player_paused_spotify.load(Ordering::SeqCst));
+        assert!(state.youtube_waiting_spotify_title.lock().await.is_none());
     }
 }
