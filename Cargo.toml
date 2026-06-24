@@ -1,6 +1,6 @@
 [package]
 name = "song-request-linux"
-version = "0.1.13"
+version = "0.1.14"
 edition = "2021"
 license = "GPL-3.0-or-later"
 description = "Linux-first Twitch song request app for Spotify and YouTube."

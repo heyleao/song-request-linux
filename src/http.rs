@@ -265,6 +265,7 @@ async fn update_status(State(state): State<AppState>) -> Json<UpdateStatusRespon
             after: String::new(),
             timestamp: String::new(),
             log_tail: String::new(),
+            current_version: env!("CARGO_PKG_VERSION").to_string(),
         }),
         Err(_) => UpdateStatusResponse {
             status: "none".to_string(),
@@ -273,8 +274,10 @@ async fn update_status(State(state): State<AppState>) -> Json<UpdateStatusRespon
             after: String::new(),
             timestamp: String::new(),
             log_tail: String::new(),
+            current_version: env!("CARGO_PKG_VERSION").to_string(),
         },
     };
+    status.current_version = env!("CARGO_PKG_VERSION").to_string();
     status.log_tail = read_update_log_tail(&log_path).await;
 
     Json(status)
@@ -1894,6 +1897,7 @@ struct UpdateStatusResponse {
     after: String,
     timestamp: String,
     log_tail: String,
+    current_version: String,
 }
 
 #[derive(Debug, Serialize)]

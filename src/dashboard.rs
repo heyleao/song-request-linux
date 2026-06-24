@@ -2026,13 +2026,41 @@ pub async fn page() -> Html<&'static str> {
       }
     }
 
+    function normalizeVersionText(value) {
+      return String(value || '').trim().replace(/^v/i, '');
+    }
+
+    function updateStatusMatchesRunningVersion(status) {
+      const target = normalizeVersionText(status?.after);
+      const current = normalizeVersionText(status?.current_version);
+      return Boolean(target && current && target === current);
+    }
+
     async function refreshUpdateStatus(showEmpty = false) {
       try {
         const status = await api('/api/update/status');
+        const pendingUpdate = localStorage.getItem('song-request-linux-update-pending') === '1';
         if (!showEmpty && (!status || status.status === 'none')) return;
+        if (!showEmpty && !pendingUpdate && status.status !== 'running') return;
         const isRunning = status.status === 'running';
+        const isUpdated = status.status === 'updated';
         const isError = status.status === 'failed' || status.status === 'unknown';
         setUpdateLog(status.log_tail || '');
+
+        if (isUpdated && !updateStatusMatchesRunningVersion(status)) {
+          stopUpdatePolling();
+          localStorage.removeItem('song-request-linux-update-pending');
+          setUpdateProgress(false);
+          $('update-overlay').hidden = true;
+          $('update-app').disabled = false;
+          await refreshLatestUpdate(false);
+          setMessage(
+            'update-message',
+            `Atualizacao baixada para ${status.after || 'a versao nova'}, mas esta aba ainda roda v${status.current_version || '?'}. Use Atualizar novamente ou reabra o app.`
+          );
+          return;
+        }
+
         setUpdateProgress(isRunning);
         if (isRunning) {
           showUpdateOverlay(status.message || 'Atualizacao em andamento.');
@@ -2043,6 +2071,7 @@ pub async fn page() -> Html<&'static str> {
           $('update-overlay-title').textContent = isError ? 'Atualização falhou' : 'Atualização finalizada';
           $('update-changelog-panel').classList.add('visible');
           localStorage.removeItem('song-request-linux-update-pending');
+          $('update-app').disabled = false;
         }
         setMessage('update-message', status.message || 'Status de atualizacao indisponivel.', isError);
       } catch (_) {
