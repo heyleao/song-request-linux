@@ -39,9 +39,9 @@ A tela principal mostra:
 
 ## 3. Escolher o modo
 
-Na aba `Configuracao`, escolha um provider principal.
+Na tela principal `Operacao`, escolha um provider principal no card `Provider ativo`.
 
-![Tela de configuracao](images/setup-provider.png)
+![Provider ativo na tela principal](images/setup-provider.png)
 
 Use `Spotify` se voce quer:
 

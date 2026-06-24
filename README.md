@@ -111,10 +111,10 @@ usuario.
 ![Dashboard do Song Request Linux](docs/images/dashboard-overview.png)
 
 1. Abra o dashboard.
-2. Va em `Configuracao`.
-3. Escolha o modo de operacao:
+2. Na tela `Operacao`, escolha o modo no card `Provider ativo`:
    - `Spotify`: pedidos por texto buscam no Spotify.
    - `YouTube/Pear`: pedidos por texto buscam no YouTube e tocam no Pear.
+3. Va em `Configuracao`.
 4. Configure apenas o bloco do provider escolhido.
 5. Conecte o bot da Twitch.
 6. Salve a configuracao.
