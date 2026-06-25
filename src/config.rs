@@ -49,6 +49,26 @@ pub struct UserConfig {
     pub overlay: OverlayConfig,
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(default)]
+pub struct ConfigBackup {
+    pub app: String,
+    pub version: u16,
+    pub exported_by: String,
+    pub config: UserConfig,
+}
+
+impl Default for ConfigBackup {
+    fn default() -> Self {
+        Self {
+            app: APP_ID.to_string(),
+            version: 1,
+            exported_by: format!("{APP_NAME} {}", env!("CARGO_PKG_VERSION")),
+            config: UserConfig::default(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(default)]
 pub struct UserSecrets {
@@ -534,6 +554,31 @@ pub fn configured_volume(
     }
 }
 
+pub fn export_user_config(paths: &AppPaths) -> ConfigBackup {
+    ConfigBackup {
+        config: normalize_user_config(load_user_config_from_paths(paths).unwrap_or_default()),
+        ..ConfigBackup::default()
+    }
+}
+
+pub fn import_user_config(paths: &AppPaths, backup: ConfigBackup) -> Result<UiConfigView> {
+    if backup.app != APP_ID {
+        anyhow::bail!("invalid backup app");
+    }
+    if backup.version != 1 {
+        anyhow::bail!("unsupported backup version");
+    }
+
+    fs::create_dir_all(&paths.config_dir)?;
+    let user_config = normalize_user_config(backup.config);
+    fs::write(
+        user_config_path(paths),
+        serde_json::to_vec_pretty(&user_config)?,
+    )?;
+
+    Ok(UiConfigView::load(paths))
+}
+
 fn youtube_api_keys_from_sources(user_secrets: &UserSecrets) -> Vec<String> {
     let env_keys = clean_optional_env("YOUTUBE_API_KEYS")
         .map(|value| clean_api_keys(&value))
@@ -610,6 +655,32 @@ fn normalize_queue_limits(mut limits: QueueLimitConfig) -> QueueLimitConfig {
     limits.moderator = limits.moderator.min(100);
     limits.streamer = limits.streamer.min(100);
     limits
+}
+
+fn normalize_user_config(mut config: UserConfig) -> UserConfig {
+    config.pear_base_url = config
+        .pear_base_url
+        .and_then(|value| clean_optional_value(Some(value)));
+    config.spotify_client_id = config
+        .spotify_client_id
+        .and_then(|value| clean_optional_value(Some(value)));
+    config.twitch_client_id = config
+        .twitch_client_id
+        .and_then(|value| clean_optional_value(Some(value)));
+    config.twitch_bot_username = config
+        .twitch_bot_username
+        .and_then(|value| clean_optional_value(Some(value)));
+    config.twitch_channel = config
+        .twitch_channel
+        .and_then(|value| clean_optional_value(Some(value)));
+    config.spotify_volume = normalize_volume(config.spotify_volume);
+    config.pear_volume = normalize_volume(config.pear_volume);
+    config.browser_volume = normalize_volume(config.browser_volume);
+    config.youtube_max_duration_seconds = config.youtube_max_duration_seconds.clamp(30, 86_400);
+    config.command_settings = normalize_command_settings(config.command_settings);
+    config.queue_limits = normalize_queue_limits(config.queue_limits);
+    config.overlay = config.overlay.normalized();
+    config
 }
 
 fn normalize_command_settings(mut settings: CommandSettings) -> CommandSettings {
@@ -1011,6 +1082,67 @@ mod tests {
         assert_eq!(view.queue_limits.streamer, limits.streamer);
         assert_eq!(view.overlay.label, overlay.label);
         assert_eq!(view.overlay.lines, overlay.lines);
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn config_backup_excludes_and_preserves_secrets() {
+        let root = env::temp_dir().join(format!(
+            "song-request-linux-config-backup-{}",
+            std::process::id()
+        ));
+        let paths = AppPaths {
+            config_dir: root.join("config"),
+            cache_dir: root.join("cache"),
+            state_dir: root.join("state"),
+            log_dir: root.join("state/logs"),
+            tls_dir: root.join("state/tls"),
+            queue_file: root.join("state/queue.json"),
+        };
+        let _ = fs::remove_dir_all(&root);
+
+        save_ui_config(
+            &paths,
+            UiConfigInput {
+                default_provider: Some(MusicProvider::Spotify),
+                youtube_playback: Some(YoutubePlayback::Pear),
+                pear_base_url: Some("http://127.0.0.1:26538/api/v1".to_string()),
+                spotify_client_id: Some("spotify-client".to_string()),
+                spotify_fallback_enabled: Some(true),
+                queue_persistence_enabled: Some(true),
+                twitch_client_id: Some("twitch-client".to_string()),
+                twitch_bot_username: Some("bot".to_string()),
+                twitch_channel: Some("channel".to_string()),
+                twitch_bot_oauth_token: Some("oauth:secret".to_string()),
+                youtube_api_key: Some("youtube-secret".to_string()),
+                youtube_max_duration_seconds: Some(360),
+                youtube_allow_non_music: Some(false),
+                command_settings: None,
+                queue_limits: None,
+                overlay: None,
+            },
+        )
+        .expect("save config");
+
+        let mut backup = export_user_config(&paths);
+        let serialized = serde_json::to_string(&backup).expect("serialize");
+        assert!(!serialized.contains("oauth:secret"));
+        assert!(!serialized.contains("youtube-secret"));
+        assert!(serialized.contains("spotify-client"));
+
+        backup.config.twitch_channel = Some("imported-channel".to_string());
+        import_user_config(&paths, backup).expect("import backup");
+
+        let view = UiConfigView::load(&paths);
+        assert_eq!(view.twitch_channel.as_deref(), Some("imported-channel"));
+
+        let secrets = load_user_secrets_from_paths(&paths).expect("secrets");
+        assert_eq!(
+            secrets.twitch_bot_oauth_token.as_deref(),
+            Some("oauth:secret")
+        );
+        assert_eq!(secrets.youtube_api_keys, vec!["youtube-secret"]);
 
         let _ = fs::remove_dir_all(root);
     }

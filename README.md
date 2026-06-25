@@ -34,8 +34,8 @@ configure o player e adicione o overlay no OBS.
 O pacote `.tar.gz` ja traz o binario compilado. O usuario comum nao precisa instalar Rust, Cargo ou Git. Ao instalar, o app fica em `~/.local/share/song-request-linux/app`.
 
 ```bash
-tar -xzf song-request-linux-0.1.24-linux-x86_64.tar.gz
-cd song-request-linux-0.1.24-linux-x86_64
+tar -xzf song-request-linux-0.1.25-linux-x86_64.tar.gz
+cd song-request-linux-0.1.25-linux-x86_64
 ./scripts/check-runtime-prereqs
 ./scripts/install-desktop-entry
 ./scripts/song-request-linux-open
@@ -92,6 +92,13 @@ Use o botao `Atualizar` no topo do painel quando ele aparecer. Ele chama o
 backend local, baixa a release mais recente quando a instalacao for portatil,
 ou atualiza o clone quando a instalacao for via Git. Ao voltar, o painel informa
 se baixou uma versao nova ou se ja estava atualizado.
+
+Backup de configuracao:
+
+Na aba `Configuracao`, use `Exportar configuracao` para baixar um JSON com as
+opcoes do app. Esse arquivo nao inclui tokens, OAuth, API keys, fila ou logs.
+Use `Importar configuracao` para restaurar essas opcoes em outro PC ou depois
+de reinstalar. Os tokens e logins existentes sao preservados.
 
 Remover o app mantendo configs, tokens, logs e fila:
 

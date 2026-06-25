@@ -10,8 +10,8 @@ Faca um passo por vez.
 Pacote `.tar.gz`:
 
 ```bash
-tar -xzf song-request-linux-0.1.24-linux-x86_64.tar.gz
-cd song-request-linux-0.1.24-linux-x86_64
+tar -xzf song-request-linux-0.1.25-linux-x86_64.tar.gz
+cd song-request-linux-0.1.25-linux-x86_64
 ./scripts/check-runtime-prereqs
 ./scripts/install-desktop-entry
 ./scripts/song-request-linux-open
@@ -47,7 +47,7 @@ http://127.0.0.1:7384/
 
 ### Windows experimental
 
-1. Baixe `song-request-linux-0.1.24-windows-x86_64.zip`.
+1. Baixe `song-request-linux-0.1.25-windows-x86_64.zip`.
 2. Extraia o `.zip`.
 3. Dê dois cliques em `Start-SongRequestLinux.cmd`.
 4. O painel abre em `http://127.0.0.1:7384/`.
@@ -243,6 +243,16 @@ Use o botao `Atualizar` no topo do painel quando ele aparecer. O navegador chama
 o backend local, baixa a release mais recente quando a instalacao for portatil,
 ou atualiza o clone quando a instalacao for via Git. Depois do reinicio, o
 painel mostra se atualizou ou se ja estava na ultima versao.
+
+## Backup de configuracao
+
+Na aba `Configuracao`, use:
+
+- `Exportar configuracao`: baixa um JSON com as opcoes do app.
+- `Importar configuracao`: restaura esse JSON.
+
+O backup nao inclui tokens, OAuth, API keys, fila ou logs. Ao importar, os
+tokens e logins que ja existem no PC sao preservados.
 
 ## 9. OBS
 

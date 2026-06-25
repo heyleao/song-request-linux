@@ -45,6 +45,8 @@ pub fn router(state: AppState) -> Router {
         .route("/api/update/latest", get(update_latest))
         .route("/api/update/installed", get(update_installed))
         .route("/api/config", get(get_config).post(save_config))
+        .route("/api/config/export", get(export_config))
+        .route("/api/config/import", post(import_config))
         .route("/api/connections/status", get(connections_status))
         .route("/api/connections/spotify/start", post(spotify_start))
         .route("/api/connections/twitch/start", post(twitch_start))
@@ -70,7 +72,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/player/youtube/finish", post(youtube_player_finish))
         .route("/api/player/youtube/event", post(youtube_player_event))
         .fallback(not_found)
-        .layer(DefaultBodyLimit::max(16 * 1024))
+        .layer(DefaultBodyLimit::max(128 * 1024))
         .layer(TraceLayer::new_for_http())
         .with_state(state)
 }
@@ -364,6 +366,10 @@ async fn get_config(State(state): State<AppState>) -> Json<config::UiConfigView>
     Json(config::UiConfigView::load(&state.config.paths))
 }
 
+async fn export_config(State(state): State<AppState>) -> Json<config::ConfigBackup> {
+    Json(config::export_user_config(&state.config.paths))
+}
+
 async fn save_config(
     State(state): State<AppState>,
     Json(input): Json<config::UiConfigInput>,
@@ -376,6 +382,16 @@ async fn save_config(
             return Err(ApiError::bad_request(anyhow::anyhow!(error)));
         }
     }
+
+    Ok(Json(view))
+}
+
+async fn import_config(
+    State(state): State<AppState>,
+    Json(input): Json<config::ConfigBackup>,
+) -> Result<Json<config::UiConfigView>, ApiError> {
+    let view =
+        config::import_user_config(&state.config.paths, input).map_err(ApiError::bad_request)?;
 
     Ok(Json(view))
 }

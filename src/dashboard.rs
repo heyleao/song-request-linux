@@ -1390,7 +1390,10 @@ pub async fn page() -> Html<&'static str> {
             <p class="field-note" id="setup-save-hint"></p>
           </div>
           <div class="actions">
+            <button class="secondary" id="export-config" type="button">Exportar configuração</button>
+            <button class="secondary" id="import-config" type="button">Importar configuração</button>
             <button id="setup-save-button" type="submit">Salvar configuração</button>
+            <input id="import-config-file" type="file" accept="application/json,.json" hidden>
           </div>
           <div class="diagnostics" id="setup-summary"></div>
           <div class="message" id="setup-message"></div>
@@ -2652,6 +2655,44 @@ pub async fn page() -> Html<&'static str> {
       return result;
     }
 
+    function downloadJson(filename, data) {
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    async function exportConfig() {
+      const backup = await api('/api/config/export');
+      const date = new Date().toISOString().slice(0, 10);
+      downloadJson(`song-request-linux-config-${date}.json`, backup);
+      setMessage('setup-message', t('Configuração exportada sem tokens ou chaves privadas.'));
+    }
+
+    async function importConfigFromFile(file) {
+      if (!file) return;
+      if (!confirm(t('Importar configuração agora? Isso substitui as opções atuais, mas não altera tokens, OAuth, fila ou logs.'))) return;
+      const text = await file.text();
+      let payload;
+      try {
+        payload = JSON.parse(text);
+      } catch (_error) {
+        throw new Error(t('Arquivo de configuração inválido.'));
+      }
+      await api('/api/config/import', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+      setSetupDirty(false);
+      setMessage('setup-message', t('Configuração importada. Tokens e logins existentes foram preservados.'));
+      await refresh();
+    }
+
     $('setup-form').addEventListener('input', (event) => {
       if (event.target.matches('input, select, textarea')) {
         setSetupDirty(true, t('Alteração pendente. Clique em Salvar configuração.'));
@@ -2688,6 +2729,28 @@ pub async fn page() -> Html<&'static str> {
 
     $('global-save-setup').addEventListener('click', () => {
       $('setup-form').requestSubmit();
+    });
+
+    $('export-config').addEventListener('click', async () => {
+      try {
+        await exportConfig();
+      } catch (error) {
+        setMessage('setup-message', error.message, true);
+      }
+    });
+
+    $('import-config').addEventListener('click', () => {
+      $('import-config-file').click();
+    });
+
+    $('import-config-file').addEventListener('change', async () => {
+      const file = $('import-config-file').files?.[0];
+      $('import-config-file').value = '';
+      try {
+        await importConfigFromFile(file);
+      } catch (error) {
+        setMessage('setup-message', error.message, true);
+      }
     });
 
     $('discard-setup').addEventListener('click', async () => {

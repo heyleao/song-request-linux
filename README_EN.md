@@ -69,8 +69,8 @@ Remove everything, including local data:
 The Linux `.tar.gz` package includes the compiled app. Regular users do not need Rust, Cargo, or Git.
 
 ```bash
-tar -xzf song-request-linux-0.1.24-linux-x86_64.tar.gz
-cd song-request-linux-0.1.24-linux-x86_64
+tar -xzf song-request-linux-0.1.25-linux-x86_64.tar.gz
+cd song-request-linux-0.1.25-linux-x86_64
 ./scripts/check-runtime-prereqs
 ./scripts/install-desktop-entry
 ./scripts/song-request-linux-open
@@ -92,6 +92,13 @@ Windows local data paths:
 %APPDATA%\song-request-linux
 %LOCALAPPDATA%\song-request-linux
 ```
+
+Settings backup:
+
+In `Setup`, use `Export settings` to download a JSON file with app options.
+This file does not include tokens, OAuth, API keys, queue, or logs. Use
+`Import settings` to restore those options on another PC or after reinstalling.
+Existing tokens and logins are preserved.
 
 ## How It Works
 

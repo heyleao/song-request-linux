@@ -7,8 +7,8 @@ This is the short recipe to get Song Request Linux ready for a stream. Do one st
 `.tar.gz` package:
 
 ```bash
-tar -xzf song-request-linux-0.1.24-linux-x86_64.tar.gz
-cd song-request-linux-0.1.24-linux-x86_64
+tar -xzf song-request-linux-0.1.25-linux-x86_64.tar.gz
+cd song-request-linux-0.1.25-linux-x86_64
 ./scripts/check-runtime-prereqs
 ./scripts/install-desktop-entry
 ./scripts/song-request-linux-open
@@ -44,7 +44,7 @@ http://127.0.0.1:7384/
 
 ### Experimental Windows
 
-1. Download `song-request-linux-0.1.24-windows-x86_64.zip`.
+1. Download `song-request-linux-0.1.25-windows-x86_64.zip`.
 2. Extract the `.zip`.
 3. Double-click `Start-SongRequestLinux.cmd`.
 4. The dashboard opens at `http://127.0.0.1:7384/`.
@@ -238,6 +238,16 @@ Use the `Update` button in the dashboard header when it appears. The browser
 calls the local backend, downloads the latest release for portable installs, or
 updates the clone for Git installs. After restart, the dashboard tells you
 whether it updated or was already on the latest version.
+
+## Settings Backup
+
+In `Setup`, use:
+
+- `Export settings`: downloads a JSON file with app options.
+- `Import settings`: restores that JSON file.
+
+The backup does not include tokens, OAuth, API keys, queue, or logs. When you
+import, tokens and logins already stored on the PC are preserved.
 
 ## 9. OBS
 
