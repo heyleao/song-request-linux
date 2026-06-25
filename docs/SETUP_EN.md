@@ -7,8 +7,8 @@ This is the short recipe to get Song Request Linux ready for a stream. Do one st
 `.tar.gz` package:
 
 ```bash
-tar -xzf song-request-linux-0.1.22-linux-x86_64.tar.gz
-cd song-request-linux-0.1.22-linux-x86_64
+tar -xzf song-request-linux-0.1.23-linux-x86_64.tar.gz
+cd song-request-linux-0.1.23-linux-x86_64
 ./scripts/check-runtime-prereqs
 ./scripts/install-desktop-entry
 ./scripts/song-request-linux-open
@@ -44,7 +44,7 @@ http://127.0.0.1:7384/
 
 ### Experimental Windows
 
-1. Download `song-request-linux-0.1.22-windows-x86_64.zip`.
+1. Download `song-request-linux-0.1.23-windows-x86_64.zip`.
 2. Extract the `.zip`.
 3. Double-click `Start-SongRequestLinux.cmd`.
 4. The dashboard opens at `http://127.0.0.1:7384/`.
@@ -64,7 +64,7 @@ Local data is stored in:
 
 The main screen shows:
 
-- active mode;
+- saved active mode, as a visual indicator only;
 - now playing;
 - request queue;
 - recent events;
@@ -72,7 +72,15 @@ The main screen shows:
 
 ## 3. Choose Mode
 
-On the main `Live` screen, choose one mode in the `Active provider` card.
+The `Active provider` card on the `Live` screen is visual only. It shows the mode that is already saved.
+
+To change mode:
+
+1. Open `Setup`.
+2. Choose Spotify, YouTube/Pear, or YouTube/OBS Browser.
+3. Fill only the block for the chosen mode.
+4. Click `Save settings`.
+5. Return to `Live` and check the `Active provider` card.
 
 ![Active provider on the main screen](images/setup-provider.png)
 
@@ -226,15 +234,10 @@ If Pear is closed, the song may enter SRL's queue but will not play until Pear i
 
 ## Updating the App
 
-Use `Update from GitHub` in the dashboard. The browser calls the local backend,
-which downloads from GitHub, rebuilds, and restarts the app. After restart, the
-dashboard tells you whether it updated or was already on the latest version.
-
-If the dashboard does not open, use the manual command:
-
-```bash
-./scripts/update-from-github --restart
-```
+Use the `Update` button in the dashboard header when it appears. The browser
+calls the local backend, downloads the latest release for portable installs, or
+updates the clone for Git installs. After restart, the dashboard tells you
+whether it updated or was already on the latest version.
 
 ## 9. OBS
 

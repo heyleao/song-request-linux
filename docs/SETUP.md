@@ -10,8 +10,8 @@ Faca um passo por vez.
 Pacote `.tar.gz`:
 
 ```bash
-tar -xzf song-request-linux-0.1.22-linux-x86_64.tar.gz
-cd song-request-linux-0.1.22-linux-x86_64
+tar -xzf song-request-linux-0.1.23-linux-x86_64.tar.gz
+cd song-request-linux-0.1.23-linux-x86_64
 ./scripts/check-runtime-prereqs
 ./scripts/install-desktop-entry
 ./scripts/song-request-linux-open
@@ -47,7 +47,7 @@ http://127.0.0.1:7384/
 
 ### Windows experimental
 
-1. Baixe `song-request-linux-0.1.22-windows-x86_64.zip`.
+1. Baixe `song-request-linux-0.1.23-windows-x86_64.zip`.
 2. Extraia o `.zip`.
 3. Dê dois cliques em `Start-SongRequestLinux.cmd`.
 4. O painel abre em `http://127.0.0.1:7384/`.
@@ -67,7 +67,7 @@ Dados locais ficam em:
 
 A tela principal mostra:
 
-- modo ativo;
+- modo ativo salvo, apenas como indicador visual;
 - musica tocando agora;
 - fila de pedidos;
 - eventos recentes;
@@ -75,7 +75,15 @@ A tela principal mostra:
 
 ## 3. Escolher o modo
 
-Na tela principal `Operacao`, escolha um modo principal no card `Provider ativo`.
+O card `Provider ativo` na tela `Operacao` e apenas visual. Ele mostra o modo que ja foi salvo.
+
+Para trocar o modo:
+
+1. Abra `Configuracao`.
+2. Escolha Spotify, YouTube/Pear ou YouTube/OBS Browser.
+3. Preencha apenas o bloco do modo escolhido.
+4. Clique em `Salvar configuracao`.
+5. Volte para `Operacao` e confira o card `Provider ativo`.
 
 ![Provider ativo na tela principal](images/setup-provider.png)
 
@@ -231,15 +239,10 @@ ate o Pear abrir e a API estar ativa.
 
 ## Atualizar o app
 
-Use `Atualizar pelo GitHub` no painel. O navegador chama o backend local, que
-baixa o GitHub, recompila e reinicia o app. Depois do reinicio, o painel mostra
-se atualizou ou se ja estava na ultima versao.
-
-Se o painel nao abrir, use o comando manual:
-
-```bash
-./scripts/update-from-github --restart
-```
+Use o botao `Atualizar` no topo do painel quando ele aparecer. O navegador chama
+o backend local, baixa a release mais recente quando a instalacao for portatil,
+ou atualiza o clone quando a instalacao for via Git. Depois do reinicio, o
+painel mostra se atualizou ou se ja estava na ultima versao.
 
 ## 9. OBS
 

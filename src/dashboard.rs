@@ -946,7 +946,7 @@ pub async fn page() -> Html<&'static str> {
       </div>
       <div class="update-progress" id="update-progress" aria-hidden="true"><div class="update-progress-bar"></div></div>
       <div class="actions">
-        <button class="secondary" id="update-cancel" type="button">Cancelar</button>
+        <button class="secondary" id="update-cancel" type="button">Ocultar</button>
         <button class="secondary" id="update-log-toggle" type="button">Log</button>
       </div>
       <div class="update-panel" id="update-log-panel"><pre id="update-log-text">Aguardando log...</pre></div>
@@ -1005,7 +1005,7 @@ pub async fn page() -> Html<&'static str> {
               <div class="provider-option" id="provider-youtube-pear"><strong>YouTube/Pear</strong><span>Busca pelo SRL e playback no Pear Desktop.</span></div>
               <div class="provider-option" id="provider-youtube-browser"><strong>YouTube/OBS</strong><span>Busca pelo SRL e playback no Browser Source.</span></div>
             </div>
-            <div class="provider-exclusive-note">Escolha um modo por live: Spotify, YouTube/Pear ou YouTube/OBS Browser.</div>
+            <div class="provider-exclusive-note">Indicador visual: para trocar o modo, abra Configuracao, escolha Spotify, YouTube/Pear ou YouTube/OBS Browser e salve.</div>
           </section>
 
           <section>
@@ -1450,12 +1450,10 @@ pub async fn page() -> Html<&'static str> {
             <h2>Instalar e atualizar</h2>
           </div>
           <div class="endpoints">
-            <div class="endpoint-row with-action"><span>Instalar pacote</span><code>./scripts/install-desktop-entry</code><button class="secondary icon-button copy-button" type="button" data-copy-value="./scripts/install-desktop-entry" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
             <div class="endpoint-row guide-note"><span>Pasta do app</span><code>~/.local/share/song-request-linux/app</code></div>
-            <div class="endpoint-row with-action"><span>Fechar</span><code>./scripts/song-request-linux-stop</code><button class="secondary icon-button copy-button" type="button" data-copy-value="./scripts/song-request-linux-stop" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
-            <div class="endpoint-row with-action"><span>Instalar via Git</span><code>./scripts/install-user-friendly --with-pear</code><button class="secondary icon-button copy-button" type="button" data-copy-value="./scripts/install-user-friendly --with-pear" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
-            <div class="endpoint-row with-action"><span>Atualizar Git</span><code>./scripts/update-from-github --restart</code><button class="secondary icon-button copy-button" type="button" data-copy-value="./scripts/update-from-github --restart" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
-            <div class="endpoint-row with-action"><span>Remover app</span><code>./scripts/uninstall-user</code><button class="secondary icon-button copy-button" type="button" data-copy-value="./scripts/uninstall-user" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
+            <div class="endpoint-row guide-note"><span>Atualizar</span><code>Quando existir versão nova, use o botão Atualizar no topo do dashboard.</code></div>
+            <div class="endpoint-row guide-note"><span>Fechar</span><code>Use o botão Encerrar no canto superior direito.</code></div>
+            <div class="endpoint-row guide-note"><span>Configurações</span><code>Tokens, logs e fila ficam fora da pasta do app, nos diretórios do usuário.</code></div>
           </div>
           <p class="hint">Atualizar preserva configuracao, tokens e logs. A fila so volta se a persistencia da fila estiver ligada.</p>
           <div class="message" id="update-message"></div>
@@ -1985,7 +1983,7 @@ pub async fn page() -> Html<&'static str> {
       $('update-overlay').hidden = !running;
       $('update-progress')?.classList.toggle('visible', running);
       $('update-progress')?.setAttribute('aria-hidden', running ? 'false' : 'true');
-      $('update-cancel').textContent = running ? t('Cancelar') : t('Fechar');
+      $('update-cancel').textContent = running ? t('Ocultar') : t('Fechar');
     }
 
     function showUpdateOverlay(message = '') {
@@ -2070,7 +2068,7 @@ pub async fn page() -> Html<&'static str> {
         const status = await api('/api/update/status');
         const pendingUpdate = localStorage.getItem('song-request-linux-update-pending') === '1';
         if (!showEmpty && (!status || status.status === 'none')) return;
-        if (!showEmpty && !pendingUpdate && status.status !== 'running') return;
+        if (!showEmpty && !pendingUpdate) return;
         const isRunning = status.status === 'running';
         const isUpdated = status.status === 'updated';
         const isError = status.status === 'failed' || status.status === 'unknown';
@@ -2698,16 +2696,17 @@ pub async fn page() -> Html<&'static str> {
         setUpdateProgress(true);
         showUpdateOverlay(t('Baixando e aplicando atualização. O app pode reiniciar automaticamente.'));
         setMessage('update-message', t('Atualizacao em andamento. Pode fechar esta pagina; o app vai reiniciar e abrir novamente quando terminar.'));
+        localStorage.setItem('song-request-linux-update-pending', '1');
         const result = await api('/api/update', {
           method: 'POST',
           headers: { 'x-song-request-action': 'update' }
         });
         setMessage('update-message', result.message || t('Atualizacao iniciada. Pode fechar esta pagina; o app vai abrir novamente.'));
-        localStorage.setItem('song-request-linux-update-pending', '1');
         startUpdatePolling();
         setTimeout(() => refreshUpdateStatus(false), 1200);
         setTimeout(() => refreshUpdateStatus(false), 8000);
       } catch (error) {
+        localStorage.removeItem('song-request-linux-update-pending');
         $('update-app').disabled = false;
         setUpdateProgress(false);
         showUpdateOverlay(error.message);

@@ -45,11 +45,12 @@ Stop:
 ./scripts/song-request-linux-stop
 ```
 
-Update from GitHub:
+Update:
 
-```bash
-./scripts/update-from-github --restart
-```
+Use the `Update` button in the dashboard header when it appears. It calls the
+local backend, downloads the latest release for portable installs, or updates
+the clone for Git installs. When the app comes back, the dashboard reports
+whether it installed a new version or was already up to date.
 
 Uninstall while keeping local config, tokens, logs, and queue:
 
@@ -68,8 +69,8 @@ Remove everything, including local data:
 The Linux `.tar.gz` package includes the compiled app. Regular users do not need Rust, Cargo, or Git.
 
 ```bash
-tar -xzf song-request-linux-0.1.21-linux-x86_64.tar.gz
-cd song-request-linux-0.1.21-linux-x86_64
+tar -xzf song-request-linux-0.1.23-linux-x86_64.tar.gz
+cd song-request-linux-0.1.23-linux-x86_64
 ./scripts/check-runtime-prereqs
 ./scripts/install-desktop-entry
 ./scripts/song-request-linux-open
@@ -97,13 +98,14 @@ Windows local data paths:
 ![Song Request Linux dashboard](docs/images/dashboard-overview.png)
 
 1. Open the dashboard.
-2. On the `Live` screen, choose the mode in the `Active provider` card:
+2. Go to `Setup` and choose the live mode:
    - `Spotify`: text requests search Spotify.
    - `YouTube/Pear`: text requests search YouTube and play through Pear.
-3. Go to `Setup`.
-4. Configure only the block for the provider you chose.
-5. Connect the Twitch bot.
-6. Save settings.
+   - `YouTube/OBS`: text requests search YouTube and play through the OBS Browser Source.
+3. Configure only the block for the provider you chose.
+4. Connect the Twitch bot.
+5. Save settings.
+6. Return to `Live`; the `Active provider` card only confirms the saved mode visually.
 7. Test a request in the dashboard or chat.
 8. Add the OBS overlay.
 

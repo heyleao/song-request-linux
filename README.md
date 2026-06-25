@@ -34,8 +34,8 @@ configure o player e adicione o overlay no OBS.
 O pacote `.tar.gz` ja traz o binario compilado. O usuario comum nao precisa instalar Rust, Cargo ou Git. Ao instalar, o app fica em `~/.local/share/song-request-linux/app`.
 
 ```bash
-tar -xzf song-request-linux-0.1.22-linux-x86_64.tar.gz
-cd song-request-linux-0.1.22-linux-x86_64
+tar -xzf song-request-linux-0.1.23-linux-x86_64.tar.gz
+cd song-request-linux-0.1.23-linux-x86_64
 ./scripts/check-runtime-prereqs
 ./scripts/install-desktop-entry
 ./scripts/song-request-linux-open
@@ -86,17 +86,12 @@ Parar:
 ./scripts/song-request-linux-stop
 ```
 
-Atualizar pelo GitHub:
+Atualizar:
 
-Use o botao `Atualizar pelo GitHub` no painel. Ele chama o backend local,
-baixa o GitHub, recompila e reinicia o app. Ao voltar, o painel informa se
-baixou uma versao nova ou se ja estava atualizado.
-
-Se o painel nao abrir, rode manualmente:
-
-```bash
-./scripts/update-from-github --restart
-```
+Use o botao `Atualizar` no topo do painel quando ele aparecer. Ele chama o
+backend local, baixa a release mais recente quando a instalacao for portatil,
+ou atualiza o clone quando a instalacao for via Git. Ao voltar, o painel informa
+se baixou uma versao nova ou se ja estava atualizado.
 
 Remover o app mantendo configs, tokens, logs e fila:
 
@@ -115,14 +110,14 @@ Remover tudo, incluindo dados locais:
 ![Dashboard do Song Request Linux](docs/images/dashboard-overview.png)
 
 1. Abra o dashboard.
-2. Na tela `Operacao`, escolha o modo no card `Provider ativo`:
+2. Va em `Configuracao` e escolha o modo da live:
    - `Spotify`: pedidos por texto buscam e tocam no Spotify.
    - `YouTube/Pear`: o SRL busca/valida no YouTube e toca no Pear Desktop.
    - `YouTube/OBS`: o SRL busca/valida no YouTube e toca no Browser Source do OBS.
-3. Va em `Configuracao`.
-4. Configure apenas o bloco do modo escolhido.
-5. Conecte o bot da Twitch.
-6. Salve a configuracao.
+3. Configure apenas o bloco do modo escolhido.
+4. Conecte o bot da Twitch.
+5. Salve a configuracao.
+6. Volte para `Operacao`; o card `Provider ativo` apenas confirma visualmente o modo salvo.
 7. Teste um pedido no dashboard ou no chat.
 8. Adicione o overlay no OBS.
 
