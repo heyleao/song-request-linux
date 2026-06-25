@@ -59,19 +59,19 @@ pub struct UserSecrets {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct UiConfigInput {
-    pub default_provider: MusicProvider,
-    pub youtube_playback: YoutubePlayback,
+    pub default_provider: Option<MusicProvider>,
+    pub youtube_playback: Option<YoutubePlayback>,
     pub pear_base_url: Option<String>,
     pub spotify_client_id: Option<String>,
-    pub spotify_fallback_enabled: bool,
-    pub queue_persistence_enabled: bool,
+    pub spotify_fallback_enabled: Option<bool>,
+    pub queue_persistence_enabled: Option<bool>,
     pub twitch_client_id: Option<String>,
     pub twitch_bot_username: Option<String>,
     pub twitch_channel: Option<String>,
     pub twitch_bot_oauth_token: Option<String>,
     pub youtube_api_key: Option<String>,
     pub youtube_max_duration_seconds: Option<u64>,
-    pub youtube_allow_non_music: bool,
+    pub youtube_allow_non_music: Option<bool>,
     pub command_settings: Option<CommandSettings>,
     pub queue_limits: Option<QueueLimitConfig>,
     pub overlay: Option<OverlayConfig>,
@@ -410,27 +410,61 @@ pub fn save_ui_config(paths: &AppPaths, input: UiConfigInput) -> Result<UiConfig
     let existing_config = load_user_config_from_paths(paths).unwrap_or_default();
     let existing_secrets = load_user_secrets_from_paths(paths).unwrap_or_default();
     let user_config = UserConfig {
-        default_provider: input.default_provider,
-        youtube_playback: input.youtube_playback,
-        pear_base_url: clean_optional_value(input.pear_base_url),
-        spotify_client_id: clean_optional_value(input.spotify_client_id),
+        default_provider: input
+            .default_provider
+            .unwrap_or(existing_config.default_provider),
+        youtube_playback: input
+            .youtube_playback
+            .unwrap_or(existing_config.youtube_playback),
+        pear_base_url: input
+            .pear_base_url
+            .and_then(|value| clean_optional_value(Some(value)))
+            .or(existing_config.pear_base_url),
+        spotify_client_id: input
+            .spotify_client_id
+            .and_then(|value| clean_optional_value(Some(value)))
+            .or(existing_config.spotify_client_id),
         spotify_redirect_uri: None,
-        spotify_fallback_enabled: input.spotify_fallback_enabled,
+        spotify_fallback_enabled: input
+            .spotify_fallback_enabled
+            .unwrap_or(existing_config.spotify_fallback_enabled),
         spotify_volume: normalize_volume(existing_config.spotify_volume),
-        queue_persistence_enabled: input.queue_persistence_enabled,
+        queue_persistence_enabled: input
+            .queue_persistence_enabled
+            .unwrap_or(existing_config.queue_persistence_enabled),
         youtube_max_duration_seconds: input
             .youtube_max_duration_seconds
-            .unwrap_or(360)
+            .unwrap_or(existing_config.youtube_max_duration_seconds)
             .clamp(30, 86_400),
-        youtube_allow_non_music: input.youtube_allow_non_music,
-        twitch_client_id: clean_optional_value(input.twitch_client_id),
-        twitch_bot_username: clean_optional_value(input.twitch_bot_username),
-        twitch_channel: clean_optional_value(input.twitch_channel),
+        youtube_allow_non_music: input
+            .youtube_allow_non_music
+            .unwrap_or(existing_config.youtube_allow_non_music),
+        twitch_client_id: input
+            .twitch_client_id
+            .and_then(|value| clean_optional_value(Some(value)))
+            .or(existing_config.twitch_client_id),
+        twitch_bot_username: input
+            .twitch_bot_username
+            .and_then(|value| clean_optional_value(Some(value)))
+            .or(existing_config.twitch_bot_username),
+        twitch_channel: input
+            .twitch_channel
+            .and_then(|value| clean_optional_value(Some(value)))
+            .or(existing_config.twitch_channel),
         pear_volume: normalize_volume(existing_config.pear_volume),
         browser_volume: normalize_volume(existing_config.browser_volume),
-        command_settings: normalize_command_settings(input.command_settings.unwrap_or_default()),
-        queue_limits: normalize_queue_limits(input.queue_limits.unwrap_or_default()),
-        overlay: input.overlay.unwrap_or_default().normalized(),
+        command_settings: normalize_command_settings(
+            input
+                .command_settings
+                .unwrap_or(existing_config.command_settings),
+        ),
+        queue_limits: normalize_queue_limits(
+            input.queue_limits.unwrap_or(existing_config.queue_limits),
+        ),
+        overlay: input
+            .overlay
+            .unwrap_or(existing_config.overlay)
+            .normalized(),
     };
     let incoming_youtube_keys = clean_api_keys_from_input(input.youtube_api_key);
     let saved_youtube_keys = if incoming_youtube_keys.is_empty() {
@@ -879,5 +913,105 @@ mod tests {
         let settings = normalize_command_settings(settings);
 
         assert_eq!(settings.aliases.song_request, vec!["!sr"]);
+    }
+
+    #[test]
+    fn partial_ui_config_save_preserves_existing_values() {
+        let root = env::temp_dir().join(format!(
+            "song-request-linux-config-preserve-{}",
+            std::process::id()
+        ));
+        let paths = AppPaths {
+            config_dir: root.join("config"),
+            cache_dir: root.join("cache"),
+            state_dir: root.join("state"),
+            log_dir: root.join("state/logs"),
+            tls_dir: root.join("state/tls"),
+            queue_file: root.join("state/queue.json"),
+        };
+        let _ = fs::remove_dir_all(&root);
+
+        let mut settings = CommandSettings::default();
+        settings.aliases.song_request = vec!["!ssr".to_string()];
+        let limits = QueueLimitConfig {
+            follower: 2,
+            subscriber: 4,
+            vip: 6,
+            moderator: 8,
+            streamer: 0,
+        };
+        let overlay = OverlayConfig {
+            label: "ON AIR".to_string(),
+            lines: 3,
+        };
+
+        save_ui_config(
+            &paths,
+            UiConfigInput {
+                default_provider: Some(MusicProvider::Spotify),
+                youtube_playback: Some(YoutubePlayback::Pear),
+                pear_base_url: Some("http://127.0.0.1:26538/api/v1".to_string()),
+                spotify_client_id: Some("spotify-client".to_string()),
+                spotify_fallback_enabled: Some(true),
+                queue_persistence_enabled: Some(true),
+                twitch_client_id: Some("twitch-client".to_string()),
+                twitch_bot_username: Some("bot".to_string()),
+                twitch_channel: Some("channel".to_string()),
+                twitch_bot_oauth_token: Some("oauth:token".to_string()),
+                youtube_api_key: Some("youtube-key".to_string()),
+                youtube_max_duration_seconds: Some(420),
+                youtube_allow_non_music: Some(true),
+                command_settings: Some(settings.clone()),
+                queue_limits: Some(limits.clone()),
+                overlay: Some(overlay.clone()),
+            },
+        )
+        .expect("initial save");
+
+        save_ui_config(
+            &paths,
+            UiConfigInput {
+                default_provider: None,
+                youtube_playback: None,
+                pear_base_url: None,
+                spotify_client_id: None,
+                spotify_fallback_enabled: None,
+                queue_persistence_enabled: None,
+                twitch_client_id: None,
+                twitch_bot_username: None,
+                twitch_channel: None,
+                twitch_bot_oauth_token: None,
+                youtube_api_key: None,
+                youtube_max_duration_seconds: None,
+                youtube_allow_non_music: None,
+                command_settings: None,
+                queue_limits: None,
+                overlay: None,
+            },
+        )
+        .expect("partial save");
+
+        let view = UiConfigView::load(&paths);
+        assert_eq!(view.default_provider, MusicProvider::Spotify);
+        assert_eq!(view.youtube_playback, YoutubePlayback::Pear);
+        assert_eq!(view.pear_base_url, "http://127.0.0.1:26538/api/v1");
+        assert_eq!(view.spotify_client_id.as_deref(), Some("spotify-client"));
+        assert!(view.spotify_fallback_enabled);
+        assert!(view.queue_persistence_enabled);
+        assert_eq!(view.twitch_client_id.as_deref(), Some("twitch-client"));
+        assert_eq!(view.twitch_bot_username.as_deref(), Some("bot"));
+        assert_eq!(view.twitch_channel.as_deref(), Some("channel"));
+        assert_eq!(view.youtube_max_duration_seconds, 420);
+        assert!(view.youtube_allow_non_music);
+        assert_eq!(view.command_settings.aliases.song_request, vec!["!ssr"]);
+        assert_eq!(view.queue_limits.follower, limits.follower);
+        assert_eq!(view.queue_limits.subscriber, limits.subscriber);
+        assert_eq!(view.queue_limits.vip, limits.vip);
+        assert_eq!(view.queue_limits.moderator, limits.moderator);
+        assert_eq!(view.queue_limits.streamer, limits.streamer);
+        assert_eq!(view.overlay.label, overlay.label);
+        assert_eq!(view.overlay.lines, overlay.lines);
+
+        let _ = fs::remove_dir_all(root);
     }
 }

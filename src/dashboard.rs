@@ -1438,7 +1438,7 @@ pub async fn page() -> Html<&'static str> {
           <div class="endpoints">
             <div class="endpoint-row with-action"><span>Dashboard local</span><code>http://127.0.0.1:7384/</code><button class="secondary icon-button copy-button" type="button" data-copy-value="http://127.0.0.1:7384/" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
             <div class="endpoint-row with-action"><span>Overlay OBS</span><code id="guide-overlay-url">http://127.0.0.1:7384/overlay?max=48&width=520&size=24&lines=1</code><button class="secondary icon-button copy-button" type="button" data-copy-target="guide-overlay-url" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
-            <div class="endpoint-row guide-note"><span>Tamanho overlay</span><code>620 px de largura x <span id="guide-overlay-height">120 px</span> de altura</code></div>
+            <div class="endpoint-row guide-note"><span>Tamanho overlay</span><code id="guide-overlay-size">620 px de largura x 120 px de altura</code></div>
             <div class="endpoint-row with-action"><span>Player OBS Browser</span><code>http://127.0.0.1:7384/player</code><button class="secondary icon-button copy-button" type="button" data-copy-value="http://127.0.0.1:7384/player" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
             <div class="endpoint-row guide-note"><span>Audio OBS Browser</span><code>Controlar audio via OBS + Monitorar e enviar saida</code></div>
             <div class="endpoint-row with-action"><span>Pear API</span><code>http://127.0.0.1:26538/api/v1</code><button class="secondary icon-button copy-button" type="button" data-copy-value="http://127.0.0.1:26538/api/v1" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
@@ -1521,6 +1521,79 @@ pub async fn page() -> Html<&'static str> {
       return i18nText[value] || value;
     }
 
+    function translateDynamicText(value) {
+      const text = String(value || '');
+      if (!text) return text;
+      const exact = t(text);
+      if (exact !== text || currentLanguage() !== 'en') return exact;
+
+      const replacements = [
+        [/^Mostrando (\d+) de (\d+) eventos mais recentes\.$/, 'Showing $1 of $2 most recent events.'],
+        [/^Mostrando (\d+) evento\(s\)\.$/, 'Showing $1 event(s).'],
+        [/^(\d+) pedido\(s\)$/, '$1 request(s)'],
+        [/^Volume (\d+)% pendente: (.+)$/, 'Volume $1% pending: $2'],
+        [/^Playlist fallback salva e ativada: (.+)\.$/, 'Fallback playlist saved and enabled: $1.'],
+        [/^Atualizacao baixada para (.+), mas esta aba ainda roda v(.+)\. Use Atualizar novamente ou reabra o app\.$/, 'Update downloaded to $1, but this tab is still running v$2. Use Update again or reopen the app.'],
+        [/^Nao consegui verificar atualizacao: (.+)$/, 'Could not check for updates: $1'],
+        [/^Não consegui carregar o changelog: (.+)$/, 'Could not load changelog: $1'],
+        [/^Nao consegui iniciar fallback Spotify: Nenhum device Spotify de stream disponivel\. Abra o Spotify no PC da live; o app nao transfere playback para celular\.$/, 'Could not start Spotify fallback: no Spotify stream device is available. Open Spotify on the stream PC; the app does not transfer playback to a phone.'],
+        [/^Nao consegui iniciar fallback Spotify: (.+)$/, 'Could not start Spotify fallback: $1'],
+        [/^bot Twitch iniciando$/, 'Twitch bot starting'],
+        [/^bot Twitch sem configuracao ativa$/, 'Twitch bot has no active configuration'],
+        [/^Song Request Linux iniciado$/, 'Song Request Linux started'],
+        [/^Pedido Spotify restaurado na fila: (.+)$/, 'Spotify request restored in queue: $1'],
+        [/^Spotify manual detectado; fallback aguardando fim: (.+)$/, 'Manual Spotify playback detected; fallback is waiting for it to finish: $1'],
+        [/^Spotify pausado manualmente; fallback aguardando play: (.+)$/, 'Spotify manually paused; fallback is waiting for play: $1'],
+        [/^Fallback Spotify iniciado: (.+)$/, 'Spotify fallback started: $1'],
+        [/^Pear aguardando fim da musica atual: (.+)$/, 'Pear waiting for current song to finish: $1'],
+        [/^Pear tocando pedido: (.+)$/, 'Pear playing request: $1'],
+        [/^Pedido Pear finalizado$/, 'Pear request finished'],
+        [/^Pear livre sem fila do app; seguindo a seguir: (.+) - (.+)$/, 'Pear idle with no app queue; following Up Next: $1 - $2'],
+        [/^Pear pausado sem pedidos pendentes\. Ultima musica: (.+)$/, 'Pear paused with no pending requests. Last song: $1'],
+        [/^Pear pausado sem pedidos pendentes$/, 'Pear paused with no pending requests'],
+        [/^Spotify retomado apos fila YouTube$/, 'Spotify resumed after YouTube queue'],
+        [/^Modo: instalacao local$/, 'Mode: local install'],
+        [/^Modo: repositorio Git$/, 'Mode: Git repository'],
+        [/^Data: (.+)$/, 'Date: $1'],
+        [/^Release: (.+)$/, 'Release: $1'],
+        [/^Download: OK$/, 'Download: OK'],
+        [/^Extracao: OK$/, 'Extraction: OK'],
+        [/^Build: OK$/, 'Build: OK'],
+        [/^Instalacao: OK$/, 'Installation: OK'],
+        [/^Resultado: atualizado com sucesso para (.+)$/, 'Result: updated successfully to $1'],
+        [/^Resultado: atualizado com sucesso (.+) -> (.+)$/, 'Result: updated successfully $1 -> $2'],
+        [/^Resultado: ja estava atualizado \((.+)\)$/, 'Result: already up to date ($1)'],
+        [/^Atualizado com sucesso para (.+)\.$/, 'Updated successfully to $1.'],
+        [/^Atualizado com sucesso: baixou (.+) -> (.+)\.$/, 'Updated successfully: downloaded $1 -> $2.'],
+        [/^Ja estava atualizado\. Commit atual: (.+)\.$/, 'Already up to date. Current commit: $1.'],
+      ];
+      for (const [pattern, replacement] of replacements) {
+        if (pattern.test(text)) return text.replace(pattern, replacement);
+      }
+      return text;
+    }
+
+    function translateLogText(value) {
+      return String(value || '')
+        .split('\n')
+        .map((line) => translateDynamicText(line))
+        .join('\n');
+    }
+
+    function translateReleaseText(value) {
+      const text = String(value || '');
+      if (currentLanguage() !== 'en') return text;
+      return text
+        .replaceAll('## Correcoes', '## Fixes')
+        .replaceAll('## Pacotes', '## Packages')
+        .replaceAll('- Tela de atualizacao nao volta mais sozinha apos ocultar/cancelar uma atualizacao antiga em andamento.', '- Update screen no longer reopens by itself after hiding an old update in progress.')
+        .replaceAll('- Botao da atualizacao agora usa Ocultar, sem sugerir rollback.', '- Update button now says Hide, without suggesting rollback.')
+        .replaceAll('- Atualizacao portatil sai da pasta do app antes de substituir arquivos, evitando erro de diretório removido.', '- Portable update leaves the app folder before replacing files, avoiding removed-directory errors.')
+        .replaceAll('- Guia do app removido de comandos de desenvolvimento que nao existem no pacote comum.', '- App guide no longer shows development commands that do not exist in the normal package.')
+        .replaceAll('- README, SETUP e prints atualizados para explicar que o provider da tela inicial e apenas visual.', '- README, SETUP, and screenshots updated to explain that the home provider card is visual only.')
+        .replaceAll('- Windows experimental: zip x86_64', '- Experimental Windows: zip x86_64');
+    }
+
     function translateTree(root = document.body) {
       const lang = currentLanguage();
       document.documentElement.lang = lang === 'en' ? 'en' : 'pt-BR';
@@ -1528,7 +1601,7 @@ pub async fn page() -> Html<&'static str> {
         acceptNode(node) {
           if (!node.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
           const parent = node.parentElement;
-          if (!parent || ['SCRIPT', 'STYLE', 'CODE', 'PRE'].includes(parent.tagName)) return NodeFilter.FILTER_REJECT;
+          if (!parent || ['SCRIPT', 'STYLE', 'PRE'].includes(parent.tagName) || parent.closest('pre')) return NodeFilter.FILTER_REJECT;
           return NodeFilter.FILTER_ACCEPT;
         }
       });
@@ -1688,7 +1761,9 @@ pub async fn page() -> Html<&'static str> {
       if ($('guide-overlay-url')) $('guide-overlay-url').textContent = fullUrl;
       if ($('guide-overlay-open')) $('guide-overlay-open').href = url;
       if ($('setup-overlay-height')) $('setup-overlay-height').textContent = String(height);
-      if ($('guide-overlay-height')) $('guide-overlay-height').textContent = `${height} px`;
+      if ($('guide-overlay-size')) $('guide-overlay-size').textContent = currentLanguage() === 'en'
+        ? `620 px wide x ${height} px high`
+        : `620 px de largura x ${height} px de altura`;
     }
 
     function fillOverlaySettings(config) {
@@ -1903,7 +1978,7 @@ pub async fn page() -> Html<&'static str> {
       return `
         <div class="requirement-row ${state}">
           <strong>${state === 'ok' ? 'OK' : state === 'warn' ? t('Atenção') : t('Falta')}</strong>
-          <span><b>${escapeHtml(label)}</b><br>${escapeHtml(detail)}</span>
+          <span><b>${escapeHtml(t(label))}</b><br>${escapeHtml(detail)}</span>
         </div>
       `;
     }
@@ -1918,23 +1993,23 @@ pub async fn page() -> Html<&'static str> {
         const spotifyProduct = connections.spotify.product;
         const premiumState = connections.spotify.premium === true ? 'ok' : connections.spotify.premium === false ? 'bad' : 'warn';
         const premiumDetail = connections.spotify.premium === true
-          ? 'Conta Premium confirmada pelo Spotify. Mantenha o app Spotify aberto com um device ativo.'
+          ? t('Conta Premium confirmada pelo Spotify. Mantenha o app Spotify aberto com um device ativo.')
           : connections.spotify.premium === false
-            ? `Conta logada reportou plano ${spotifyProduct || 'nao premium'}. Controle de fila/playback exige Premium.`
+            ? `${t('Conta logada reportou plano')} ${spotifyProduct || t('nao premium')}. ${t('Controle de fila/playback exige Premium.')}`
             : connections.spotify.product_check_error
-              ? 'Nao consegui validar o plano. Clique em Login Spotify para conceder o escopo user-read-private.'
-              : 'Plano ainda nao validado. Clique em Login Spotify se esta mensagem continuar aparecendo.';
+              ? t('Nao consegui validar o plano. Clique em Login Spotify para conceder o escopo user-read-private.')
+              : t('Plano ainda nao validado. Clique em Login Spotify se esta mensagem continuar aparecendo.');
         $('setup-provider-help').textContent = t('Modo Spotify ativo: pedidos por texto entram no Spotify. YouTube fica parado até você trocar o provider.');
         $('setup-provider-requirements').innerHTML = [
           requirementRow(
             connections.spotify.client_id_configured ? 'ok' : 'bad',
             'Spotify Client ID',
-            connections.spotify.client_id_configured ? 'Client ID salvo.' : 'Preencha o Client ID no card Spotify.'
+            connections.spotify.client_id_configured ? t('Client ID salvo.') : t('Preencha o Client ID no card Spotify.')
           ),
           requirementRow(
             connections.spotify.token_configured ? 'ok' : 'bad',
             'Login Spotify',
-            connections.spotify.token_configured ? 'OAuth conectado.' : 'Clique em Login Spotify depois de salvar o Client ID.'
+            connections.spotify.token_configured ? t('OAuth conectado.') : t('Clique em Login Spotify depois de salvar o Client ID.')
           ),
           requirementRow(
             premiumState,
@@ -1967,7 +2042,7 @@ pub async fn page() -> Html<&'static str> {
         requirementRow(
           'warn',
           t('Filtro de duração'),
-          `Limite atual: ${config.youtube_max_duration_seconds || 360}s. Ajuste para evitar videos longos na fila.`
+          `${t('Limite atual')}: ${config.youtube_max_duration_seconds || 360}s. ${t('Ajuste para evitar videos longos na fila.')}`
         )
       ].join('');
     }
@@ -1994,7 +2069,7 @@ pub async fn page() -> Html<&'static str> {
 
     function renderUpdateChangelog() {
       const text = latestUpdate?.changelog?.trim() || t('Changelog indisponível.');
-      $('update-changelog-text').textContent = text;
+      $('update-changelog-text').textContent = translateReleaseText(text);
     }
 
     async function showInstalledChangelog() {
@@ -2007,11 +2082,11 @@ pub async fn page() -> Html<&'static str> {
       if (!installedUpdate) installedUpdate = await api('/api/update/installed');
       const version = installedUpdate.current_version ? `v${installedUpdate.current_version}` : installedUpdate.current_tag;
       $('update-overlay-message').textContent = `${t('Notas da versão instalada')} ${version || ''}.`;
-      $('update-changelog-text').textContent = installedUpdate.changelog?.trim() || t('Changelog indisponível para esta versão.');
+      $('update-changelog-text').textContent = translateReleaseText(installedUpdate.changelog?.trim() || t('Changelog indisponível para esta versão.'));
     }
 
     function setUpdateLog(text) {
-      $('update-log-text').textContent = text?.trim() || t('Log ainda não disponível.');
+      $('update-log-text').textContent = translateLogText(text?.trim() || t('Log ainda não disponível.'));
     }
 
     function stopUpdatePolling() {
@@ -2131,25 +2206,25 @@ pub async fn page() -> Html<&'static str> {
       const visibleEvents = events.slice(0, visibleLimit);
       $('event-count').textContent = events.length;
       $('events-limit-label').textContent = events.length > visibleLimit
-        ? `Mostrando ${visibleLimit} de ${events.length} eventos mais recentes.`
-        : `Mostrando ${events.length} evento(s).`;
+        ? translateDynamicText(`Mostrando ${visibleLimit} de ${events.length} eventos mais recentes.`)
+        : translateDynamicText(`Mostrando ${events.length} evento(s).`);
       const html = visibleEvents.length
         ? visibleEvents.map((event) => `
             <div class="event-row ${escapeHtml(event.kind)}">
               <strong>${escapeHtml(event.kind)}</strong>
-              <span>${escapeHtml(event.message)}</span>
+              <span>${escapeHtml(translateDynamicText(event.message))}</span>
             </div>
           `).join('')
-        : '<div class="event-row muted">Nenhum evento ainda</div>';
+        : `<div class="event-row muted">${escapeHtml(t('Nenhum evento ainda'))}</div>`;
       $('events').innerHTML = html;
       $('events-preview').innerHTML = events.slice(0, 6).length
         ? events.slice(0, 6).map((event) => `
             <div class="event-row ${escapeHtml(event.kind)}">
               <strong>${escapeHtml(event.kind)}</strong>
-              <span>${escapeHtml(event.message)}</span>
+              <span>${escapeHtml(translateDynamicText(event.message))}</span>
             </div>
           `).join('')
-        : '<div class="event-row muted">Nenhum evento ainda</div>';
+        : `<div class="event-row muted">${escapeHtml(t('Nenhum evento ainda'))}</div>`;
     }
 
     function renderQueuePersistence(queue) {
@@ -2234,13 +2309,13 @@ pub async fn page() -> Html<&'static str> {
 
       $('twitch-state').textContent = twitchReady ? t('configurado') : t('pendente');
       $('twitch-dot').className = stateClass(twitchReady);
-      $('spotify-state').textContent = spotifyReady ? t('conectado') : spotifyConfigured ? 'login' : t('pendente');
+      $('spotify-state').textContent = spotifyReady ? t('conectado') : spotifyConfigured ? t('login') : t('pendente');
       $('spotify-dot').className = stateClass(spotifyReady, spotifyConfigured);
       $('youtube-state').textContent = config.default_provider !== 'youtube'
-        ? 'inativo'
+        ? t('inativo')
         : config.youtube_playback === 'pear'
-          ? youtubeReady ? 'Pear + API ok' : 'Pear/API pendente'
-          : config.youtube_api_key_configured ? 'OBS + API ok' : 'API pendente';
+          ? youtubeReady ? 'Pear + API ok' : t('Pear/API pendente')
+          : config.youtube_api_key_configured ? 'OBS + API ok' : t('API pendente');
       $('youtube-dot').className = stateClass(youtubeReady, config.default_provider !== 'youtube' || config.youtube_api_key_configured || config.youtube_playback === 'pear');
       const mode = operationModeFromConfig(config);
       paintOperationMode(mode);
@@ -2249,14 +2324,14 @@ pub async fn page() -> Html<&'static str> {
 
       const rows = [
         ['Bot Twitch', twitchReady ? t('configurado') : t('não configurado')],
-        ['Spotify', spotifyReady ? 'conectado' : spotifyConfigured ? 'login pendente' : 'client id pendente'],
-        ['YouTube', config.default_provider === 'youtube' ? `${config.youtube_playback === 'pear' ? 'Pear Desktop' : 'OBS Browser'} - ${config.youtube_api_key_configured ? `${config.youtube_api_key_count || 1} ${t('api key(s)')}` : t('api key pendente')}` : 'inativo'],
+        ['Spotify', spotifyReady ? t('conectado') : spotifyConfigured ? t('login pendente') : t('client id pendente')],
+        ['YouTube', config.default_provider === 'youtube' ? `${config.youtube_playback === 'pear' ? 'Pear Desktop' : 'OBS Browser'} - ${config.youtube_api_key_configured ? `${config.youtube_api_key_count || 1} ${t('api key(s)')}` : t('api key pendente')}` : t('inativo')],
         ['Pear Desktop', pear.configured ? pear.reachable ? t('conectado') : t('não encontrado') : t('desativado')],
         ['Pear atual', pear.now_playing || '-'],
-        ['Logs', diagnostics.storage.log_dir.exists ? 'ok' : 'pendente'],
-        ['Runtime', diagnostics.runtime?.setsid?.available ? 'launcher ok' : 'setsid ausente'],
-        ['OBS Browser', diagnostics.runtime?.yt_dlp?.available ? 'yt-dlp ok' : 'yt-dlp pendente'],
-        ['Pear Desktop', diagnostics.runtime?.pear?.available ? 'app encontrado' : 'opcional ausente']
+        ['Logs', diagnostics.storage.log_dir.exists ? 'ok' : t('pendente')],
+        ['Runtime', diagnostics.runtime?.setsid?.available ? t('launcher ok') : t('setsid ausente')],
+        ['OBS Browser', diagnostics.runtime?.yt_dlp?.available ? 'yt-dlp ok' : t('yt-dlp pendente')],
+        ['Pear Desktop', diagnostics.runtime?.pear?.available ? t('app encontrado') : t('opcional ausente')]
       ];
       const html = rows.map(([label, value]) => `
         <div class="diagnostic-row"><span>${escapeHtml(label)}</span><code>${escapeHtml(value)}</code></div>
@@ -2289,7 +2364,7 @@ pub async fn page() -> Html<&'static str> {
         ]);
         lastConfig = config;
 
-        $('queue-count').textContent = `${queue.queue_length} pedido(s)`;
+        $('queue-count').textContent = translateDynamicText(`${queue.queue_length} pedido(s)`);
         $('app-version').textContent = status.version ? `v${status.version}` : 'v?';
         $('refresh-state').textContent = 'OK';
         $('playback-mode').textContent = config.default_provider === 'youtube' ? (config.youtube_playback === 'pear' ? 'Pear Desktop' : 'OBS Browser') : t('Inativo');
