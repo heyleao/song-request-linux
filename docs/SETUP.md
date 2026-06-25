@@ -10,8 +10,8 @@ Faca um passo por vez.
 Pacote `.tar.gz`:
 
 ```bash
-tar -xzf song-request-linux-0.1.25-linux-x86_64.tar.gz
-cd song-request-linux-0.1.25-linux-x86_64
+tar -xzf song-request-linux-0.1.26-linux-x86_64.tar.gz
+cd song-request-linux-0.1.26-linux-x86_64
 ./scripts/check-runtime-prereqs
 ./scripts/install-desktop-entry
 ./scripts/song-request-linux-open
@@ -47,7 +47,7 @@ http://127.0.0.1:7384/
 
 ### Windows experimental
 
-1. Baixe `song-request-linux-0.1.25-windows-x86_64.zip`.
+1. Baixe `song-request-linux-0.1.26-windows-x86_64.zip`.
 2. Extraia o `.zip`.
 3. Dê dois cliques em `Start-SongRequestLinux.cmd`.
 4. O painel abre em `http://127.0.0.1:7384/`.
@@ -109,7 +109,9 @@ Use um modo por vez: Spotify, YouTube via Pear ou YouTube via OBS Browser. Se tr
 
 ## 4. Twitch
 
-O bot da Twitch le o chat e responde aos comandos.
+O bot da Twitch le o chat e responde aos comandos. Use uma conta bot Twitch
+separada para o login do bot. O canal principal Twitch e o canal onde a live
+acontece.
 
 1. Abra https://dev.twitch.tv/console/apps
 2. Crie um app.
@@ -123,11 +125,11 @@ https://localhost:7443/auth/twitch/callback
 5. Copie o `Client ID`.
 6. No Song Request Linux, preencha:
    - `Twitch Client ID`
-   - `Conta do bot`
-   - `Canal`
+   - `Conta bot Twitch`: usuario da conta separada do bot
+   - `Canal principal Twitch`: seu canal principal onde a live acontece
 7. Clique em `Salvar`.
 8. Clique em `Conectar bot`.
-9. Entre com a conta do bot, nao com a conta principal.
+9. Entre com a conta bot Twitch, nao com o canal principal.
 
 Esta pronto quando o topo mostrar `Twitch configurado`.
 
@@ -411,7 +413,7 @@ Problemas comuns:
 
 - Spotify nao toca: abra o Spotify no PC e aperte play.
 - Spotify diz que nao tem device: o app nao encontrou um device valido no PC.
-- Twitch nao responde: confira se conectou com a conta do bot.
+- Twitch nao responde: confira se conectou com a conta bot Twitch.
 - YouTube nao busca: confira a API Key e a YouTube Data API v3.
 - Pear nao toca: confira se o Pear esta aberto e o API Server ligado.
 - OBS nao mostra overlay: confira a URL e o tamanho da Browser Source.

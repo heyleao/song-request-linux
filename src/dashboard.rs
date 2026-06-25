@@ -1033,7 +1033,7 @@ pub async fn page() -> Html<&'static str> {
             </div>
             <form id="request-form">
               <label>Solicitante
-                <input id="requester" autocomplete="off" value="heyleao">
+                <input id="requester" autocomplete="off" value="streamer">
               </label>
               <label>Música, artista ou link
                 <input id="query" autocomplete="off" placeholder="system of a down spiders ou https://youtu.be/...">
@@ -1107,24 +1107,24 @@ pub async fn page() -> Html<&'static str> {
             <div class="step-head">
               <div>
                 <h2>Twitch: ligar o bot ao chat</h2>
-                <p class="step-copy">Use a conta do bot aqui. Ela vai ler o chat e responder aos comandos.</p>
+                <p class="step-copy">Use uma conta bot Twitch separada. O canal principal Twitch é onde a live acontece.</p>
               </div>
               <a class="setup-inline-link" href="https://dev.twitch.tv/console/apps" target="_blank" rel="noreferrer">Criar app Twitch</a>
             </div>
             <div class="setup-quick-list">
               <span>Redirect no app Twitch: <code>https://localhost:7443/auth/twitch/callback</code></span>
-              <span>Cole o Client ID, nome do bot e canal.</span>
-              <span>Clique em Conectar bot e entre com a conta do bot.</span>
+              <span>Cole o Client ID, a conta bot Twitch e o canal principal Twitch.</span>
+              <span>Clique em Conectar bot e entre com a conta bot Twitch, não com o canal principal.</span>
             </div>
             <div class="form-grid">
               <label>Client ID Twitch
                 <input id="setup-twitch-client-id" autocomplete="off" placeholder="Client ID do app Twitch">
               </label>
-              <label>Conta do bot
-                <input id="setup-twitch-bot-username" autocomplete="off" placeholder="lelos_bot">
+              <label>Conta bot Twitch
+                <input id="setup-twitch-bot-username" autocomplete="off" placeholder="nome_da_conta_bot">
               </label>
-              <label>Canal da live
-                <input id="setup-twitch-channel" autocomplete="off" placeholder="hey_leao">
+              <label>Canal principal Twitch
+                <input id="setup-twitch-channel" autocomplete="off" placeholder="seu_canal_principal">
               </label>
               <label>Modo de operação
                 <select id="setup-operation-mode">
@@ -1427,7 +1427,7 @@ pub async fn page() -> Html<&'static str> {
         <section>
           <h2>Guia rápido</h2>
           <div class="endpoints">
-            <div class="endpoint-row with-action"><span>Guia completo</span><code>https://github.com/heyleao/song-request-linux/blob/main/docs/SETUP.md</code><button class="secondary icon-button copy-button" type="button" data-copy-value="https://github.com/heyleao/song-request-linux/blob/main/docs/SETUP.md" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
+            <div class="endpoint-row guide-note"><span>Guia completo</span><code>docs/SETUP.md na pasta do app</code></div>
             <div class="endpoint-row with-action"><span>1. Twitch Console</span><code>https://dev.twitch.tv/console/apps</code><button class="secondary icon-button copy-button" type="button" data-copy-value="https://dev.twitch.tv/console/apps" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
             <div class="endpoint-row with-action"><span>Redirect Twitch</span><code>https://localhost:7443/auth/twitch/callback</code><button class="secondary icon-button copy-button" type="button" data-copy-value="https://localhost:7443/auth/twitch/callback" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
             <div class="endpoint-row with-action"><span>2. Spotify Dashboard</span><code>https://developer.spotify.com/dashboard</code><button class="secondary icon-button copy-button" type="button" data-copy-value="https://developer.spotify.com/dashboard" aria-label="Copiar" title="Copiar"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button></div>
@@ -2471,7 +2471,7 @@ pub async fn page() -> Html<&'static str> {
         const request = await api('/api/song-requests', {
           method: 'POST',
           body: JSON.stringify({
-            requester: $('requester').value || 'heyleao',
+            requester: $('requester').value || 'streamer',
             query: $('query').value
           })
         });

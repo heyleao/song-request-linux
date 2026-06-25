@@ -7,8 +7,8 @@ This is the short recipe to get Song Request Linux ready for a stream. Do one st
 `.tar.gz` package:
 
 ```bash
-tar -xzf song-request-linux-0.1.25-linux-x86_64.tar.gz
-cd song-request-linux-0.1.25-linux-x86_64
+tar -xzf song-request-linux-0.1.26-linux-x86_64.tar.gz
+cd song-request-linux-0.1.26-linux-x86_64
 ./scripts/check-runtime-prereqs
 ./scripts/install-desktop-entry
 ./scripts/song-request-linux-open
@@ -44,7 +44,7 @@ http://127.0.0.1:7384/
 
 ### Experimental Windows
 
-1. Download `song-request-linux-0.1.25-windows-x86_64.zip`.
+1. Download `song-request-linux-0.1.26-windows-x86_64.zip`.
 2. Extract the `.zip`.
 3. Double-click `Start-SongRequestLinux.cmd`.
 4. The dashboard opens at `http://127.0.0.1:7384/`.
@@ -106,7 +106,9 @@ Use one mode at a time: Spotify, YouTube via Pear, or YouTube via OBS Browser. I
 
 ## 4. Twitch
 
-The Twitch bot reads chat and replies to commands.
+The Twitch bot reads chat and replies to commands. Use a separate Twitch bot
+account for bot login. The main Twitch channel is the channel where the stream
+happens.
 
 1. Open https://dev.twitch.tv/console/apps
 2. Create an app.
@@ -120,11 +122,11 @@ https://localhost:7443/auth/twitch/callback
 5. Copy the `Client ID`.
 6. In Song Request Linux, fill in:
    - `Twitch Client ID`
-   - `Bot account`
-   - `Channel`
+   - `Twitch bot account`: username of the separate bot account
+   - `Main Twitch channel`: your main channel where the stream happens
 7. Click `Save`.
 8. Click `Connect bot`.
-9. Log in with the bot account, not your main account.
+9. Log in with the Twitch bot account, not the main channel.
 
 It is ready when the top status shows Twitch as configured.
 
