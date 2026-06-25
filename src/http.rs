@@ -2207,7 +2207,11 @@ mod tests {
 
     #[tokio::test]
     async fn song_request_endpoint_adds_current_song() {
-        let config = AppConfig::from_env().expect("config");
+        let config = isolated_config(
+            "song-request-endpoint-adds-current-song",
+            MusicProvider::Youtube,
+            YoutubePlayback::Browser,
+        );
         let app = router(AppState::new(config));
 
         let response = app

@@ -654,6 +654,9 @@ async fn start_spotify_fallback_if_idle(state: &AppState) {
             if playback.is_playing
                 && playback.context_uri.as_deref() == Some(playlist.uri.as_str()) =>
         {
+            state
+                .spotify_manual_pause_active
+                .store(false, Ordering::SeqCst);
             *state.spotify_manual_playback_title.lock().await = None;
             state.spotify_fallback_started.store(true, Ordering::SeqCst);
             return;
@@ -667,6 +670,9 @@ async fn start_spotify_fallback_if_idle(state: &AppState) {
                 remember_manual_spotify_pause(state, &playback.title).await;
                 return;
             } else if spotify_playback_finished(&playback) {
+                state
+                    .spotify_manual_pause_active
+                    .store(false, Ordering::SeqCst);
                 *state.spotify_manual_playback_title.lock().await = None;
             } else {
                 remember_manual_spotify_playback(state, &playback.title).await;
@@ -674,6 +680,11 @@ async fn start_spotify_fallback_if_idle(state: &AppState) {
             }
         }
         Ok(None) => {
+            if spotify_manual_pause_blocks_fallback(
+                state.spotify_manual_pause_active.load(Ordering::SeqCst),
+            ) {
+                return;
+            }
             *state.spotify_manual_playback_title.lock().await = None;
         }
         Err(error) => {
@@ -725,6 +736,10 @@ fn spotify_playback_finished(playback: &spotify::SpotifyPlayback) -> bool {
     duration_ms > 0 && progress_ms.saturating_add(1_500) >= duration_ms
 }
 
+fn spotify_manual_pause_blocks_fallback(manual_pause_active: bool) -> bool {
+    manual_pause_active
+}
+
 async fn pause_spotify_for_youtube(state: &AppState, message: &'static str) {
     if state.youtube_player_paused_spotify.load(Ordering::SeqCst) {
         return;
@@ -770,6 +785,10 @@ async fn pause_spotify_for_youtube(state: &AppState, message: &'static str) {
 }
 
 async fn remember_manual_spotify_playback(state: &AppState, title: &str) {
+    state
+        .spotify_manual_pause_active
+        .store(false, Ordering::SeqCst);
+
     let mut manual_title = state.spotify_manual_playback_title.lock().await;
     if manual_title.as_deref() == Some(title) {
         return;
@@ -787,6 +806,10 @@ async fn remember_manual_spotify_playback(state: &AppState, title: &str) {
 }
 
 async fn remember_manual_spotify_pause(state: &AppState, title: &str) {
+    state
+        .spotify_manual_pause_active
+        .store(true, Ordering::SeqCst);
+
     let mut manual_title = state.spotify_manual_playback_title.lock().await;
     if manual_title.as_deref() == Some(title) {
         return;
@@ -970,6 +993,12 @@ mod tests {
             Some(179_000),
             Some(180_000)
         )));
+    }
+
+    #[test]
+    fn manual_spotify_pause_blocks_fallback_when_playback_disappears() {
+        assert!(spotify_manual_pause_blocks_fallback(true));
+        assert!(!spotify_manual_pause_blocks_fallback(false));
     }
 
     #[tokio::test]
