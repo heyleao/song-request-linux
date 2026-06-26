@@ -69,8 +69,8 @@ Remove everything, including local data:
 The Linux `.tar.gz` package includes the compiled app. Regular users do not need Rust, Cargo, or Git.
 
 ```bash
-tar -xzf song-request-linux-0.1.27-linux-x86_64.tar.gz
-cd song-request-linux-0.1.27-linux-x86_64
+tar -xzf song-request-linux-VERSION-linux-x86_64.tar.gz
+cd song-request-linux-VERSION-linux-x86_64
 ./scripts/check-runtime-prereqs
 ./scripts/install-desktop-entry
 ./scripts/song-request-linux-open

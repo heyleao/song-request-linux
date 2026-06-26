@@ -1585,16 +1585,21 @@ pub async fn page() -> Html<&'static str> {
 
     function translateReleaseText(value) {
       const text = String(value || '');
-      if (currentLanguage() !== 'en') return text;
-      return text
-        .replaceAll('## Correcoes', '## Fixes')
-        .replaceAll('## Pacotes', '## Packages')
-        .replaceAll('- Tela de atualizacao nao volta mais sozinha apos ocultar/cancelar uma atualizacao antiga em andamento.', '- Update screen no longer reopens by itself after hiding an old update in progress.')
-        .replaceAll('- Botao da atualizacao agora usa Ocultar, sem sugerir rollback.', '- Update button now says Hide, without suggesting rollback.')
-        .replaceAll('- Atualizacao portatil sai da pasta do app antes de substituir arquivos, evitando erro de diretório removido.', '- Portable update leaves the app folder before replacing files, avoiding removed-directory errors.')
-        .replaceAll('- Guia do app removido de comandos de desenvolvimento que nao existem no pacote comum.', '- App guide no longer shows development commands that do not exist in the normal package.')
-        .replaceAll('- README, SETUP e prints atualizados para explicar que o provider da tela inicial e apenas visual.', '- README, SETUP, and screenshots updated to explain that the home provider card is visual only.')
-        .replaceAll('- Windows experimental: zip x86_64', '- Experimental Windows: zip x86_64');
+      const localized = extractLocalizedReleaseText(text, currentLanguage());
+      return localized || text;
+    }
+
+    function extractLocalizedReleaseText(text, language) {
+      const preferred = language === 'en' ? 'EN' : 'PT-BR';
+      const fallback = language === 'en' ? 'PT-BR' : 'EN';
+      return releaseSection(text, preferred) || releaseSection(text, fallback);
+    }
+
+    function releaseSection(text, sectionName) {
+      const escaped = sectionName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const pattern = new RegExp(`(?:^|\\n)## ${escaped}\\s*\\n([\\s\\S]*?)(?=\\n## (?:PT-BR|EN)\\s*\\n|$)`, 'i');
+      const match = text.match(pattern);
+      return match ? match[1].trim() : '';
     }
 
     function translateTree(root = document.body) {

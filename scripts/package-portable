@@ -15,7 +15,7 @@ Usage: ./scripts/package-portable [--no-build]
 Gera um pacote portatil em dist/ com:
   - binario release ja compilado
   - scripts de abrir/parar/atalho/desinstalar
-  - assets, README, guia e imagens
+  - assets, README PT-BR/EN, guia PT-BR/EN e imagens
   - checksum SHA256
 
 Esse pacote nao inclui configs, tokens, logs, fila, .env ou arquivos locais.
@@ -74,14 +74,21 @@ install -m 0755 scripts/uninstall-user "$stage/scripts/uninstall-user"
 install -m 0644 assets/logo-srl.png "$stage/assets/logo-srl.png"
 install -m 0644 i18n/*.json "$stage/i18n/"
 install -m 0644 README.md "$stage/README.md"
+install -m 0644 README_EN.md "$stage/README_EN.md"
 install -m 0644 LICENSE "$stage/LICENSE"
 install -m 0644 docs/SETUP.md "$stage/docs/SETUP.md"
+install -m 0644 docs/SETUP_EN.md "$stage/docs/SETUP_EN.md"
 if compgen -G "docs/images/*.png" >/dev/null; then
   install -m 0644 docs/images/*.png "$stage/docs/images/"
 fi
 
 cat > "$stage/INSTALL.md" <<INSTALL
 # Song Request Linux ${version}
+
+## Guias / Guides
+
+- PT-BR: README.md e docs/SETUP.md.
+- EN: README_EN.md and docs/SETUP_EN.md.
 
 ## Instalar/abrir
 
@@ -106,6 +113,27 @@ ficam dentro desta pasta.
 
 Para atualizar via GitHub direto, use a instalacao por repositorio Git descrita
 no README.
+
+## Install/open
+
+Extract this package and run. The installer copies the app to ~/.local/share/song-request-linux/app:
+
+\`\`\`bash
+./scripts/install-desktop-entry
+~/.local/share/song-request-linux/app/scripts/song-request-linux-open
+\`\`\`
+
+Dashboard:
+
+\`\`\`text
+http://127.0.0.1:7384/
+\`\`\`
+
+## Update
+
+For this portable version, use the Update button in the dashboard when a new
+version is available. Settings, tokens, logs, and queue are stored in the user's
+XDG directories, not inside this extracted folder.
 INSTALL
 
 (

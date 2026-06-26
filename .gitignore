@@ -10,19 +10,18 @@ dist/
 __pycache__/
 *.py[cod]
 
-# Local app data and agent/project memory must not be versioned.
+# Local app data and private notes must not be versioned.
 config/
 cache/
 state/
 memory/
-.codex/
 .secrets/
 SECURITY.md
 *.internal.md
 *_PRIVATE.md
 *_NOTES.md
 
-# Keep public user docs only. Internal roadmap/architecture/UI references stay local.
+# Keep public user docs only.
 docs/*
 !docs/SETUP.md
 !docs/SETUP_EN.md
@@ -39,6 +38,3 @@ docs/*
 # Project assets that are safe to publish.
 !assets/
 !assets/logo-srl.png
-
-# Local Codex/agent files
-.codex/
