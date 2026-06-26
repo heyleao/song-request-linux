@@ -137,8 +137,12 @@ update_portable_release() {
     echo "ERRO: tar nao encontrado." | tee -a "$LOG_FILE" >&2
     exit 1
   fi
+  if ! command -v sha256sum >/dev/null 2>&1; then
+    echo "ERRO: sha256sum nao encontrado." | tee -a "$LOG_FILE" >&2
+    exit 1
+  fi
 
-  local arch package_arch api tag url tmp archive new_dir
+  local arch package_arch api tag url tmp archive checksum_file archive_name new_dir entry
   arch="$(uname -m)"
   case "$arch" in
     x86_64|amd64) package_arch="x86_64" ;;
@@ -158,11 +162,31 @@ update_portable_release() {
 
   after_rev="$tag"
   tmp="$(mktemp -d "${TMPDIR:-/tmp}/song-request-linux-update.XXXXXX")"
-  archive="$tmp/update.tar.gz"
+  archive_name="$(basename "$url")"
+  archive="$tmp/$archive_name"
+  checksum_file="$archive.sha256"
   echo "Modo: instalacao local" >>"$LOG_FILE"
   echo "Release: $tag" >>"$LOG_FILE"
   curl -fsSL "$url" -o "$archive" >/dev/null 2>&1
   echo "Download: OK" >>"$LOG_FILE"
+
+  curl -fsSL "${url}.sha256" -o "$checksum_file" >/dev/null 2>&1
+  (
+    cd "$tmp"
+    sha256sum -c "$(basename "$checksum_file")" >/dev/null
+  )
+  echo "Checksum: OK" >>"$LOG_FILE"
+
+  while IFS= read -r entry; do
+    case "$entry" in
+      song-request-linux-*-linux-*/*) ;;
+      *)
+        echo "ERRO: pacote contem caminho inesperado: $entry" | tee -a "$LOG_FILE" >&2
+        exit 1
+        ;;
+    esac
+  done < <(tar -tzf "$archive")
+
   tar -xzf "$archive" -C "$tmp" >/dev/null 2>&1
   echo "Extracao: OK" >>"$LOG_FILE"
   new_dir="$(find "$tmp" -maxdepth 1 -type d -name 'song-request-linux-*-linux-*' | head -1)"

@@ -360,9 +360,20 @@ pub async fn page() -> Html<&'static str> {
     document.getElementById('load-playlists').addEventListener('click', async () => {
       try {
         playlists = await api('/api/spotify/playlists');
-        playlistSelect.innerHTML = playlists.length
-          ? playlists.map((playlist, index) => `<option value="${index}">${playlist.name} (${playlist.tracks.total})</option>`).join('')
-          : '<option value="">Nenhuma playlist encontrada</option>';
+        playlistSelect.replaceChildren();
+        if (playlists.length) {
+          playlists.forEach((playlist, index) => {
+            const option = document.createElement('option');
+            option.value = String(index);
+            option.textContent = `${playlist.name} (${playlist.tracks.total})`;
+            playlistSelect.appendChild(option);
+          });
+        } else {
+          const option = document.createElement('option');
+          option.value = '';
+          option.textContent = 'Nenhuma playlist encontrada';
+          playlistSelect.appendChild(option);
+        }
         playlistMessage.textContent = playlists.length
           ? `${playlists.length} playlists carregadas.`
           : 'Nenhuma playlist encontrada.';

@@ -4,7 +4,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -247,14 +247,9 @@ impl AppConfig {
         let paths = AppPaths::from_env()?;
         let user_config = load_user_config_from_paths(&paths).unwrap_or_default();
         let user_secrets = load_user_secrets_from_paths(&paths).unwrap_or_default();
-        let bind_addr = env::var("SONG_REQUEST_BIND")
-            .unwrap_or_else(|_| "127.0.0.1:7384".to_string())
-            .parse()
-            .context("invalid SONG_REQUEST_BIND value")?;
-        let https_bind_addr = env::var("SONG_REQUEST_HTTPS_BIND")
-            .unwrap_or_else(|_| "127.0.0.1:7443".to_string())
-            .parse()
-            .context("invalid SONG_REQUEST_HTTPS_BIND value")?;
+        let bind_addr = loopback_socket_addr_from_env("SONG_REQUEST_BIND", "127.0.0.1:7384")?;
+        let https_bind_addr =
+            loopback_socket_addr_from_env("SONG_REQUEST_HTTPS_BIND", "127.0.0.1:7443")?;
 
         Ok(Self {
             bind_addr,
@@ -326,6 +321,7 @@ impl YoutubeConfig {
             .unwrap_or(user_config.youtube_playback);
         let pear_base_url = clean_optional_env("PEAR_BASE_URL")
             .or_else(|| user_config.pear_base_url.clone())
+            .and_then(clean_local_pear_base_url)
             .unwrap_or_else(default_pear_base_url);
 
         let api_keys = youtube_api_keys_from_sources(user_secrets);
@@ -394,6 +390,7 @@ impl UiConfigView {
             youtube_playback: user_config.youtube_playback,
             pear_base_url: user_config
                 .pear_base_url
+                .and_then(clean_local_pear_base_url)
                 .unwrap_or_else(default_pear_base_url),
             spotify_client_id: user_config.spotify_client_id,
             spotify_fallback_enabled: user_config.spotify_fallback_enabled,
@@ -438,7 +435,7 @@ pub fn save_ui_config(paths: &AppPaths, input: UiConfigInput) -> Result<UiConfig
             .unwrap_or(existing_config.youtube_playback),
         pear_base_url: input
             .pear_base_url
-            .and_then(|value| clean_optional_value(Some(value)))
+            .and_then(clean_local_pear_base_url)
             .or(existing_config.pear_base_url),
         spotify_client_id: input
             .spotify_client_id
@@ -658,9 +655,7 @@ fn normalize_queue_limits(mut limits: QueueLimitConfig) -> QueueLimitConfig {
 }
 
 fn normalize_user_config(mut config: UserConfig) -> UserConfig {
-    config.pear_base_url = config
-        .pear_base_url
-        .and_then(|value| clean_optional_value(Some(value)));
+    config.pear_base_url = config.pear_base_url.and_then(clean_local_pear_base_url);
     config.spotify_client_id = config
         .spotify_client_id
         .and_then(|value| clean_optional_value(Some(value)));
@@ -869,6 +864,43 @@ fn clean_optional_value(value: Option<String>) -> Option<String> {
         .filter(|value| !value.is_empty())
 }
 
+fn loopback_socket_addr_from_env(key: &str, default_value: &str) -> Result<SocketAddr> {
+    let value = env::var(key).unwrap_or_else(|_| default_value.to_string());
+    let addr: SocketAddr = value
+        .parse()
+        .with_context(|| format!("invalid {key} value"))?;
+    if !addr.ip().is_loopback() {
+        bail!("{key} must bind to a loopback address");
+    }
+    Ok(addr)
+}
+
+fn clean_local_pear_base_url(value: String) -> Option<String> {
+    let value = value.trim().trim_end_matches('/').to_string();
+    if value.is_empty()
+        || value
+            .chars()
+            .any(|ch| ch.is_control() || ch.is_whitespace())
+    {
+        return None;
+    }
+
+    for prefix in ["http://127.0.0.1:", "http://localhost:", "http://[::1]:"] {
+        let Some(rest) = value.strip_prefix(prefix) else {
+            continue;
+        };
+        let (port, _) = rest.split_once('/').unwrap_or((rest, ""));
+        if !port.is_empty()
+            && port.chars().all(|ch| ch.is_ascii_digit())
+            && port.parse::<u16>().is_ok()
+        {
+            return Some(value);
+        }
+    }
+
+    None
+}
+
 fn default_pear_base_url() -> String {
     "http://127.0.0.1:26538/api/v1".to_string()
 }
@@ -984,6 +1016,33 @@ mod tests {
         let settings = normalize_command_settings(settings);
 
         assert_eq!(settings.aliases.song_request, vec!["!sr"]);
+    }
+
+    #[test]
+    fn rejects_non_loopback_bind_addresses() {
+        assert!(
+            loopback_socket_addr_from_env("SONG_REQUEST_TEST_BIND_MISSING", "127.0.0.1:7384")
+                .is_ok()
+        );
+        assert!(
+            loopback_socket_addr_from_env("SONG_REQUEST_TEST_BIND_MISSING", "0.0.0.0:7384")
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn pear_base_url_must_be_local_http() {
+        assert_eq!(
+            clean_local_pear_base_url("http://127.0.0.1:26538/api/v1".to_string()).as_deref(),
+            Some("http://127.0.0.1:26538/api/v1")
+        );
+        assert_eq!(
+            clean_local_pear_base_url("http://localhost:26538/api/v1/".to_string()).as_deref(),
+            Some("http://localhost:26538/api/v1")
+        );
+        assert!(clean_local_pear_base_url("http://127.0.0.1:26538.evil/api".to_string()).is_none());
+        assert!(clean_local_pear_base_url("http://169.254.169.254/latest".to_string()).is_none());
+        assert!(clean_local_pear_base_url("https://localhost:26538/api/v1".to_string()).is_none());
     }
 
     #[test]
