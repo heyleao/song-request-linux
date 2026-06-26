@@ -30,6 +30,14 @@ use crate::{config::AppConfig, state::AppState};
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 2)]
 async fn main() -> anyhow::Result<()> {
+    if std::env::args()
+        .nth(1)
+        .is_some_and(|arg| arg == "--version" || arg == "-V")
+    {
+        println!("song-request-linux {}", env!("CARGO_PKG_VERSION"));
+        return Ok(());
+    }
+
     let _ = rustls::crypto::ring::default_provider().install_default();
 
     let config = AppConfig::from_env()?;

@@ -167,6 +167,7 @@ update_portable_release() {
   checksum_file="$archive.sha256"
   echo "Modo: instalacao local" >>"$LOG_FILE"
   echo "Release: $tag" >>"$LOG_FILE"
+  echo "Pacote: $archive_name" >>"$LOG_FILE"
   curl -fsSL "$url" -o "$archive" >/dev/null 2>&1
   echo "Download: OK" >>"$LOG_FILE"
 
@@ -194,6 +195,17 @@ update_portable_release() {
     echo "ERRO: pacote baixado nao contem instalador valido." | tee -a "$LOG_FILE" >&2
     exit 1
   fi
+  if [[ ! -x "$new_dir/bin/song-request-linux" ]]; then
+    echo "ERRO: pacote baixado nao contem binario valido." | tee -a "$LOG_FILE" >&2
+    exit 1
+  fi
+
+  package_version="$("$new_dir/bin/song-request-linux" --version | sed -n 's/^song-request-linux //p' | head -1)"
+  if [[ "v$package_version" != "$tag" ]]; then
+    echo "ERRO: pacote $archive_name contem binario v${package_version:-desconhecida}, esperado $tag." | tee -a "$LOG_FILE" >&2
+    exit 1
+  fi
+  echo "Versao do binario: OK ($package_version)" >>"$LOG_FILE"
 
   cd "$HOME"
 

@@ -57,6 +57,13 @@ if [[ ! -x "$bin" ]]; then
   exit 1
 fi
 
+binary_version="$("$bin" --version | sed -n 's/^song-request-linux //p' | head -1)"
+if [[ "$binary_version" != "$version" ]]; then
+  echo "ERRO: binario release esta em v${binary_version:-desconhecida}, mas Cargo.toml esta em v$version." >&2
+  echo "Rode cargo build --release ou gere o pacote sem --no-build." >&2
+  exit 1
+fi
+
 name="song-request-linux-${version}-linux-${package_arch}"
 stage="$DIST_DIR/$name"
 archive="$DIST_DIR/$name.tar.gz"

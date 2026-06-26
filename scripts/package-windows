@@ -59,6 +59,15 @@ if [[ ! -f "$bin" ]]; then
   exit 1
 fi
 
+if command -v llvm-strings >/dev/null 2>&1; then
+  binary_strings="$(llvm-strings "$bin")"
+  if [[ "$binary_strings" != *"song-request-linux $version"* ]]; then
+    echo "ERRO: binario Windows nao parece conter a versao v$version." >&2
+    echo "Gere novamente com build habilitado." >&2
+    exit 1
+  fi
+fi
+
 name="song-request-linux-${version}-windows-x86_64"
 stage="$DIST_DIR/$name"
 archive="$DIST_DIR/$name.zip"
